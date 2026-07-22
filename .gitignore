@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Docs
+docs/_build/
+docs/api/generated/
+
+# Generated pipeline outputs
+*.parquet
+*.png
+*.ecsv
+!tests/**/*.ecsv
+cutouts/
+data/
+
+# Env
+.venv/
+.ipynb_checkpoints/
