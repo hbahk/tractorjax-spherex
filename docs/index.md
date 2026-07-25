@@ -30,6 +30,7 @@ Fluxes are in **mJy**; magnitudes are AB.
 
 installation
 quickstart
+worked_example
 ```
 
 ```{toctree}
@@ -37,12 +38,14 @@ quickstart
 :caption: Guides
 
 solvers
+how_it_works
 hardware
 data_model
 catalogs
 backgrounds_systematics
 cpu_backend
 configuration
+faq
 roadmap
 ```
 
@@ -63,5 +66,15 @@ phot = run_photometry("cutouts", "catalog.parquet", cfg, output="phot.parquet")
 spectra = build_spectra(phot)                 # {id: per-source spectrum}
 ```
 
-See {doc}`solvers` to pick the estimator that matches your science, and
-{doc}`hardware` for GPU-memory and CPU-only guidance.
+No data yet? {doc}`worked_example` runs the whole pipeline on a simulated field
+with no network access, and shows what a good fit and a recovered spectrum look
+like:
+
+```{image} _static/spectra_vs_truth.png
+:alt: recovered spectrophotometry vs injected truth
+:width: 100%
+```
+
+See {doc}`solvers` to pick the estimator that matches your science,
+{doc}`how_it_works` for what each pipeline stage does, and {doc}`hardware` for
+GPU-memory and CPU-only guidance.

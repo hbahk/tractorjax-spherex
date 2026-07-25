@@ -95,6 +95,24 @@ spherex-phot run --cutouts-dir cutouts --catalog catalog.parquet \
 spherex-phot spectra --photometry phot.parquet --all --plot spec
 ```
 
+## Try it offline (no data, no network, no GPU)
+
+```bash
+python examples/03_offline_demo.py
+```
+
+Simulates a small field with sources of known flux, photometers it, and writes
+two figures — the fit and the recovered spectra against the injected truth:
+
+![recovered spectrophotometry vs injected truth](docs/_static/spectra_vs_truth.png)
+
+`spherex_photometry.diagnostics.plot_fit` gives the data / model / chi view of
+any cutout so you can see what the solver did:
+
+![data, fitted model, and chi for one cutout](docs/_static/fit_comparison.png)
+
+Walkthrough: the *Worked example* page in the docs.
+
 ### Sharing a GPU
 
 JAX preallocates most of the card by default. When sharing a GPU, set:

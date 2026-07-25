@@ -19,6 +19,7 @@ docs/api/generated/
 *.png
 *.ecsv
 !tests/**/*.ecsv
+!docs/_static/*.png
 cutouts/
 data/
 

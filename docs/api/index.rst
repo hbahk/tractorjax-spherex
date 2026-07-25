@@ -25,6 +25,8 @@ Modules
    spherex_photometry.config
    spherex_photometry.pipeline
    spherex_photometry.spectra
+   spherex_photometry.diagnostics
+   spherex_photometry.simulate
    spherex_photometry.background
    spherex_photometry.priors
    spherex_photometry.models
