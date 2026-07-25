@@ -95,6 +95,15 @@ prefer the JAX backend with `device="cpu"` — it supports every solver. See
   are *protected* (unpenalized, unbiased reported targets); fainter ones are
   penalized nuisances.
 
+## What no solver can fix
+
+The estimator regularizes an under-determined *flux* solve; it cannot repair a
+bad *model*. If your catalog splits one galaxy into several entries closer than a
+SPHEREx pixel, every solver divides that galaxy's light between them in a
+poorly-constrained way — the group sums correctly, the individual spectra do not.
+See {ref}`the gallery <fragmentation>` for a real example and {doc}`catalogs` for
+how to detect and merge such groups.
+
 ## A note on error calibration
 
 The reported `flux_err` is the forward-model 1σ from the solver's Fisher

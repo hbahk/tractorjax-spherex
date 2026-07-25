@@ -76,6 +76,33 @@ cat, cfg)`. To make a bright source a **protected** reported target for the
 `lasso` / `eigfloor_prior` solvers, or to survive a depth cut, give it a
 `flux_z`; for a galaxy add `sersic`, `shape_e1`, `shape_e2`.
 
+## Watch out for fragmented galaxies
+
+Because the catalog is a *prior* on position and shape, its resolution matters.
+Optical catalogs such as Legacy Survey resolve a nearby galaxy at 0.26″ and often
+split it into several entries — a bulge component, a disc component, a knot.
+SPHEREx pixels are 6.15″, so those entries are indistinguishable to the fit: one
+PSF's worth of light gets divided between near-identical models, almost
+unconstrained by the data. The **sum** over the group is about right; the
+individual fluxes are not, and one fragment can come out near zero while another
+absorbs everything. See the worked case in {ref}`the gallery <fragmentation>`.
+
+Before trusting a per-source spectrum, check whether the entry has a neighbour
+inside one pixel:
+
+```python
+from astropy.coordinates import SkyCoord
+import astropy.units as u
+
+sc = SkyCoord(cat["ra"], cat["dec"], unit="deg")
+_, sep, _ = sc.match_to_catalog_sky(sc, nthneighbor=2)   # nearest OTHER entry
+suspect = sep < 6.15 * u.arcsec
+```
+
+Then either merge each group into a single entry before fitting, or sum the
+group's fitted fluxes afterwards. Distant compact sources are rarely affected;
+large nearby galaxies almost always are.
+
 ## Fetching Legacy Survey DR10
 
 {func}`~spherex_photometry.fetch_ls_dr10` queries `ls_dr10.tractor` around a sky

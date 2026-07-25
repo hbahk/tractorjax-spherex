@@ -44,6 +44,29 @@ Check in this order:
 4. **Background model.** Try `bkg_model="cwave+photutils"` if the field is near
    an airglow line.
 
+### One of my galaxies came out near zero (or far too bright)
+
+Check whether your catalog split it into several entries. Optical catalogs
+resolve nearby galaxies into components at sub-arcsecond resolution; SPHEREx sees
+one 6.15″ pixel, so the fit has to divide one PSF's worth of light between
+models it cannot tell apart. One fragment can end up with essentially nothing
+while a neighbour absorbs the flux — the sum is fine, the individual entries are
+not:
+
+```python
+from astropy.coordinates import SkyCoord
+import astropy.units as u
+
+sc = SkyCoord(cat["ra"], cat["dec"], unit="deg")
+_, sep, _ = sc.match_to_catalog_sky(sc, nthneighbor=2)
+print(cat[sep < 6.15 * u.arcsec])      # entries sharing a pixel with another
+```
+
+Merge those groups into one entry before fitting, or sum their fitted fluxes
+afterwards. {ref}`The gallery <fragmentation>` shows a real A2537 example where
+the same galaxy appears twice and one of the two spectra is unusable. Every
+estimator behaves this way — it is the catalog, not the solver.
+
 ### Why is `central_wavelength` NaN for some rows?
 
 That cutout shipped an empty `CWAVE` extension. The source is still photometered

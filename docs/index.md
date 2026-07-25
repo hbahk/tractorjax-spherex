@@ -31,6 +31,7 @@ Fluxes are in **mJy**; magnitudes are AB.
 installation
 quickstart
 worked_example
+gallery
 ```
 
 ```{toctree}
@@ -65,6 +66,10 @@ cfg = PhotometryConfig(solver="eigfloor")     # blind-production default
 phot = run_photometry("cutouts", "catalog.parquet", cfg, output="phot.parquet")
 spectra = build_spectra(phot)                 # {id: per-source spectrum}
 ```
+
+{doc}`gallery` shows real SPHEREx spectra of six A2537 galaxies from all three
+estimators — including a worked case of the one failure mode every user should
+know about ({ref}`fragmented catalog entries <fragmentation>`).
 
 No data yet? {doc}`worked_example` runs the whole pipeline on a simulated field
 with no network access, and shows what a good fit and a recovered spectrum look
