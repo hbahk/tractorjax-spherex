@@ -27,33 +27,40 @@ measured through different apertures at different epochs; they should bracket th
 SPHEREx spectrum, not match it point for point.
 
 (fragmentation)=
-## Caveat: a fragmented galaxy gives unreliable per-source spectra
+## Caveat: catalog shredding — substructure fitted as extra sources
 
-Compare panels **(a)** and **(e)**. They are the *same physical galaxy*: their
-catalog positions differ by only 4.1″, well inside one 6.15″ SPHEREx pixel. The
-Legacy Survey, working at 0.26″ resolution, resolved that galaxy into more than
-one entry — a large elliptical component (the big cyan ellipse in (a)) plus a
-compact component (the cyan `+` in (e)) — and the pipeline dutifully fits both.
+First, what is *not* the problem: blending. SPHEREx pixels are 6.15″, so real
+sources routinely share a pixel, and dividing their blended light using the
+catalog's positions and shapes is exactly what this pipeline is built to do.
+That works — **when every catalog entry is a real source**.
 
-SPHEREx cannot separate them. One PSF's worth of light has to be divided between
-two models that are nearly identical from SPHEREx's point of view, so the split
-is almost unconstrained by the data:
+The failure mode to watch for is a wrong source list. Surveys built at
+sub-arcsecond resolution sometimes **shred** a large, well-resolved galaxy,
+cataloguing its substructure — star-forming knots, the bulge, pieces of the
+disc — as independent sources. Those entries are artifacts: their positions and
+shapes describe fragments of one object, not real sources, so the fit gains
+spurious model components stacked on top of the real galaxy.
 
-- **(a)** ends up with essentially nothing — the spectrum scatters around zero,
-  far below the LS/WISE anchor of ~2.2–2.8 mJy that the same catalog entry
-  predicts.
-- **(e)** absorbs the light and produces a clean, well-behaved spectrum.
+Panels **(a)** and **(e)** show what that does. In (a)'s thumbnail the big cyan
+ellipse is the galaxy's main catalog entry, and the smaller markers inside it
+are its shredded substructure, each fitted as if it were a separate source:
 
-Neither number is the galaxy's flux. Their **sum** is roughly right; the
-individual entries are not. Note that every estimator does this — it is not a
-solver artefact but a consequence of the input catalog describing the sky at a
-resolution SPHEREx does not have.
+- **(a)** — the main entry's spectrum scatters around zero, far below its own
+  LS/WISE anchors (~2.2–2.8 mJy). The galaxy's light has been distributed over
+  the artifact components, and because their positions and shapes are not
+  descriptions of real sources, that division carries no physical meaning.
+- **(e)** — this target is a *real* compact source near the galaxy's centre:
+  the entry itself is legitimate and correctly placed. But it is fitted jointly
+  with the surrounding artifact components, so its flux is not safe either — it
+  can absorb host-galaxy light the fragments fail to model, or lose flux to
+  them.
+
+All three estimators behave identically here. The source list is wrong, and no
+flux regularizer can turn a wrong model into a right one.
 
 ### How to protect yourself
 
-1. **Check your target's neighbourhood before trusting its spectrum.** Any
-   catalog entry with another entry within ~6″ is suspect. A quick check on your
-   own catalog:
+1. **Find candidates.** Entries with another entry inside one SPHEREx pixel:
 
    ```python
    from astropy.coordinates import SkyCoord
@@ -61,25 +68,32 @@ resolution SPHEREx does not have.
 
    sc = SkyCoord(cat["ra"], cat["dec"], unit="deg")
    idx, sep, _ = sc.match_to_catalog_sky(sc, nthneighbor=2)   # nearest other entry
-   fragmented = sep < 6.15 * u.arcsec
-   print(f"{fragmented.sum()} of {len(cat)} entries have a neighbour inside one pixel")
+   candidates = sep < 6.15 * u.arcsec
+   print(f"{candidates.sum()} of {len(cat)} entries share a pixel with another")
    ```
 
-2. **Merge fragments before fitting, or sum after.** Either replace the group
-   with a single entry (one position, one shape) so the fit solves for one flux,
-   or add the fitted fluxes of the group afterwards and treat the sum as the
-   galaxy's spectrum. Summing is easier and keeps the errors meaningful if you
-   propagate them together; merging gives a cleaner model but needs you to choose
-   a representative shape.
+   A flagged group can be two real sources — that is ordinary blending, and it
+   is fine — or a shredded galaxy, which is not. A glance at an optical
+   thumbnail tells them apart: shredding looks like several entries sitting
+   *inside* one extended galaxy.
 
-3. **Look at the fit.** {func}`~spherex_photometry.diagnostics.plot_fit` shows
-   whether the model reproduces the galaxy's light even when the individual
-   fluxes are split oddly — a fragmented galaxy usually fits the *image* fine
-   while distributing the flux badly between entries.
+2. **Clean the catalog before fitting.** For a shredded group, drop the
+   substructure entries and keep a single entry carrying the galaxy's overall
+   position and shape, then refit. This is the only fix that also protects a
+   real source embedded in the group, like (e).
 
-4. **Prefer a catalog matched to the resolution of your science.** Nearby, well-
-   resolved galaxies are the common failure case; distant compact sources are
-   rarely affected. See {doc}`catalogs`.
+3. **Salvaging after the fact.** Summing the fitted fluxes over a shredded
+   group approximately recovers the galaxy's total light — useful if the
+   galaxy's spectrum is all you want. But the sum cannot separate out a real
+   source like (e), and the individual fragment spectra remain meaningless.
+
+4. **Look at the fit.** {func}`~spherex_photometry.diagnostics.plot_fit` — a
+   shredded model often reproduces the *image* tolerably while dividing the
+   flux arbitrarily; structured residuals centred on the galaxy mean even the
+   image is not reproduced.
+
+Large nearby galaxies are the common case; distant compact sources are rarely
+shredded. See {doc}`catalogs` for catalog-side guidance.
 
 ## Reproducing this figure
 

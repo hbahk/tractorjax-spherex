@@ -46,12 +46,15 @@ Check in this order:
 
 ### One of my galaxies came out near zero (or far too bright)
 
-Check whether your catalog split it into several entries. Optical catalogs
-resolve nearby galaxies into components at sub-arcsecond resolution; SPHEREx sees
-one 6.15″ pixel, so the fit has to divide one PSF's worth of light between
-models it cannot tell apart. One fragment can end up with essentially nothing
-while a neighbour absorbs the flux — the sum is fine, the individual entries are
-not:
+Check whether the catalog **shredded** it: optical catalogs sometimes list a
+large galaxy's substructure (star-forming knots, the bulge, disc pieces) as
+independent sources. Those entries are artifacts — their positions and shapes
+describe fragments of one object, not real sources — so the fit divides the
+galaxy's light among spurious components. The main entry can scatter around
+zero while the fragments absorb its flux, and even a *real* source sitting
+among the fragments can be biased. Note this is not about blending: deblending
+real sources that share a pixel is exactly what the joint fit is designed to
+do; the problem is spurious entries in the source list.
 
 ```python
 from astropy.coordinates import SkyCoord
@@ -62,10 +65,12 @@ _, sep, _ = sc.match_to_catalog_sky(sc, nthneighbor=2)
 print(cat[sep < 6.15 * u.arcsec])      # entries sharing a pixel with another
 ```
 
-Merge those groups into one entry before fitting, or sum their fitted fluxes
-afterwards. {ref}`The gallery <fragmentation>` shows a real A2537 example where
-the same galaxy appears twice and one of the two spectra is unusable. Every
-estimator behaves this way — it is the catalog, not the solver.
+An optical thumbnail separates real blends (fine) from shredding (several
+entries inside one extended galaxy). For shredded groups: drop the fragment
+entries, keep one entry with the galaxy's overall shape, and refit; summing the
+group's fitted fluxes only recovers the total. {ref}`The gallery
+<fragmentation>` shows a real A2537 example. Every estimator behaves this way —
+it is the catalog, not the solver.
 
 ### Why is `central_wavelength` NaN for some rows?
 

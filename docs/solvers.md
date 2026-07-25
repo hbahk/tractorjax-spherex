@@ -98,11 +98,12 @@ prefer the JAX backend with `device="cpu"` — it supports every solver. See
 ## What no solver can fix
 
 The estimator regularizes an under-determined *flux* solve; it cannot repair a
-bad *model*. If your catalog splits one galaxy into several entries closer than a
-SPHEREx pixel, every solver divides that galaxy's light between them in a
-poorly-constrained way — the group sums correctly, the individual spectra do not.
-See {ref}`the gallery <fragmentation>` for a real example and {doc}`catalogs` for
-how to detect and merge such groups.
+wrong *source list*. Deblending real sources that share a pixel is what the fit
+is for — but if the catalog shreds a big galaxy's substructure into separate
+entries, every solver dutifully includes those artifact components and divides
+the galaxy's light among them in a physically meaningless way (and can bias real
+sources fitted alongside them). See {ref}`the gallery <fragmentation>` for a
+real example and {doc}`catalogs` for how to detect and clean shredded groups.
 
 ## A note on error calibration
 
