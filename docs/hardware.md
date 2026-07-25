@@ -72,8 +72,9 @@ slower than single — on an L40S FP64 throughput is about 1/64 of FP32 — so a
 `fp32` unless you specifically need it: the `eigfloor` error calibration
 (pull NMAD ≈ 0.95–0.99, see {doc}`solvers`) was established at `fp32` on real
 SPHEREx data, and reported `flux`/`flux_err` are trustworthy there. Switch to
-`precision="fp64"` only for calibration-grade variance work or for bit-level
-agreement with the CPU/x64 reference path; it enables `jax_enable_x64` and, like
+`precision="fp64"` only when you need exactness rather than accuracy — bit-level
+agreement with the CPU/x64 reference path, or invariance to padding and batching
+choices for faint near-degenerate fluxes; it enables `jax_enable_x64` and, like
 the device settings, must be selected before the first JAX import.
 
 ## Prefetch — overlapping CPU build with GPU solve
