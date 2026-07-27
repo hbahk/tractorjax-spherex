@@ -49,6 +49,36 @@ On the CLI, `--config run.yaml` loads a file and any explicit flags override it.
 | `tile_chunk` | `0` | solve tiles in fixed vmap chunks to bound GPU memory (`0` = one batch) |
 | `max_ps_cap` / `max_gal_cap` / `max_mog_k_cap` | `None` | fixed batch widths; `None` = auto policy |
 
+:::{warning}
+**A tile that overflows a fixed cap loses its whole cutout.** When the caps are
+active — full-depth fits (`fit_zmag_max` unset) with `pad_bucket` turned off —
+a cutout whose densest tile needs more slots than the cap raises, and the
+pipeline logs the traceback and **skips that cutout**, then reports the total in
+one `N cutouts failed and were skipped` warning at the end. The run still exits
+0 and still writes a parquet, so an incomplete product looks like a successful
+one unless you read the log.
+
+The defaults (`MAX_PS_CAP = 112`, `MAX_GAL_CAP = 352`) were sized on one
+sparse field and do not generalise. Measured densest-tile occupancies across
+eight real SPHEREx fields at `tile_size=15`, `tile_halo=3`:
+
+| field | max point sources | max galaxies |
+|---|---|---|
+| A1361 | 51 | 110 |
+| A2187 | 60 | 102 |
+| SpARCS J1613+5649 | 62 | 101 |
+| A2537 | 79 | 266 |
+| A2055 | 80 | 139 |
+| SPT-CL J0546-5345 | **128** | 242 |
+| SPT-CL J2145-5644 | **192** | **373** |
+| COSMOS | **268** | **450** |
+
+Half the fields exceed a default. Keep the `pad_bucket=32` default (it turns
+the caps off and sizes each batch near its natural width), or set the caps
+explicitly from your own field's occupancy. **Always check the run log for the
+skip warning before using a product.**
+:::
+
 ### Background
 
 | field | default | meaning |
