@@ -103,9 +103,36 @@ def run_photometry(cutouts_dir, catalog, config: PhotometryConfig | None = None,
         from .models import get_profile_cached
         profile_lookup_fn = get_profile_cached
 
+    # "auto" caps: measure the field's real densest-tile occupancy before the
+    # first solve. Tile assignment is pure geometry (positions + shape_r
+    # through each WCS), so this costs one header parse per cutout and removes
+    # the whole class of "cap too small -> cutout silently dropped" failures.
+    occupancy = None
+    if config.wants_auto_caps():
+        from .occupancy import measure_occupancy
+        occupancy = measure_occupancy(pairs, tab, tile_size=config.tile_size,
+                                      halo=config.tile_halo, progress=progress)
+        logger.info("Occupancy scan over %d cutouts: densest tile holds "
+                    "%d point sources / %d galaxies",
+                    occupancy.n_cutouts, occupancy.max_ps, occupancy.max_gal)
+
     ctx = FieldContext(catalog=tab, sco_all=sco_all, main_idx=main_idx,
                        protect_ci=protect_ci, prior_ctx=prior_ctx,
-                       profile_lookup_fn=profile_lookup_fn)
+                       profile_lookup_fn=profile_lookup_fn,
+                       occupancy=occupancy)
+
+    # Warn up front about cutouts the configured caps would drop, so the loss
+    # is visible before a long run rather than in a line at the end of it.
+    ps_cap, gal_cap, _ = config.resolved_caps(occupancy)
+    if occupancy is not None:
+        doomed = occupancy.overflowing(ps_cap, gal_cap)
+        if doomed:
+            logger.warning(
+                "%d of %d cutouts exceed the configured caps (max_ps_cap=%s, "
+                "max_gal_cap=%s) and WILL BE SKIPPED: %s. Field needs %d/%d; "
+                "use max_ps_cap='auto' or pad_bucket=32.",
+                len(doomed), occupancy.n_cutouts, ps_cap, gal_cap, doomed,
+                occupancy.max_ps, occupancy.max_gal)
 
     cat_id = np.asarray(tab["id"], dtype=np.int64)
     cat_ra = np.asarray(tab["ra"], dtype=np.float64)
@@ -123,6 +150,8 @@ def run_photometry(cutouts_dir, catalog, config: PhotometryConfig | None = None,
             cutout = read_cutout(path)
             return cutout_index, backend.build(cutout, ctx)
         except Exception as exc:  # per-cutout skip semantics
+            if config.strict:
+                raise
             logger.exception("Cutout %d build failed: %s", cutout_index, exc)
             return cutout_index, None
 
@@ -135,6 +164,8 @@ def run_photometry(cutouts_dir, catalog, config: PhotometryConfig | None = None,
             (ci, flux, ferr, lam, band), cwave = backend.extract(
                 inputs, fluxes_np, var_np)
         except Exception as exc:
+            if config.strict:
+                raise
             logger.exception("Cutout %d solve failed: %s", cutout_index, exc)
             failed.append(cutout_index)
             continue
@@ -156,7 +187,11 @@ def run_photometry(cutouts_dir, catalog, config: PhotometryConfig | None = None,
         cols["flux_err"].append(ferr)
 
     if failed:
-        logger.warning("%d cutouts failed and were skipped: %s", len(failed), failed)
+        logger.warning(
+            "INCOMPLETE PRODUCT: %d of %d cutouts failed and were skipped: %s. "
+            "The output parquet carries complete=False; re-run with "
+            "strict=True to make this an error.",
+            len(failed), len(pairs), failed)
     if nan_wave:
         logger.warning("%d cutouts had no CWAVE (wavelength=NaN, still "
                        "photometered): %s", len(nan_wave), nan_wave)
@@ -165,12 +200,22 @@ def run_photometry(cutouts_dir, catalog, config: PhotometryConfig | None = None,
         return np.concatenate(chunks) if chunks else np.zeros(0)
 
     results = make_table({k: _cat(v) for k, v in cols.items()})
+    # Completeness travels WITH the product: a reader must be able to tell a
+    # partial run from a full one without access to the log that produced it.
+    completeness = {
+        "spherex_photometry.complete": not failed,
+        "spherex_photometry.n_cutouts_attempted": len(pairs),
+        "spherex_photometry.n_cutouts_failed": len(failed),
+        "spherex_photometry.failed_cutouts": list(failed),
+    }
+    results.meta.update(completeness)
 
     if resume and output is not None and Path(output).exists():
         from .io.output import append_or_merge
         results = append_or_merge(output, results, config=config)
     elif output is not None:
-        write_photometry(results, output, config=config)
+        write_photometry(results, output, config=config,
+                         extra_meta=completeness)
     logger.info("Photometered %d rows across %d cutouts",
                 len(results), len(pairs) - len(failed))
     return results

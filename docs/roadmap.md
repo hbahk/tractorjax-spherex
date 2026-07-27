@@ -54,39 +54,6 @@ rendering or validation from the SPHEREx sky / instrument simulator are deferred
 until that simulator is publicly available; v0.1 depends only on released L2
 data products.
 
-## Automatic batch-width sizing (planned)
-
-The fixed batch-width caps (`max_ps_cap` / `max_gal_cap`, defaults
-`MAX_PS_CAP = 112` / `MAX_GAL_CAP = 352`) exist so the jitted solver compiles
-once per run instead of once per distinct tile shape. They are applied
-automatically to full-depth fits when `pad_bucket` is off — and their defaults
-were sized on a single sparse field (A2537), so denser fields overflow them.
-A tile that overflows takes its **entire cutout** out of the product: the
-pipeline logs the traceback, skips the cutout, and reports the count in one
-warning at the end, while still exiting 0 and writing a parquet. An incomplete
-product is therefore indistinguishable from a complete one without reading the
-log. Measured occupancies for eight real fields are tabulated in
-{doc}`configuration` — half of them exceed a default, COSMOS by 2.4×.
-
-`pad_bucket=32` (the v0.1 default) already sidesteps this by turning the caps
-off and sizing each batch near its natural width, so the shipped default is
-safe. What is deferred is making the *capped* path safe as well:
-
-1. **Pre-scan and auto-size.** Tile source assignment is pure geometry — it
-   needs only catalog positions, `shape_r`, and the cutout WCS, not the PSF or
-   any solve. A cheap pass over the cutouts can measure the true occupancy and
-   set the caps from it, so `max_ps_cap="auto"` becomes the default and no
-   field-specific tuning is needed.
-2. **Warn loudly, or fail closed.** Until then the cap overflow should raise a
-   dedicated exception carrying the required width, and the run summary should
-   make partial products obvious — a nonzero exit code, or a `complete=False`
-   flag written into the output metadata, rather than a log line a caller can
-   miss.
-
-Both are small, self-contained changes to `PhotometryConfig.resolved_caps` and
-`pipeline`; they are queued rather than shipped because the default path does
-not hit the failure.
-
 ---
 
 None of these blocks the v0.1 product. Each is an additive layer on the same

@@ -31,6 +31,9 @@ class FieldContext:
     protect_ci: set[int] | None = None
     prior_ctx: dict | None = None
     profile_lookup_fn: Any = None
+    # Densest-tile occupancy measured over the field before the first solve;
+    # set only when a cap is "auto" (see spherex_photometry.occupancy).
+    occupancy: Any = None
 
 
 # records = (ci, flux, flux_err, lambda, band); each a 1-D array of equal length.

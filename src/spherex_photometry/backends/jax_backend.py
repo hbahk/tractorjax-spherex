@@ -18,9 +18,11 @@ import math
 
 import numpy as np
 
+from ..config import CapExceededError
 from ..constants import SPHEREX_PIXSCALE
 from ..io.cutouts import sample_map_bilinear_vec
-from ..prepare import prepare_pixels, project_sources, select_psf_native
+from ..prepare import (prepare_pixels, project_sources, select_psf_native,
+                       zone_psf_selector)
 from .base import FieldContext
 
 # tractor-jax engine (imports jax).
@@ -116,8 +118,22 @@ def extract_tiled_batches(tile_records, catalog_full, sx_all, sy_all,
 
 
 def build_cutout_tiles(cutout, *, sx_all, sy_all, tile_size, halo,
-                       data_scaled, invvar_scaled, psf_native):
-    """Construct tile records (core + halo boxes) for one cutout."""
+                       data_scaled, invvar_scaled, psf_native=None,
+                       psf_select=None):
+    """Construct tile records (core + halo boxes) for one cutout.
+
+    ``psf_select(x, y) -> stamp`` (from
+    :func:`~spherex_photometry.prepare.zone_psf_selector`) gives each tile the
+    PSF of the zone containing its own core centre — the SPHEREx PSF varies
+    across the focal plane and the zone pitch (~185 detector px) is smaller
+    than a typical cutout, so one kernel per cutout mis-renders the tiles that
+    fall in a neighbouring zone. ``psf_native`` is the legacy single-kernel
+    form, kept for callers that already resolved the PSF themselves.
+    """
+    if psf_select is None:
+        if psf_native is None:
+            raise ValueError("build_cutout_tiles needs psf_select or psf_native")
+        psf_select = lambda x, y: psf_native  # noqa: E731
     H, W = data_scaled.shape
     inside = ((sx_all > -halo) & (sx_all < W + halo)
               & (sy_all > -halo) & (sy_all < H + halo)
@@ -136,12 +152,39 @@ def build_cutout_tiles(cutout, *, sx_all, sy_all, tile_size, halo,
         tile_records.append({
             "data": extract_tile_region(data_scaled, xs, ys, xe, ye, fill=0.0),
             "invvar": extract_tile_region(invvar_scaled, xs, ys, xe, ye, fill=0.0),
-            "psf": psf_native,
+            "psf": psf_select(0.5 * (meta["core_x0"] + meta["core_x1"]),
+                              0.5 * (meta["core_y0"] + meta["core_y1"])),
             "wcs": shift_wcs(cutout["wcs"], xs, ys),
             "src_indices": idxs,
             "tile_meta": meta,
         })
     return tile_records
+
+
+def _check_caps(tile_records, catalog, max_ps_cap, max_gal_cap,
+                cutout_index=None):
+    """Raise :class:`CapExceededError` before the engine's bare ValueError.
+
+    The engine already refuses to build an over-wide batch, but it reports a
+    string the caller has to parse. Checking here means the failure names the
+    width that was needed and how to fix it, and it costs one pass over the
+    already-computed tile index lists.
+    """
+    if max_ps_cap is None and max_gal_cap is None:
+        return
+    shape_r = np.asarray(catalog["shape_r"], dtype=np.float64)
+    need_ps = need_gal = 0
+    for t in tile_records:
+        src = np.asarray(t["src_indices"], dtype=np.intp)
+        if src.size == 0:
+            continue
+        isgal = shape_r[src] > 0
+        need_ps = max(need_ps, int((~isgal).sum()))
+        need_gal = max(need_gal, int(isgal.sum()))
+    if max_ps_cap is not None and need_ps > max_ps_cap:
+        raise CapExceededError("ps", need_ps, max_ps_cap, cutout_index)
+    if max_gal_cap is not None and need_gal > max_gal_cap:
+        raise CapExceededError("gal", need_gal, max_gal_cap, cutout_index)
 
 
 def build_extract_index(tile_records, src_slot, sx_all, sy_all, W, H):
@@ -230,16 +273,15 @@ class JaxBackend:
 
         sx_all, sy_all = project_sources(cutout, ctx.sco_all)
 
-        sx_main = float(sx_all[ctx.main_idx])
-        sy_main = float(sy_all[ctx.main_idx])
-        psf_native = select_psf_native(cutout, sx_main, sy_main)
-
         tile_records = build_cutout_tiles(
             cutout, sx_all=sx_all, sy_all=sy_all,
             tile_size=cfg.tile_size, halo=cfg.tile_halo,
-            data_scaled=data, invvar_scaled=invvar, psf_native=psf_native)
+            data_scaled=data, invvar_scaled=invvar,
+            psf_select=zone_psf_selector(cutout))
 
-        max_ps, max_gal, max_mog_k = cfg.resolved_caps()
+        max_ps, max_gal, max_mog_k = cfg.resolved_caps(ctx.occupancy)
+        _check_caps(tile_records, ctx.catalog, max_ps, max_gal,
+                    cutout_index=getattr(ctx, "cutout_index", None))
         images_data, batches, initial_fluxes, src_slot = extract_tiled_batches(
             tile_records, ctx.catalog, sx_all, sy_all,
             psf_sampling=cfg.psf_sampling, fixed_max_factor=cfg.fixed_max_factor,

@@ -133,10 +133,42 @@ def select_psf_native(cutout: Cutout, x_ref, y_ref) -> np.ndarray:
     """Pick the PSF-cube plane nearest a reference pixel and 2x-downsample it.
 
     Returns the 5x-oversampled native PSF stamp (10x cube -> 5x). ``x_ref/y_ref``
-    are cutout pixel coordinates (typically the main source position).
+    are cutout pixel coordinates.
+
+    The SPHEREx PSF varies across the focal plane and the L2 cube ships one
+    plane per PSF zone (~185 detector px pitch), so this must be called per
+    TILE, not once per cutout: any cutout wider than the zone pitch spans
+    several zones. Use :func:`zone_psf_selector`, which caches the downsample.
     """
     x_orig, y_orig = cutout_to_orig(x_ref, y_ref,
                                     crpix1a=cutout["crpix1a"],
                                     crpix2a=cutout["crpix2a"])
     plane = select_zone_plane(cutout["psf_zones"], x_orig, y_orig)
     return downsample_psf_oversample2(cutout["psf_cube"][plane])
+
+
+def zone_psf_selector(cutout: Cutout):
+    """Return ``f(x_cut, y_cut) -> native PSF stamp`` for this cutout.
+
+    Each distinct zone plane is downsampled at most once, so a 40-tile cutout
+    spanning 4 zones pays 4 downsamples rather than 40. Single-zone cutouts
+    (the PSF cube has one plane) return the same array for every tile, which is
+    exactly the previous behaviour.
+    """
+    zones = cutout["psf_zones"]
+    cube = cutout["psf_cube"]
+    crpix1a = cutout["crpix1a"]
+    crpix2a = cutout["crpix2a"]
+    cache: dict[int, np.ndarray] = {}
+
+    def select(x_cut, y_cut):
+        x_orig, y_orig = cutout_to_orig(x_cut, y_cut,
+                                        crpix1a=crpix1a, crpix2a=crpix2a)
+        plane = select_zone_plane(zones, x_orig, y_orig)
+        stamp = cache.get(plane)
+        if stamp is None:
+            stamp = downsample_psf_oversample2(cube[plane])
+            cache[plane] = stamp
+        return stamp
+
+    return select

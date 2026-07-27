@@ -44,12 +44,33 @@ def _add_run_args(p):
     p.add_argument("--prefetch", default=None, choices=["thread", "sync"])
     p.add_argument("--gpu-mem-fraction", type=float, default=None)
     p.add_argument("--gpu-preallocate", action="store_true", default=None)
+    p.add_argument("--max-ps-cap", default=None, type=_cap,
+                   help="fixed point-source batch width; 'auto' measures the "
+                        "field, 0 disables the cap")
+    p.add_argument("--max-gal-cap", default=None, type=_cap,
+                   help="fixed galaxy batch width; 'auto' measures the field, "
+                        "0 disables the cap")
+    p.add_argument("--strict", action="store_true", default=None,
+                   help="abort on the first failing cutout instead of skipping "
+                        "it (never write a partial product)")
+
+
+def _cap(value):
+    """Cap flag: the literal 'auto', or an int."""
+    if value == "auto":
+        return value
+    try:
+        return int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"cap must be an integer or 'auto'; got {value!r}") from None
 
 
 _CONFIG_FLAGS = ("solver", "eig_floor", "lasso_alpha", "protect_zmag_max",
                  "fit_zmag_max", "tile_size", "tile_halo", "pad_bucket",
                  "tile_chunk", "bkg_model", "backend", "device", "precision",
-                 "prefetch", "gpu_mem_fraction", "gpu_preallocate")
+                 "prefetch", "gpu_mem_fraction", "gpu_preallocate",
+                 "max_ps_cap", "max_gal_cap", "strict")
 
 
 def _config_from_args(args) -> PhotometryConfig:
@@ -67,9 +88,18 @@ def _cmd_run(args):
     from .pipeline import run_photometry
     config = _config_from_args(args)
     target = (args.ra, args.dec) if args.ra is not None and args.dec is not None else None
-    run_photometry(args.cutouts_dir, args.catalog, config,
-                   target=target, output=args.output, resume=args.resume,
-                   max_cutouts=args.max_cutouts, progress=True)
+    results = run_photometry(args.cutouts_dir, args.catalog, config,
+                             target=target, output=args.output,
+                             resume=args.resume,
+                             max_cutouts=args.max_cutouts, progress=True)
+    # A partial product must not look like a successful run to a shell script.
+    n_failed = int(results.meta.get("spherex_photometry.n_cutouts_failed", 0))
+    if n_failed:
+        print(f"INCOMPLETE: {n_failed} cutouts were skipped; the output is "
+              f"missing them (see the log, and the complete=False flag in the "
+              f"parquet metadata).", file=sys.stderr)
+        return 2
+    return 0
 
 
 def _cmd_retrieve(args):

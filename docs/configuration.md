@@ -49,18 +49,42 @@ On the CLI, `--config run.yaml` loads a file and any explicit flags override it.
 | `tile_chunk` | `0` | solve tiles in fixed vmap chunks to bound GPU memory (`0` = one batch) |
 | `max_ps_cap` / `max_gal_cap` / `max_mog_k_cap` | `None` | fixed batch widths; `None` = auto policy |
 
-:::{warning}
-**A tile that overflows a fixed cap loses its whole cutout.** When the caps are
-active — full-depth fits (`fit_zmag_max` unset) with `pad_bucket` turned off —
-a cutout whose densest tile needs more slots than the cap raises, and the
-pipeline logs the traceback and **skips that cutout**, then reports the total in
-one `N cutouts failed and were skipped` warning at the end. The run still exits
-0 and still writes a parquet, so an incomplete product looks like a successful
-one unless you read the log.
+| `cap_auto_margin` | `1.1` | headroom multiplier on a measured (`"auto"`) cap |
+| `strict` | `False` | abort on the first failing cutout instead of skipping it |
 
+#### Sizing the caps
+
+A cap is a *fixed* batch width, so the jitted solve compiles once per run
+instead of once per distinct tile shape. **A tile that needs more slots than
+the cap takes its whole cutout out of the product**: the pipeline logs the
+failure, skips the cutout, and reports the total in one
+`INCOMPLETE PRODUCT: N of M cutouts failed and were skipped` warning.
+
+Three guards make that visible and avoidable:
+
+- `max_ps_cap="auto"` (likewise `max_gal_cap`) measures the field's real
+  densest-tile occupancy before the first solve and sizes the cap from it
+  (times `cap_auto_margin`). The scan is pure geometry — catalog positions and
+  `shape_r` through each cutout's WCS — so it costs one header parse per
+  cutout, no pixels and no solve. Cutouts that a *manually* chosen cap would
+  drop are listed in a warning up front, before the run spends time on them.
+- An overflow raises {class}`~spherex_photometry.config.CapExceededError`,
+  which carries the width that was actually needed and the ways to fix it.
+- Every product records `complete`, `n_cutouts_attempted`, `n_cutouts_failed`
+  and `failed_cutouts` in its parquet metadata, so a reader can tell a partial
+  run from a full one without the log. `spherex-phot run` exits **2** when the
+  product is incomplete, and `strict=True` turns the first failure into an
+  exception so a partial product is never written at all.
+
+```python
+# safest full-depth configuration: let the field decide the widths
+PhotometryConfig(pad_bucket=0, max_ps_cap="auto", max_gal_cap="auto")
+```
+
+:::{warning}
 The defaults (`MAX_PS_CAP = 112`, `MAX_GAL_CAP = 352`) were sized on one
-sparse field and do not generalise. Measured densest-tile occupancies across
-eight real SPHEREx fields at `tile_size=15`, `tile_halo=3`:
+sparse field (A2537) and do not generalise. Measured densest-tile occupancies
+across eight real SPHEREx fields at `tile_size=15`, `tile_halo=3`:
 
 | field | max point sources | max galaxies |
 |---|---|---|
@@ -73,10 +97,9 @@ eight real SPHEREx fields at `tile_size=15`, `tile_halo=3`:
 | SPT-CL J2145-5644 | **192** | **373** |
 | COSMOS | **268** | **450** |
 
-Half the fields exceed a default. Keep the `pad_bucket=32` default (it turns
-the caps off and sizes each batch near its natural width), or set the caps
-explicitly from your own field's occupancy. **Always check the run log for the
-skip warning before using a product.**
+Half the fields exceed a default, COSMOS by 2.4×. Keep the `pad_bucket=32`
+default (it turns the caps off entirely), or use `"auto"` — never a hand-picked
+constant carried over from another field.
 :::
 
 ### Background
