@@ -7,8 +7,11 @@ matplotlib.use("Agg")
 pytest.importorskip("tractor_jax")
 
 from spherex_photometry import PhotometryConfig, run_photometry
-from spherex_photometry.diagnostics import (fluxes_for_cutout, plot_fit,
-                                            render_model_image)
+from spherex_photometry.diagnostics import (
+    fluxes_for_cutout,
+    plot_fit,
+    render_model_image,
+)
 from spherex_photometry.io.catalogs import load_catalog
 from spherex_photometry.io.cutouts import read_cutout
 
@@ -29,7 +32,7 @@ def test_fluxes_for_cutout_selects_one_cutout(synth_field):
 
 def test_render_model_image_reproduces_the_sources(synth_field):
     phot, cfg = _run(synth_field)
-    cutout = read_cutout(sorted(synth_field["cutouts_dir"].glob("*.fits"))[0])
+    cutout = read_cutout(min(synth_field["cutouts_dir"].glob("*.fits")))
     catalog = load_catalog(synth_field["catalog"])
     model, prepared = render_model_image(cutout, catalog,
                                          fluxes_for_cutout(phot, 0), cfg)
@@ -40,7 +43,7 @@ def test_render_model_image_reproduces_the_sources(synth_field):
     assert model.sum() == pytest.approx(sum(fluxes_for_cutout(phot, 0).values()),
                                         rel=0.05)
     for src in synth_field["sources"]:
-        y, x = int(round(src["y"])), int(round(src["x"]))
+        y, x = round(src["y"]), round(src["x"])
         assert model[y, x] > 0.1 * model.max()
     # residuals should be small where the model is good
     chi = (prepared.data - model) * np.sqrt(np.maximum(prepared.invvar, 0.0))
@@ -49,7 +52,7 @@ def test_render_model_image_reproduces_the_sources(synth_field):
 
 def test_plot_fit_returns_triptych(synth_field):
     phot, cfg = _run(synth_field)
-    cutout = read_cutout(sorted(synth_field["cutouts_dir"].glob("*.fits"))[0])
+    cutout = read_cutout(min(synth_field["cutouts_dir"].glob("*.fits")))
     fig = plot_fit(cutout, load_catalog(synth_field["catalog"]), phot,
                    cutout_index=0, config=cfg)
     assert len(fig.axes) >= 3          # 3 panels (+ colorbars)

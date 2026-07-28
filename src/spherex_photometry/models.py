@@ -7,7 +7,7 @@ when the JAX backend actually needs it.
 
 from __future__ import annotations
 
-from functools import lru_cache
+from functools import cache
 
 import astropy.units as u
 import numpy as np
@@ -86,7 +86,7 @@ def sky_pa_to_pixel_pa_batch(wcs, ra_deg, dec_deg, pa_sky_deg,
     return np.rad2deg(np.arctan2(v_pix_y, v_pix_x))
 
 
-@lru_cache(maxsize=None)
+@cache
 def _profile_for_sersic(sersic_value):
     from tractor_jax.sersic import SersicMixture
     return SersicMixture.getProfile(sersic_value)

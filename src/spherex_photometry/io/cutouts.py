@@ -86,7 +86,7 @@ def filter_ok(pairs: list[tuple[int, Path]],
     if not summary_path.exists():
         return pairs
     summary = Table.read(summary_path)
-    ok = set(int(i) for i in summary[summary["status"] == "ok"]["cutout_index"])
+    ok = {int(i) for i in summary[summary["status"] == "ok"]["cutout_index"]}
     return [(idx, p) for idx, p in pairs if idx in ok]
 
 
@@ -156,7 +156,7 @@ def sample_map_bilinear(arr, x, y) -> float:
     ny, nx = arr.shape
     x = min(max(x, 0.0), nx - 1.0)
     y = min(max(y, 0.0), ny - 1.0)
-    x0, y0 = int(math.floor(x)), int(math.floor(y))
+    x0, y0 = math.floor(x), math.floor(y)
     x1, y1 = min(x0 + 1, nx - 1), min(y0 + 1, ny - 1)
     fx, fy = x - x0, y - y0
     return float(arr[y0, x0] * (1 - fx) * (1 - fy)

@@ -50,8 +50,15 @@ def render_model_image(cutout, catalog, flux_by_id, config=None):
         The model image and the prepared (background-subtracted, mJy/pixel)
         data/invvar it should be compared against.
     """
-    from tractor_jax import (ConstantSky, Flux, Image, NullWCS, PixPos,
-                             PointSource, Tractor)
+    from tractor_jax import (
+        ConstantSky,
+        Flux,
+        Image,
+        NullWCS,
+        PixPos,
+        PointSource,
+        Tractor,
+    )
     from tractor_jax.galaxy import GalaxyShape
     from tractor_jax.psf import PixelizedPSF
     from tractor_jax.sersic import SersicGalaxy, SersicIndex

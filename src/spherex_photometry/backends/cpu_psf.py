@@ -72,7 +72,7 @@ class OversampledPixelizedPSF(PixelizedPSF):
             # shift by the sub-pixel offset at oversampled resolution, then sum
             # each k x k block. This keeps the PSF pixel-integrated at native
             # scale rather than point-sampled.
-            k = int(round(factor))
+            k = round(factor)
             target_h = self.nativeH * k
             target_w = self.nativeW * k
             h, w = img.shape
@@ -85,8 +85,8 @@ class OversampledPixelizedPSF(PixelizedPSF):
             target_center_y = crop_y0 + (target_h - 1) / 2.0
             desired_x = target_center_x + dx * k
             desired_y = target_center_y + dy * k
-            pw = int(round(desired_x - (w // 2)))
-            ph = int(round(desired_y - (h // 2)))
+            pw = round(desired_x - (w // 2))
+            ph = round(desired_y - (h // 2))
             pw = max(0, min(canvas_w - w, pw))
             ph = max(0, min(canvas_h - h, ph))
             pad_img = np.zeros((canvas_h, canvas_w), dtype=img.dtype)

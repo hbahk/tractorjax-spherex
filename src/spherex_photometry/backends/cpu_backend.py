@@ -51,8 +51,14 @@ class CpuTractorBackend:
     # ---- build (pure CPU) ------------------------------------------------
     def build(self, cutout, ctx: FieldContext):
         import tractor
-        from tractor import (ConstantSky, Flux, LinearPhotoCal, NullWCS,
-                             PixPos, PointSource)
+        from tractor import (
+            ConstantSky,
+            Flux,
+            LinearPhotoCal,
+            NullWCS,
+            PixPos,
+            PointSource,
+        )
         from tractor.galaxy import GalaxyShape
         from tractor.sersic import SersicGalaxy, SersicIndex
 

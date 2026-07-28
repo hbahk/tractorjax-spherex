@@ -20,11 +20,15 @@ from .spectra import bin_spectrum, build_spectra, to_ab_mag
 from .version import __version__
 
 __all__ = [
-    "PhotometryConfig", "ConfigError",
-    "run_photometry",
-    "build_spectra", "bin_spectrum", "to_ab_mag",
-    "fetch_ls_dr10", "retrieve",
+    "ConfigError",
+    "PhotometryConfig",
     "__version__",
+    "bin_spectrum",
+    "build_spectra",
+    "fetch_ls_dr10",
+    "retrieve",
+    "run_photometry",
+    "to_ab_mag",
 ]
 
 

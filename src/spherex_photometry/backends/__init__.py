@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from .base import Backend, CutoutRecords, FieldContext
 
-__all__ = ["Backend", "FieldContext", "CutoutRecords", "get_backend"]
+__all__ = ["Backend", "CutoutRecords", "FieldContext", "get_backend"]
 
 _TRACTOR_JAX_HINT = (
     "The 'jax' backend needs the tractor-jax engine, which is not installed.\n"

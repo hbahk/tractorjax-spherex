@@ -10,8 +10,7 @@ import numpy as np
 import pytest
 from astropy.table import Table
 
-from spherex_photometry.config import (CapExceededError, ConfigError,
-                                       PhotometryConfig)
+from spherex_photometry.config import CapExceededError, ConfigError, PhotometryConfig
 from spherex_photometry.io.cutouts import discover_cutouts, read_cutout
 from spherex_photometry.occupancy import Occupancy, measure_occupancy
 

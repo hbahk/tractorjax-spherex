@@ -47,7 +47,7 @@ def build_spectra(photometry: Table, ids=None, min_snr=None) -> dict[int, Table]
         ``obs_id``, ``cutout_index`` for provenance.
     """
     idcol = np.asarray(photometry["id"])
-    want = set(int(i) for i in ids) if ids is not None else None
+    want = {int(i) for i in ids} if ids is not None else None
     out: dict[int, Table] = {}
     for sid in np.unique(idcol):
         if want is not None and int(sid) not in want:

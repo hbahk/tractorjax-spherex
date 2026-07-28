@@ -77,7 +77,7 @@ def existing_cutout_indices(path) -> set[int]:
     tab = Table.read(path)
     if "cutout_index" not in tab.colnames or len(tab) == 0:
         return set()
-    return set(int(i) for i in tab["cutout_index"])
+    return {int(i) for i in tab["cutout_index"]}
 
 
 def append_or_merge(path, table: Table, config=None) -> Table:

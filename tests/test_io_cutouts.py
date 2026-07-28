@@ -1,10 +1,15 @@
 import numpy as np
 
 from fixtures.synth import make_synth_cutout
-from spherex_photometry.io.cutouts import (Cutout, cutout_pixel_area_sr,
-                                           discover_cutouts, filter_ok,
-                                           read_cutout, sample_map_bilinear,
-                                           sample_map_bilinear_vec)
+from spherex_photometry.io.cutouts import (
+    Cutout,
+    cutout_pixel_area_sr,
+    discover_cutouts,
+    filter_ok,
+    read_cutout,
+    sample_map_bilinear,
+    sample_map_bilinear_vec,
+)
 
 
 def test_read_cutout_basic(one_cutout):

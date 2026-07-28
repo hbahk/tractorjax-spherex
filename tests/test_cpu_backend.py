@@ -53,7 +53,7 @@ def test_cpu_handles_galaxy_and_nan_shape(tmp_path):
             {"x": 20.0, "y": 31.0, "flux_mjy": 1.5}]
     d = tmp_path / "cut"
     make_synth_field(d, n_cutouts=1, sources=srcs)
-    c0 = read_cutout(sorted(d.glob("cutout_*.fits"))[0])
+    c0 = read_cutout(min(d.glob("cutout_*.fits")))
     cat = make_synth_catalog(None, srcs, c0.wcs)
     cat["shape_e1"][1] = 0.3      # give the galaxy a real orientation
     cat["shape_e2"][1] = 0.15

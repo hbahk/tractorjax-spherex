@@ -104,8 +104,8 @@ def measure_occupancy(pairs, catalog, *, tile_size, halo,
     ``shape_r``); a source with ``shape_r > 0`` is rendered as a galaxy and
     consumes a galaxy slot, everything else a point-source slot.
     """
-    from astropy.coordinates import SkyCoord
     import astropy.units as u
+    from astropy.coordinates import SkyCoord
 
     sco_all = SkyCoord(np.asarray(catalog["ra"]) * u.deg,
                        np.asarray(catalog["dec"]) * u.deg)
@@ -124,7 +124,7 @@ def measure_occupancy(pairs, catalog, *, tile_size, halo,
         try:
             per_cutout[cutout_index] = cutout_occupancy(
                 Path(path), sco_all, is_gal, tile_size, halo)
-        except Exception as exc:      # unreadable header: let the solve report it
+        except Exception as exc:  # noqa: BLE001 - unreadable header: let the solve report it
             logger.warning("Occupancy scan skipped cutout %d: %s",
                            cutout_index, exc)
 

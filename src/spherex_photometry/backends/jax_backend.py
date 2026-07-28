@@ -18,16 +18,19 @@ import math
 
 import numpy as np
 
-from ..config import CapExceededError
-from ..constants import SPHEREX_PIXSCALE
-from ..io.cutouts import sample_map_bilinear_vec
-from ..prepare import (prepare_pixels, project_sources, select_psf_native,
-                       zone_psf_selector)
-from .base import FieldContext
-
 # tractor-jax engine (imports jax).
 from tractor_jax.jax import batching as tjb
 from tractor_jax.jax.pipeline import prefetch_pipeline  # noqa: F401  (re-exported)
+
+from ..config import CapExceededError
+from ..constants import SPHEREX_PIXSCALE
+from ..io.cutouts import sample_map_bilinear_vec
+from ..prepare import (
+    prepare_pixels,
+    project_sources,
+    zone_psf_selector,
+)
+from .base import FieldContext
 
 
 # --------------------------------------------------------------------------- #
@@ -94,7 +97,7 @@ def extract_tiled_batches(tile_records, catalog_full, sx_all, sy_all,
     try:
         cd_matrix = (np.asarray(wcs0.wcs.cd) if hasattr(wcs0.wcs, "cd")
                      else np.asarray(wcs0.pixel_scale_matrix))
-    except Exception:
+    except Exception:  # noqa: BLE001 - any unusable WCS falls back to the nominal scale
         cd_matrix = np.eye(2) * (SPHEREX_PIXSCALE / 3600.0)
     try:
         cd_inv = np.linalg.inv(cd_matrix).astype(np.float32, copy=False)
@@ -133,7 +136,7 @@ def build_cutout_tiles(cutout, *, sx_all, sy_all, tile_size, halo,
     if psf_select is None:
         if psf_native is None:
             raise ValueError("build_cutout_tiles needs psf_select or psf_native")
-        psf_select = lambda x, y: psf_native  # noqa: E731
+        psf_select = lambda x, y: psf_native
     H, W = data_scaled.shape
     inside = ((sx_all > -halo) & (sx_all < W + halo)
               & (sy_all > -halo) & (sy_all < H + halo)

@@ -57,7 +57,10 @@ dev = [
     "pytest>=7",
     "pytest-cov",
     "matplotlib",
-    "ruff",
+    # Ruff's *default* rule set widens between minor releases (0.16 added isort,
+    # bugbear, pyupgrade, ... on top of the old E/F set), so an unpinned ruff
+    # silently redefines what CI lints. Bump this deliberately, not by accident.
+    "ruff>=0.16,<0.17",
 ]
 
 [project.scripts]
@@ -69,6 +72,18 @@ version = { attr = "spherex_photometry.version.__version__" }
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["spherex_photometry*"]
+
+[tool.ruff.lint]
+# Rules kept off on purpose (everything else is ruff's default set for the
+# pinned version above).
+ignore = [
+    "C408",  # dict(flux=..., err=...) reads better than a quoted literal for
+             # the keyword-style records the backends pass around.
+]
+
+[tool.ruff.lint.isort]
+# `fixtures` is the tests' own helper package, not a third-party dependency.
+known-first-party = ["spherex_photometry", "fixtures"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -17,7 +17,6 @@ The canonical internal schema (see the *Reference catalogs* docs page):
 
 from __future__ import annotations
 
-
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import SkyCoord

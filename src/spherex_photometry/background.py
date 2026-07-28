@@ -65,7 +65,7 @@ def fit_background_photutils(img, bkg, flg, var, box_size=10, filter_size=3):
             filter_size=(filter_size, filter_size),
             mask=mask,
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 - a failed Background2D just means "no 2-D term"
         return bkg
     return bkg + bkg2d.background.astype(bkg.dtype, copy=False)
 

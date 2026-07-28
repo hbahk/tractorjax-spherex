@@ -103,9 +103,9 @@ def _cmd_run(args):
 
 
 def _cmd_retrieve(args):
-    from spherex_retrieval import retrieve
-    from astropy.coordinates import SkyCoord
     import astropy.units as u
+    from astropy.coordinates import SkyCoord
+    from spherex_retrieval import retrieve
     coord = SkyCoord(ra=args.ra * u.deg, dec=args.dec * u.deg)
     size = args.size_arcsec * u.arcsec if args.size_arcsec else args.size_pix
     retrieve(coord, size, output_dir=args.out, include_wavelength=True,
@@ -121,7 +121,8 @@ def _cmd_fetch_catalog(args):
 
 def _cmd_spectra(args):
     from astropy.table import Table
-    from .spectra import build_spectra, bin_spectrum
+
+    from .spectra import bin_spectrum, build_spectra
     phot = Table.read(args.photometry)
     ids = None if args.all else ([args.id] if args.id is not None else None)
     spectra = build_spectra(phot, ids=ids, min_snr=args.min_snr)
@@ -130,6 +131,7 @@ def _cmd_spectra(args):
             spec.write(f"{args.out}_{sid}.ecsv", overwrite=True)
     if args.plot:
         import matplotlib.pyplot as plt
+
         from .spectra import plot_spectrum
         for sid, spec in spectra.items():
             ax = plot_spectrum(spec, binned=bin_spectrum(spec, dlam=args.bin)

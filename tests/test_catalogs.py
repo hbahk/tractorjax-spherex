@@ -2,9 +2,13 @@ import numpy as np
 import pytest
 from astropy.table import Table
 
-from spherex_photometry.io.catalogs import (apply_depth_cut, find_nearest_source,
-                                            normalize_catalog, protected_indices,
-                                            zmag_from_flux_z)
+from spherex_photometry.io.catalogs import (
+    apply_depth_cut,
+    find_nearest_source,
+    normalize_catalog,
+    protected_indices,
+    zmag_from_flux_z,
+)
 
 
 def _cat():
@@ -45,11 +49,11 @@ def test_zmag_and_depth_cut():
     t = normalize_catalog(_cat())
     zmag = zmag_from_flux_z(t["flux_z"])
     assert np.isnan(zmag[2])  # flux_z < 0
-    cut, kept = apply_depth_cut(t, fit_zmag_max=18.0, keep_indices=(1,))
+    _cut, kept = apply_depth_cut(t, fit_zmag_max=18.0, keep_indices=(1,))
     # source 0 (z~15) passes; source 1 kept by keep_indices; source 2 dropped
     assert set(kept) == {0, 1}
     # no cut
-    cut2, kept2 = apply_depth_cut(t, fit_zmag_max=None)
+    cut2, _kept2 = apply_depth_cut(t, fit_zmag_max=None)
     assert len(cut2) == 3
 
 

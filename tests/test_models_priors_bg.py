@@ -1,8 +1,7 @@
 import numpy as np
 import pytest
 
-from spherex_photometry.background import (build_background_mask,
-                                           fit_background_plane)
+from spherex_photometry.background import build_background_mask, fit_background_plane
 from spherex_photometry.models import ls_shapes_to_ab_phi
 from spherex_photometry.priors import catalog_band_fluxes_ujy, predict_flux_ujy
 

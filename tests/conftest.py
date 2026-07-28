@@ -26,7 +26,7 @@ def synth_field(tmp_path):
     """A 2-cutout synthetic field + matching catalog. Returns a dict of paths."""
     cut = tmp_path / "cut"
     make_synth_field(cut, n_cutouts=2, seed=3, sources=POINT_SOURCES)
-    c0 = read_cutout(sorted(cut.glob("cutout_*.fits"))[0])
+    c0 = read_cutout(min(cut.glob("cutout_*.fits")))
     cat = tmp_path / "cat.parquet"
     make_synth_catalog(cat, POINT_SOURCES, c0.wcs)
     return {"cutouts_dir": cut, "catalog": cat, "sources": POINT_SOURCES,

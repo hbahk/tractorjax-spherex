@@ -21,7 +21,8 @@ from astropy.io import fits
 from astropy.table import Table
 from astropy.wcs import WCS
 
-from .constants import IMG_SCALE, SPHEREX_PIXSCALE as PIXSCALE
+from .constants import IMG_SCALE
+from .constants import SPHEREX_PIXSCALE as PIXSCALE
 
 OMEGA_SR = ((PIXSCALE * u.arcsec) ** 2).to_value(u.sr)
 

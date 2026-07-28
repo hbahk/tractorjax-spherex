@@ -61,7 +61,8 @@ def fetch_ls_dr10(ra, dec, *, radius_deg=None, cutout_pixels=100,
         Drop ``type == "DUP"`` rows (Legacy Survey duplicate entries).
     """
     try:
-        from dl import authClient as ac, queryClient as qc
+        from dl import authClient as ac
+        from dl import queryClient as qc
         from dl.helpers.utils import convert
     except ImportError as exc:  # pragma: no cover - optional dep
         raise ImportError(_DATALAB_HINT) from exc
@@ -93,7 +94,7 @@ def fetch_ls_dr10(ra, dec, *, radius_deg=None, cutout_pixels=100,
         if st == "ERROR":
             try:
                 err = qc.error(jobid)
-            except Exception:
+            except Exception:  # noqa: BLE001 - best-effort detail for the error below
                 err = "<no message>"
             raise RuntimeError(f"Data Lab query failed (job={jobid}): {err}")
         if time.time() - t0 > timeout:

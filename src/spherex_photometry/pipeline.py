@@ -18,8 +18,13 @@ from astropy.table import Table
 from .backends import FieldContext, get_backend
 from .config import PhotometryConfig
 from .device import setup_device
-from .io.catalogs import (apply_depth_cut, find_nearest_source, load_catalog,
-                          normalize_catalog, protected_indices)
+from .io.catalogs import (
+    apply_depth_cut,
+    find_nearest_source,
+    load_catalog,
+    normalize_catalog,
+    protected_indices,
+)
 from .io.cutouts import discover_cutouts, filter_ok, read_cutout
 from .io.output import existing_cutout_indices, make_table, write_photometry
 from .priors import make_prior_context
@@ -149,10 +154,10 @@ def run_photometry(cutouts_dir, catalog, config: PhotometryConfig | None = None,
         try:
             cutout = read_cutout(path)
             return cutout_index, backend.build(cutout, ctx)
-        except Exception as exc:  # per-cutout skip semantics
+        except Exception:  # per-cutout skip semantics
             if config.strict:
                 raise
-            logger.exception("Cutout %d build failed: %s", cutout_index, exc)
+            logger.exception("Cutout %d build failed", cutout_index)
             return cutout_index, None
 
     for cutout_index, inputs in _iterate(pairs, build_fn, backend, config, progress):
@@ -163,10 +168,10 @@ def run_photometry(cutouts_dir, catalog, config: PhotometryConfig | None = None,
             fluxes_np, var_np = backend.solve(inputs)
             (ci, flux, ferr, lam, band), cwave = backend.extract(
                 inputs, fluxes_np, var_np)
-        except Exception as exc:
+        except Exception:
             if config.strict:
                 raise
-            logger.exception("Cutout %d solve failed: %s", cutout_index, exc)
+            logger.exception("Cutout %d solve failed", cutout_index)
             failed.append(cutout_index)
             continue
         cutout = inputs["cutout"]

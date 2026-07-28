@@ -250,7 +250,7 @@ class PhotometryConfig:
         Path(path).write_text(yaml.safe_dump(self.to_dict(), sort_keys=False))
 
     @classmethod
-    def from_dict(cls, data: dict) -> "PhotometryConfig":
+    def from_dict(cls, data: dict) -> PhotometryConfig:
         known = {f.name for f in fields(cls)}
         unknown = set(data) - known
         if unknown:
@@ -258,7 +258,7 @@ class PhotometryConfig:
         return cls(**data)
 
     @classmethod
-    def from_file(cls, path: str | Path) -> "PhotometryConfig":
+    def from_file(cls, path: str | Path) -> PhotometryConfig:
         """Load a config from a ``.yaml``/``.yml`` or ``.toml`` file."""
         path = Path(path)
         text = path.read_text()
