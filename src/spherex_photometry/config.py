@@ -105,6 +105,14 @@ class PhotometryConfig:
     # psf_sampling = native-pixel size per PSF-stamp pixel (0.2 => the PSF cube
     # is 5x oversampled). fixed_max_factor is the oversampled rendering factor.
     psf_sampling: float = 0.2
+    # Spatially-varying PSF: blend the delivered zone kernels bilinearly at
+    # each tile's core centre (SPHEREx Sky Simulator convention, clamped at the
+    # lattice edge) instead of rounding the tile to one zone. Blended in the
+    # Fourier domain, so the cost is one complex weighted sum per tile rather
+    # than one transform per tile (~+3% wall clock). A no-op on cutouts whose
+    # bundle carries a single PSF zone -- which is what a retrieval without a
+    # zone margin gives for any cutout smaller than the ~185 px zone pitch.
+    psf_zone_interp: bool = True
     fixed_max_factor: float = 5.0
 
     # --- execution --------------------------------------------------------

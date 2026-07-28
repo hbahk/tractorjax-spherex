@@ -147,6 +147,77 @@ def select_psf_native(cutout: Cutout, x_ref, y_ref) -> np.ndarray:
     return downsample_psf_oversample2(cutout["psf_cube"][plane])
 
 
+def zone_bilinear_weights(psf_zones_tab, x_orig, y_orig) -> np.ndarray:
+    """Bilinear weights over the PSF-zone lattice at detector (x_orig, y_orig).
+
+    Follows the SPHEREx Sky Simulator's own convention
+    (``SPHEREx_InstrumentSimulator.psf.get_dist_weight``): plain bilinear
+    between the four bracketing zone centres, CLAMPED at the lattice edge
+    rather than extrapolated. Returns weights summing to 1, aligned with the
+    rows of ``psf_zones_tab``, and degenerates to one-hot — hence identical to
+    :func:`select_zone_plane` — on a single-zone cutout.
+    """
+    zx = np.asarray(psf_zones_tab["x"], dtype=np.float64)
+    zy = np.asarray(psf_zones_tab["y"], dtype=np.float64)
+    ux = np.unique(np.round(zx, 6))
+    uy = np.unique(np.round(zy, 6))
+
+    def _bracket(v, u):
+        if u.size == 1:
+            return u[0], u[0], 1.0
+        i = int(np.clip(np.searchsorted(u, v) - 1, 0, u.size - 2))
+        lo, hi = u[i], u[i + 1]
+        return lo, hi, 1.0 - float(np.clip((v - lo) / (hi - lo), 0.0, 1.0))
+
+    x_lo, x_hi, wx = _bracket(float(x_orig), ux)
+    y_lo, y_hi, wy = _bracket(float(y_orig), uy)
+    w = np.zeros(zx.size, dtype=np.float64)
+    for xv, wxx in ((x_lo, wx), (x_hi, 1.0 - wx)):
+        for yv, wyy in ((y_lo, wy), (y_hi, 1.0 - wy)):
+            if wxx * wyy == 0.0:
+                continue
+            hit = np.where((np.abs(zx - xv) < 1e-6) & (np.abs(zy - yv) < 1e-6))[0]
+            if hit.size:
+                w[hit[0]] += wxx * wyy
+    if not np.any(w > 0):            # corner absent from the delivered subset
+        w[np.argmin((zx - x_orig) ** 2 + (zy - y_orig) ** 2)] = 1.0
+    return w / w.sum()
+
+
+def zone_psf_basis(cutout: Cutout):
+    """Return ``(basis, f(x_cut, y_cut) -> weights)`` for a blended zone PSF.
+
+    ``basis`` is the list of downsampled zone kernels — ONE object, because the
+    engine keys its Fourier-transform cache on identity and blends in the
+    Fourier domain, so the K transforms are shared by every tile instead of one
+    transform per tile.
+
+    Nearest-zone (:func:`zone_psf_selector`) leaves a tile using a kernel
+    sampled up to ~93 detector px away, half the ~185 px zone pitch. Blending
+    removes that; measured on A2055 flight data at z<21 it moves bright fluxes
+    by p90 1.7% overall and 2.5% at 2-3 um, where the zone-to-zone kernel
+    centroid spread is largest (0.08-0.12 px against 0.005-0.014 px at 4.9 um).
+
+    Note the cutout must have been retrieved with a zone margin
+    (``spherex_retrieval`` ``zone_margin >= 1``); bundles written before that
+    keep only the zones the cutout bbox spans, which for a cutout smaller than
+    the zone pitch is a single plane and makes this a no-op.
+    """
+    zones = cutout["psf_zones"]
+    cube = cutout["psf_cube"]
+    crpix1a = cutout["crpix1a"]
+    crpix2a = cutout["crpix2a"]
+    basis = [downsample_psf_oversample2(cube[int(p)])
+             for p in np.asarray(zones["plane_idx"])]
+
+    def weights(x_cut, y_cut):
+        x_orig, y_orig = cutout_to_orig(x_cut, y_cut,
+                                        crpix1a=crpix1a, crpix2a=crpix2a)
+        return zone_bilinear_weights(zones, x_orig, y_orig)
+
+    return basis, weights
+
+
 def zone_psf_selector(cutout: Cutout):
     """Return ``f(x_cut, y_cut) -> native PSF stamp`` for this cutout.
 

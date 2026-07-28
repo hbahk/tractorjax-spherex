@@ -28,6 +28,7 @@ from ..io.cutouts import sample_map_bilinear_vec
 from ..prepare import (
     prepare_pixels,
     project_sources,
+    zone_psf_basis,
     zone_psf_selector,
 )
 from .base import FieldContext
@@ -122,7 +123,7 @@ def extract_tiled_batches(tile_records, catalog_full, sx_all, sy_all,
 
 def build_cutout_tiles(cutout, *, sx_all, sy_all, tile_size, halo,
                        data_scaled, invvar_scaled, psf_native=None,
-                       psf_select=None):
+                       psf_select=None, psf_basis=None, psf_weights=None):
     """Construct tile records (core + halo boxes) for one cutout.
 
     ``psf_select(x, y) -> stamp`` (from
@@ -152,15 +153,20 @@ def build_cutout_tiles(cutout, *, sx_all, sy_all, tile_size, halo,
         in_box = ((cutout_sx >= xs) & (cutout_sx < xe)
                   & (cutout_sy >= ys) & (cutout_sy < ye))
         idxs = cutout_src_indices[in_box].tolist()
-        tile_records.append({
+        cx = 0.5 * (meta["core_x0"] + meta["core_x1"])
+        cy = 0.5 * (meta["core_y0"] + meta["core_y1"])
+        rec = {
             "data": extract_tile_region(data_scaled, xs, ys, xe, ye, fill=0.0),
             "invvar": extract_tile_region(invvar_scaled, xs, ys, xe, ye, fill=0.0),
-            "psf": psf_select(0.5 * (meta["core_x0"] + meta["core_x1"]),
-                              0.5 * (meta["core_y0"] + meta["core_y1"])),
+            "psf": psf_select(cx, cy),
             "wcs": shift_wcs(cutout["wcs"], xs, ys),
             "src_indices": idxs,
             "tile_meta": meta,
-        })
+        }
+        if psf_basis is not None and len(psf_basis) > 1:
+            rec["psf_basis"] = psf_basis
+            rec["psf_weights"] = psf_weights(cx, cy)
+        tile_records.append(rec)
     return tile_records
 
 
@@ -276,11 +282,15 @@ class JaxBackend:
 
         sx_all, sy_all = project_sources(cutout, ctx.sco_all)
 
+        basis = weights = None
+        if getattr(cfg, "psf_zone_interp", True):
+            basis, weights = zone_psf_basis(cutout)
         tile_records = build_cutout_tiles(
             cutout, sx_all=sx_all, sy_all=sy_all,
             tile_size=cfg.tile_size, halo=cfg.tile_halo,
             data_scaled=data, invvar_scaled=invvar,
-            psf_select=zone_psf_selector(cutout))
+            psf_select=zone_psf_selector(cutout),
+            psf_basis=basis, psf_weights=weights)
 
         max_ps, max_gal, max_mog_k = cfg.resolved_caps(ctx.occupancy)
         _check_caps(tile_records, ctx.catalog, max_ps, max_gal,
