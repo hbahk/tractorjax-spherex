@@ -101,21 +101,24 @@ every source in the cutout. It is kept as the independent "global geometry"
 cross-check. At full LS depth that system is degenerate, so keep `fit_zmag_max`
 at a sensible depth (≈ 21) when you use it.
 
-### Per-tile background
+### Per-tile background (`cpu_tile_background`, on by default)
 
 `prepare_pixels` subtracts a ZODI+model background fit once per cutout, on both
-paths. The JAX backend additionally carries a **free constant per tile**, solved
-jointly with the fluxes, which absorbs whatever DC the per-cutout prefit left
-behind. Set `cpu_tile_background=True` to fit one here too (upstream Tractor's
-`sky=True`) and complete the match; it requires `cpu_tiling=True`.
+paths. The JAX backend's tiled solve additionally carries a **free constant per
+tile**, solved jointly with the fluxes, which absorbs whatever DC the per-cutout
+prefit left behind. The tiled CPU path fits one too (upstream Tractor's
+`sky=True`), so the two backends run the *same solve* — same tiles, same
+nuisance parameters — and not merely the same geometry.
 
-It is **off by default** so that `cpu_tiling` on its own is a pure geometry
-change and pre-existing products stay reproducible. Turn it on when you are
-comparing against the JAX backend, or when you suspect residual background
-structure the per-cutout fit did not capture: on real cutouts it moves the CPU
-result measurably *towards* the JAX one, cutting the median S/N > 5 disagreement
-by 2–4× (e.g. 0.65 % → 0.19 % and 1.4 % → 0.32 % on two a2537 cutouts at
-`fit_zmag_max=21`), for no measurable time cost.
+Measured on real cutouts, it moves the CPU result towards the JAX one, cutting
+the median S/N > 5 disagreement by 2–4× (e.g. 0.65 % → 0.19 % and 1.4 % → 0.32 %
+on two a2537 cutouts at `fit_zmag_max=21`), for no measurable time cost.
+
+Set `cpu_tile_background=False` to drop the column and rely on the per-cutout
+prefit alone. The flag is inert with `cpu_tiling=False` — the whole-cutout solve
+has no tiles, and it is deliberately kept as the reproduction of pre-tiling
+products — and the backend logs that once per run rather than ignoring it
+silently.
 
 ## Limitations of the `cpu-tractor` backend
 

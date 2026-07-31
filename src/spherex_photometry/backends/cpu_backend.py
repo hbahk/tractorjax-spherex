@@ -199,6 +199,13 @@ class CpuTractorBackend:
 
     def __init__(self, config):
         self.config = config
+        if (getattr(config, "cpu_tile_background", True)
+                and not getattr(config, "cpu_tiling", True)):
+            logger.info(
+                "cpu_tile_background is inert with cpu_tiling=False: the "
+                "whole-cutout solve has no tiles, and it is kept as the "
+                "reproduction of pre-tiling products, which carry only the "
+                "per-cutout background prefit.")
 
     # ---- build (pure CPU) ------------------------------------------------
     def build(self, cutout, ctx: FieldContext):

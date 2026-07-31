@@ -125,7 +125,7 @@ constant carried over from another field.
 |---|---|---|
 | `backend` | `"jax"` | `jax` or `cpu-tractor` ({doc}`cpu_backend`) |
 | `cpu_tiling` | `True` | `cpu-tractor`: solve tile by tile on the JAX backend's grid; `False` = one whole-cutout joint solve |
-| `cpu_tile_background` | `False` | `cpu-tractor`: also fit a free constant per tile (needs `cpu_tiling`) |
+| `cpu_tile_background` | `True` | `cpu-tractor` tiled path: fit a free constant per tile, as the JAX backend always does (inert with `cpu_tiling=False`) |
 | `device` | `"auto"` | `auto` / `gpu` / `cpu` (JAX backend) |
 | `precision` | `"fp32"` | `fp32` or `fp64` |
 | `prefetch` | `"thread"` | overlap CPU build with GPU solve (`thread`) or not (`sync`) |

@@ -263,6 +263,51 @@ def test_per_tile_psf_tracks_the_tile_core_centre(tmp_path):
     assert not np.allclose(select(37.5, 37.5).img, b.img)
 
 
+def test_per_tile_blend_is_bilinear_and_matches_the_jax_weights(tmp_path):
+    """The zone blend must be (a) genuinely bilinear and (b) the SAME blend the
+    JAX backend applies.
+
+    The JAX engine blends in Fourier space as ``sum_k w_k FFT(b_k)``, which by
+    linearity equals ``FFT(sum_k w_k b_k)``, so comparing the real-space blended
+    kernels is exact rather than an approximation. Verified on real 12-zone
+    a2537 data at machine precision; this pins it in CI on a synthetic lattice.
+    """
+    from spherex_photometry import prepare as _prepare
+    from spherex_photometry.backends.zone_psf import (
+        build_cpu_psf_selector,
+        zone_stamp_provider,
+    )
+
+    cutout = _multizone_cutout(tmp_path)
+    zones = cutout.psf_zones
+    cfg = PhotometryConfig(backend="cpu-tractor", solver="linear",
+                           psf_zone_interp=True)
+    select = build_cpu_psf_selector(cutout, cfg, prepare=_prepare)
+    get = zone_stamp_provider(cutout, cfg, prepare=_prepare)
+    basis = np.stack([get(r) for r in range(len(zones))])
+    _jax_basis, jax_weights = _prepare.zone_psf_basis(cutout)
+
+    H, W = cutout.image.shape
+    n_blended = 0
+    for m in iter_tiles(H, W, cfg.tile_size, cfg.tile_halo):
+        cx = 0.5 * (m["core_x0"] + m["core_x1"])
+        cy = 0.5 * (m["core_y0"] + m["core_y1"])
+        w = np.asarray(jax_weights(cx, cy), dtype=np.float64)
+
+        # (a) a partition of unity over the lattice, and genuinely interpolating
+        assert w.min() >= 0.0
+        assert w.sum() == pytest.approx(1.0, abs=1e-12)
+        if np.count_nonzero(w > 1e-12) > 1:
+            n_blended += 1
+
+        # (b) the CPU kernel IS sum_k w_k b_k with those same weights
+        ref = np.tensordot(w, basis, axes=(0, 0))
+        got = np.asarray(select(cx, cy).img, dtype=np.float64)
+        assert np.max(np.abs(got - ref)) / np.max(np.abs(ref)) < 1e-6
+
+    assert n_blended > 0, "no tile blended >1 zone — the test lattice is a no-op"
+
+
 def test_nearest_zone_selection_is_per_tile_when_interp_is_off(tmp_path):
     """With psf_zone_interp=False the JAX backend still picks the nearest zone
     PER TILE. Picking the cutout-centre zone for every tile is the bug."""
@@ -350,9 +395,8 @@ def test_tile_background_flag_reaches_every_tile(tile_field):
 
 def test_tile_background_is_a_small_correction_after_a_real_prefit(tile_field):
     """With the normal background model the prefit already removed the DC, so
-    turning the column on must not move fluxes much — it is a refinement, not a
-    different measurement."""
-    off = _by_id(_run(tile_field, cpu_tiling=True))
+    the column is a refinement, not a different measurement."""
+    off = _by_id(_run(tile_field, cpu_tiling=True, cpu_tile_background=False))
     on = _by_id(_run(tile_field, cpu_tiling=True, cpu_tile_background=True))
     for sid in off:
         assert on[sid] == pytest.approx(off[sid], rel=0.05)
@@ -406,21 +450,47 @@ def test_fully_masked_tile_reports_no_flux_not_the_seed(tmp_path):
 # --------------------------------------------------------------------------- #
 # Config surface
 # --------------------------------------------------------------------------- #
-def test_cpu_tiling_defaults_on_and_round_trips(tmp_path):
+def test_tiling_and_tile_background_default_on_and_round_trip(tmp_path):
+    """Both default on: the cpu-tractor backend out of the box runs the SAME
+    solve as the JAX backend — same tiles, same per-tile background column."""
     cfg = PhotometryConfig()
     assert cfg.cpu_tiling is True
-    assert cfg.cpu_tile_background is False
+    assert cfg.cpu_tile_background is True
     p = tmp_path / "cfg.yaml"
-    PhotometryConfig(backend="cpu-tractor", solver="linear",
-                     cpu_tiling=False).to_yaml(p)
-    assert PhotometryConfig.from_file(p).cpu_tiling is False
+    PhotometryConfig(backend="cpu-tractor", solver="linear", cpu_tiling=False,
+                     cpu_tile_background=False).to_yaml(p)
+    loaded = PhotometryConfig.from_file(p)
+    assert loaded.cpu_tiling is False and loaded.cpu_tile_background is False
 
 
-def test_tile_background_without_tiling_is_an_error():
-    from spherex_photometry.config import ConfigError
+def test_defaults_do_not_reject_the_other_backends_or_the_untiled_path():
+    """The default cpu_tile_background=True must not make an ordinary config
+    unconstructible. It is inert without tiles and true by construction on the
+    JAX backend, so neither combination is an error."""
+    assert PhotometryConfig(backend="jax").cpu_tile_background is True
+    cfg = PhotometryConfig(backend="cpu-tractor", solver="linear",
+                           cpu_tiling=False)
+    assert cfg.cpu_tile_background is True      # accepted, and inert
 
-    with pytest.raises(ConfigError, match="cpu_tiling"):
-        PhotometryConfig(backend="cpu-tractor", solver="linear",
-                         cpu_tiling=False, cpu_tile_background=True)
-    with pytest.raises(ConfigError, match="cpu-tractor"):
-        PhotometryConfig(backend="jax", cpu_tile_background=True)
+
+def test_untiled_path_ignores_the_background_flag(tile_field, caplog):
+    """Inert, and SAID to be inert — not silently dropped."""
+    import logging
+
+    from astropy.coordinates import SkyCoord
+
+    from spherex_photometry.backends.base import FieldContext
+    from spherex_photometry.backends.cpu_backend import CpuTractorBackend
+    from spherex_photometry.io.catalogs import load_catalog, normalize_catalog
+
+    tab = normalize_catalog(load_catalog(tile_field["catalog"]))
+    ctx = FieldContext(catalog=tab, sco_all=SkyCoord(
+        ra=tab["ra"], dec=tab["dec"], unit="deg"), main_idx=0)
+    cfg = PhotometryConfig(backend="cpu-tractor", solver="linear",
+                           cpu_tiling=False, cpu_tile_background=True)
+    with caplog.at_level(logging.INFO, logger="spherex_photometry"):
+        be = CpuTractorBackend(cfg)
+    assert "inert" in caplog.text
+    inputs = be.build(tile_field["cutout"], ctx)
+    assert inputs["fit_sky"] is False
+    assert inputs["tiles"][0].images[0].numberOfParams() == 0

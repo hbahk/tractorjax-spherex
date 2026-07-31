@@ -101,13 +101,15 @@ class PhotometryConfig:
     # geometry") path, which is kept as the cross-check of the tiled result.
     # Ignored by the JAX backend, which is always tiled.
     cpu_tiling: bool = True
-    # Fit one free constant per tile alongside the fluxes (upstream tractor's
-    # ``sky=True``), completing the geometry match with the JAX backend, whose
-    # tiled solve always carries a per-tile background column. Off by default:
-    # the per-cutout ZODI+model prefit is what the whole-cutout path uses, so
-    # leaving it off makes cpu_tiling a pure GEOMETRY change and keeps existing
-    # products reproducible. Requires cpu_tiling=True.
-    cpu_tile_background: bool = False
+    # cpu-tractor tiled path: fit one free constant per tile alongside the
+    # fluxes (upstream tractor's ``sky=True``). The JAX backend's tiled solve
+    # ALWAYS carries this background column, so this on is what makes the two
+    # backends the same solve rather than the same geometry with different
+    # nuisance parameters. On by default for that reason (measured: it cuts the
+    # median CPU-vs-JAX disagreement on S/N>5 sources by 2-4x at no time cost).
+    # Inert with cpu_tiling=False, which has no tiles and is kept as the
+    # reproduction of pre-tiling products; the backend logs that once per run.
+    cpu_tile_background: bool = True
 
     # --- background -------------------------------------------------------
     bkg_model: str = "photutils"
@@ -188,19 +190,14 @@ class PhotometryConfig:
                 f"weighted least-squares solve); got solver={self.solver!r}. Use "
                 f"backend='jax' (device='cpu' works with no GPU) for eigfloor / "
                 f"eigfloor_prior / lasso. See docs/cpu_backend.")
-        # A silently-ignored flag is the failure mode this package has already
-        # been bitten by twice (psf_zone_interp was a no-op on the JAX backend
-        # for a whole release). Say so instead.
-        if self.cpu_tile_background and not self.cpu_tiling:
-            raise ConfigError(
-                "cpu_tile_background=True needs cpu_tiling=True — it fits one "
-                "free constant PER TILE, which the whole-cutout path has no "
-                "tiles for. Either enable cpu_tiling or drop the flag.")
-        if self.cpu_tile_background and self.backend != "cpu-tractor":
-            raise ConfigError(
-                f"cpu_tile_background applies to backend='cpu-tractor'; got "
-                f"backend={self.backend!r}. The JAX backend always fits a "
-                f"per-tile background column, so the flag would do nothing.")
+        # cpu_tile_background is deliberately NOT cross-validated against
+        # backend / cpu_tiling. It is on by default, so an error on either
+        # combination would reject `backend="jax"` and the documented
+        # `cpu_tiling=False` cross-check out of the box. Instead: the JAX
+        # backend always fits the column (so True is simply true there), and
+        # CpuTractorBackend logs once per run when cpu_tiling=False makes it
+        # inert — a log line rather than the silent no-op this package has been
+        # bitten by before.
 
     def wants_auto_caps(self) -> bool:
         """True if any cap is ``"auto"`` and the caps are actually in force."""

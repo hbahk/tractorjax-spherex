@@ -77,16 +77,20 @@ identical reported source set and, on S/N > 5 sources, identical fluxes to a
 median 0.01–0.09 %. The whole-cutout path is retained (`cpu_tiling=False`) as the
 "global geometry" cross-check.
 
+The **per-tile background column is on by default** too
+(`cpu_tile_background`), so the tiled CPU path runs the same solve as the JAX
+backend rather than the same geometry with different nuisance parameters:
+measured, it cuts the median CPU-vs-JAX disagreement on S/N > 5 sources by 2–4×
+at no measurable time cost.
+
 Still open, deliberately:
 
-- **Per-tile background is opt-in** (`cpu_tile_background`, default `False`),
-  where the JAX backend always carries the column. Off keeps `cpu_tiling` a pure
-  geometry change and pre-existing products reproducible. Measured, turning it on
-  cuts the median CPU-vs-JAX disagreement on S/N > 5 sources by 2–4× at no time
-  cost, so **making it the default is the obvious next decision** — it is left to
-  the researcher because it changes published numbers.
 - **Error bars remain a Fisher diagonal.** Upstream's `IV` is not the diagonal of
   the inverted normal matrix, so CPU `flux_err` is not marginalized over co-fit
-  neighbours the way the JAX backend's is. Tiling does not change that; it is an
-  estimator difference and would need work upstream or a local normal-matrix
-  inversion per tile.
+  neighbours the way the JAX backend's is — nor over the per-tile background.
+  Tiling does not change that; it is an estimator difference and would need work
+  upstream or a local normal-matrix inversion per tile.
+- **The residual ~1–2 % CPU-vs-JAX difference** on well-measured sources is now
+  the only remaining cross-backend gap and is engine-level (native-resolution
+  galaxy convolution in Tractor's Fourier path, point-source patch truncation,
+  damped LSQR vs the ridge direct solve). Unattributed.
