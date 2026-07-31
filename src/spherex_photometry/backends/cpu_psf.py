@@ -38,6 +38,15 @@ class OversampledPixelizedPSF(PixelizedPSF):
         # sizes. An even native size mis-centers the model by half a native pixel
         # (~0.5px astrometric error, ~10% flux bias), so reject it loudly rather
         # than bias silently. The standard 51x51 @ sampling=0.2 -> 11 is odd.
+        # PixelizedPSF sets self.radius = hypot(H/2, W/2) in STAMP pixels, but
+        # every consumer (galaxy patch halfsize above all) treats getRadius()
+        # as NATIVE pixels. For an oversampled stamp that inflates the PSF
+        # radius by 1/sampling (51x51 @ 5x: 36 instead of 7.2 native px), so
+        # every galaxy model patch grows by ~+29 px per side and the forced
+        # solve's sparse system gets ~13x the nonzeros -- measured 90+ s per
+        # full-depth cutout against ~5 s once corrected.
+        if sampling != 1.0:
+            self.radius = float(np.hypot(*[d / 2.0 for d in img.shape])) * sampling
         if sampling != 1.0 and (self.nativeH % 2 == 0 or self.nativeW % 2 == 0):
             raise ValueError(
                 f"OversampledPixelizedPSF native output size "

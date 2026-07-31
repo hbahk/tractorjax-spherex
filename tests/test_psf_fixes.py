@@ -156,3 +156,14 @@ def test_cross_backend_agreement_with_fixes(synth_field):
 
     for sid in (1, 2):
         assert flux(cpu_res, sid) == pytest.approx(flux(jax_res, sid), rel=0.01)
+
+
+def test_oversampled_radius_is_native_units():
+    """getRadius() must be NATIVE px. The parent sets stamp-px hypot (36 for
+    51x51@5x); consumers (galaxy patch halfsize) treat it as native, which
+    inflated every galaxy patch by ~+29 px/side and made the full-depth
+    forced solve ~90 s instead of ~5 s."""
+    img = np.zeros((51, 51), np.float32)
+    img[25, 25] = 1.0
+    p = OversampledPixelizedPSF(img, sampling=0.2)
+    assert p.getRadius() == pytest.approx(np.hypot(25.5, 25.5) * 0.2, rel=1e-6)
