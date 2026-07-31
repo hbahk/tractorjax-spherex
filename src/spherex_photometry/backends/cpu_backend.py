@@ -29,9 +29,8 @@ import numpy as np
 from ..constants import SPHEREX_PIXSCALE
 from ..io.cutouts import sample_map_bilinear_vec
 from ..models import sky_pa_to_pixel_pa_batch
-from ..prepare import prepare_pixels, project_sources, select_psf_native
+from ..prepare import prepare_pixels, project_sources
 from .base import FieldContext
-from .cpu_psf import OversampledPixelizedPSF
 
 logger = logging.getLogger(__name__)
 
@@ -69,13 +68,11 @@ class CpuTractorBackend:
 
         sx_all, sy_all = project_sources(cutout, ctx.sco_all)
 
-        # PSF: 5x-oversampled native stamp, normalized to unit flux.
-        psf5x = select_psf_native(cutout, W / 2.0, H / 2.0)
-        s = psf5x.sum()
-        if s > 0:
-            psf5x = psf5x / s
-        psf = OversampledPixelizedPSF(psf5x.astype(np.float32),
-                                      sampling=cfg.psf_sampling)
+        # PSF per the config's PSF-fix flags: zone-blended and/or
+        # core-registered when asked, the plain centre-zone stamp otherwise.
+        from .. import prepare as _prepare
+        from .zone_psf import build_cpu_psf
+        psf = build_cpu_psf(cutout, cfg, prepare=_prepare)
 
         catalog = ctx.catalog
         in_model = ((sx_all > -MODEL_MARGIN) & (sx_all < W + MODEL_MARGIN)

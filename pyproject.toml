@@ -73,6 +73,9 @@ version = { attr = "spherex_photometry.version.__version__" }
 where = ["src"]
 include = ["spherex_photometry*"]
 
+[tool.setuptools.package-data]
+"spherex_photometry.calib" = ["*.ecsv"]
+
 [tool.ruff.lint]
 # Rules kept off on purpose (everything else is ruff's default set for the
 # pinned version above).

@@ -108,11 +108,19 @@ class PhotometryConfig:
     # Spatially-varying PSF: blend the delivered zone kernels bilinearly at
     # each tile's core centre (SPHEREx Sky Simulator convention, clamped at the
     # lattice edge) instead of rounding the tile to one zone. Blended in the
-    # Fourier domain, so the cost is one complex weighted sum per tile rather
-    # than one transform per tile (~+3% wall clock). A no-op on cutouts whose
-    # bundle carries a single PSF zone -- which is what a retrieval without a
-    # zone margin gives for any cutout smaller than the ~185 px zone pitch.
+    # Fourier domain on the JAX backend, per grid cell on the CPU backend
+    # (measured +15% pipelined wall clock at 9-12 zones on the JAX backend
+    # after the grouped-GEMM blend). A no-op on cutouts whose bundle carries a
+    # single PSF zone -- which is what a retrieval without a zone margin gives
+    # for any cutout smaller than the ~185 px zone pitch.
     psf_zone_interp: bool = True
+    # Correct the delivered PSF's core registration: shift each zone kernel by
+    # minus its measured core offset (calib/psf_core_offsets.ecsv, 726/726
+    # detector-zone cells) plus the fixed 0.05 native px 10x->5x binning grid
+    # term. JAX backend: per-basis-element Fourier phase ramps; CPU backend:
+    # Lanczos-shifted stamps. Off by default so pre-existing products stay
+    # reproducible; the SPHEREx deblending campaign runs with it on.
+    psf_core_shift: bool = False
     fixed_max_factor: float = 5.0
 
     # --- execution --------------------------------------------------------

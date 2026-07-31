@@ -22,7 +22,7 @@ import numpy as np
 from tractor_jax.jax import batching as tjb
 from tractor_jax.jax.pipeline import prefetch_pipeline  # noqa: F401  (re-exported)
 
-from ..config import CapExceededError
+from ..config import CapExceededError, ConfigError
 from ..constants import SPHEREX_PIXSCALE
 from ..io.cutouts import sample_map_bilinear_vec
 from ..prepare import (
@@ -105,11 +105,20 @@ def extract_tiled_batches(tile_records, catalog_full, sx_all, sy_all,
     except np.linalg.LinAlgError:
         cd_inv = np.eye(2, dtype=np.float32)
 
-    views = [{
-        "data": t["data"], "invvar": t["invvar"], "psf": t["psf"],
-        "src_indices": t["src_indices"],
-        "origin": (t["tile_meta"]["x_start"], t["tile_meta"]["y_start"]),
-    } for t in tile_records]
+    views = []
+    for t in tile_records:
+        v = {
+            "data": t["data"], "invvar": t["invvar"], "psf": t["psf"],
+            "src_indices": t["src_indices"],
+            "origin": (t["tile_meta"]["x_start"], t["tile_meta"]["y_start"]),
+        }
+        # Zone-interp / core-shift pass-through. Dropping these here was the
+        # bug that made psf_zone_interp a silent no-op on this backend: the
+        # tile builder attached the basis but the engine never saw it.
+        for key in ("psf_basis", "psf_weights", "psf_basis_shifts"):
+            if t.get(key) is not None:
+                v[key] = t[key]
+        views.append(v)
 
     bundle = tjb.build_padded_batches(
         views, catalog_full, sx_all, sy_all,
@@ -123,7 +132,8 @@ def extract_tiled_batches(tile_records, catalog_full, sx_all, sy_all,
 
 def build_cutout_tiles(cutout, *, sx_all, sy_all, tile_size, halo,
                        data_scaled, invvar_scaled, psf_native=None,
-                       psf_select=None, psf_basis=None, psf_weights=None):
+                       psf_select=None, psf_basis=None, psf_weights=None,
+                       psf_basis_shifts=None):
     """Construct tile records (core + halo boxes) for one cutout.
 
     ``psf_select(x, y) -> stamp`` (from
@@ -166,6 +176,10 @@ def build_cutout_tiles(cutout, *, sx_all, sy_all, tile_size, halo,
         if psf_basis is not None and len(psf_basis) > 1:
             rec["psf_basis"] = psf_basis
             rec["psf_weights"] = psf_weights(cx, cy)
+            if psf_basis_shifts is not None:
+                # the SAME (K, 2) array for every tile: the engine memoizes
+                # the native->high-res conversion on the table's identity
+                rec["psf_basis_shifts"] = psf_basis_shifts
         tile_records.append(rec)
     return tile_records
 
@@ -282,15 +296,35 @@ class JaxBackend:
 
         sx_all, sy_all = project_sources(cutout, ctx.sco_all)
 
-        basis = weights = None
+        basis = weights = basis_shifts = None
         if getattr(cfg, "psf_zone_interp", True):
             basis, weights = zone_psf_basis(cutout)
+        if getattr(cfg, "psf_core_shift", False):
+            if basis is None:
+                raise ConfigError(
+                    "psf_core_shift on the JAX backend requires "
+                    "psf_zone_interp=True (the shifts ride on the zone "
+                    "basis); the cpu-tractor backend supports it standalone.")
+            from ..calib import DOWNSAMPLE_GRID_SHIFT_NATIVE, psf_core_shift
+            det = int(cutout.detector)
+            rows = []
+            for z in np.asarray(cutout.psf_zones["zone_id"], dtype=int):
+                cs = psf_core_shift(det, int(z))
+                if cs.source != "zone":
+                    raise ValueError(
+                        f"psf_core_shift(det={det}, zone={int(z)}) fell back "
+                        f"to {cs.source!r}; coverage is 726/726, so a "
+                        "fallback means the detector or zone_id is wrong")
+                rows.append((cs.dy_apply + DOWNSAMPLE_GRID_SHIFT_NATIVE,
+                             cs.dx_apply + DOWNSAMPLE_GRID_SHIFT_NATIVE))
+            basis_shifts = np.asarray(rows, dtype=np.float64)
         tile_records = build_cutout_tiles(
             cutout, sx_all=sx_all, sy_all=sy_all,
             tile_size=cfg.tile_size, halo=cfg.tile_halo,
             data_scaled=data, invvar_scaled=invvar,
             psf_select=zone_psf_selector(cutout),
-            psf_basis=basis, psf_weights=weights)
+            psf_basis=basis, psf_weights=weights,
+            psf_basis_shifts=basis_shifts)
 
         max_ps, max_gal, max_mog_k = cfg.resolved_caps(ctx.occupancy)
         _check_caps(tile_records, ctx.catalog, max_ps, max_gal,
