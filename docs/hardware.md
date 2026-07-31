@@ -90,16 +90,21 @@ only.
 
 Two GPU-free paths, both documented in {doc}`cpu_backend`:
 
-- **JAX engine on CPU** — `PhotometryConfig(device="cpu")`. NOT a performance path: measured ~3.2x SLOWER than the classic Tractor on one core at full catalog depth (the engine is shaped for accelerators; XLA-on-CPU does not vectorize these kernels well). Use it for numerical cross-checks against the GPU path, not for throughput. This
-  forces the JAX CPU backend (`JAX_PLATFORMS=cpu`); it is the exact same
-  validated engine and supports *every* solver ({doc}`solvers`), with no
-  dependency beyond the CPU `jax` that ships with `tractor-jax`. Prefer this
-  whenever you simply lack a GPU.
-- **`cpu-tractor` backend** — `PhotometryConfig(backend="cpu-tractor")`. Forced
-  photometry on the classic upstream Tractor, for JAX-free environments or as an
-  independent cross-check. It supports `linear` only and does a whole-cutout
-  solve with no tiling; `PhotometryConfig` raises a `ConfigError` for any other
-  solver. See {doc}`cpu_backend` for its rendering caveats and depth guidance.
+- **`cpu-tractor` backend** — `PhotometryConfig(backend="cpu-tractor")`. **The
+  recommended GPU-free path.** Forced photometry on the classic upstream
+  Tractor, tiled on the same 15 px core / 3 px halo grid the JAX backend uses
+  (one `optimize_forced_photometry` per tile). Measured ~3.2× faster than the
+  JAX engine on CPU at full catalog depth even before tiling, and 5–10× faster
+  again with it. It supports `linear` only; `PhotometryConfig` raises a
+  `ConfigError` for any other solver. See {doc}`cpu_backend` for the tiling
+  rules, its rendering caveats, and `cpu_tile_background`.
+- **JAX engine on CPU** — `PhotometryConfig(device="cpu")`. NOT a performance
+  path (the engine is shaped for accelerators; XLA-on-CPU does not vectorize
+  these kernels well). It forces the JAX CPU backend (`JAX_PLATFORMS=cpu`) and
+  is the exact same validated engine, supporting *every* solver
+  ({doc}`solvers`), with no dependency beyond the CPU `jax` that ships with
+  `tractor-jax`. Use it for numerical cross-checks against the GPU path, and for
+  the solvers `cpu-tractor` does not have — not for throughput.
 
 On CPU the GPU-memory knobs above (`gpu_preallocate`, `gpu_mem_fraction`,
 `tile_chunk`) have no effect, and `fp64` is comparatively cheap — CPU FP64 is not

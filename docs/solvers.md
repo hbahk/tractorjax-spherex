@@ -80,11 +80,14 @@ PhotometryConfig(solver="linear")
 | `eigfloor_prior` | ✅ | ❌ |
 | `lasso` | ✅ | ❌ |
 
-The upstream-Tractor CPU backend does a single weighted-least-squares solve and
-has no eigenvalue-floor / LASSO / prior estimators, so it supports `linear` only;
-`PhotometryConfig` raises a `ConfigError` for the others. For a GPU-free machine,
-prefer the JAX backend with `device="cpu"` — it supports every solver. See
-{doc}`cpu_backend`.
+The upstream-Tractor CPU backend does weighted-least-squares solves and has no
+eigenvalue-floor / LASSO / prior estimators, so it supports `linear` only;
+`PhotometryConfig` raises a `ConfigError` for the others. It is nevertheless the
+faster GPU-free path, because it solves **per tile** on the JAX backend's grid
+rather than jointly over the whole cutout — which also keeps `linear` well
+conditioned at full catalog depth, where the whole-cutout system is degenerate.
+Use the JAX backend with `device="cpu"` when you need one of the other three
+solvers. See {doc}`cpu_backend`.
 
 ## Protection and depth knobs
 

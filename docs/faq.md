@@ -149,10 +149,11 @@ only the missing cutouts.
 
 ### Can I run without a GPU?
 
-Yes. `PhotometryConfig(device="cpu")` runs the same engine and all four solvers
-on CPU JAX; it is slower but numerically the same code path. The separate
-`cpu-tractor` backend exists for JAX-free environments and as an independent
-cross-check ({doc}`cpu_backend`).
+Yes, and `PhotometryConfig(backend="cpu-tractor")` is the one to reach for: the
+classic Tractor, tiled on the same grid as the GPU path, `linear` only.
+`PhotometryConfig(device="cpu")` runs the same JAX engine and all four solvers on
+CPU — numerically the same code path as the GPU, but markedly slower — so use it
+for cross-checks and for the solvers `cpu-tractor` lacks ({doc}`cpu_backend`).
 
 ### Can I use my own catalog instead of Legacy Survey?
 

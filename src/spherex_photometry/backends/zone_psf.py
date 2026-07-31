@@ -153,57 +153,102 @@ class ZoneBlendedPSF:
                 f"{len(self._delegates)} cells built)")
 
 
-def build_cpu_psf(cutout, cfg, *, prepare):
-    """Resolve the CPU backend's PSF per the config's two PSF-fix flags.
+def zone_stamp_provider(cutout, cfg, *, prepare):
+    """Return ``f(zone_row) -> stamp``, cached, for one row of ``psf_zones``.
+
+    The stamp is the 5x-oversampled native kernel of that zone: 2x-downsampled
+    from the delivered 10x cube plane, normalized to unit flux, and — when
+    ``cfg.psf_core_shift`` is set — Lanczos-shifted by that zone's measured core
+    offset plus the fixed binning-grid term. Each plane is resolved at most once
+    per cutout, so a 49-tile cutout over 12 zones pays 12 downsamples.
 
     ``prepare`` is the :mod:`spherex_photometry.prepare` module (passed in to
     keep this module import-light for tractor-less environments).
+    """
+    zones = cutout.psf_zones
+    cube = cutout.psf_cube
+    core_shift = bool(getattr(cfg, "psf_core_shift", False))
+    sampling = cfg.psf_sampling
+    det = int(cutout.detector) if core_shift else None
+    cache: dict[int, np.ndarray] = {}
+
+    def get(row):
+        row = int(row)
+        stamp = cache.get(row)
+        if stamp is None:
+            stamp = prepare.downsample_psf_oversample2(
+                cube[int(zones["plane_idx"][row])])
+            total = stamp.sum()
+            if total > 0:
+                stamp = stamp / total          # unit flux before any shift
+            if core_shift:
+                from ..calib import DOWNSAMPLE_GRID_SHIFT_NATIVE, psf_core_shift
+                z = int(zones["zone_id"][row])
+                s = psf_core_shift(det, z)
+                if s.source != "zone":
+                    raise ValueError(
+                        f"psf_core_shift(det={det}, zone={z}) fell back to "
+                        f"{s.source!r}; coverage is 726/726, so a fallback "
+                        "means the detector or zone_id is wrong")
+                stamp = shift_stamp_native(
+                    stamp,
+                    s.dy_apply + DOWNSAMPLE_GRID_SHIFT_NATIVE,
+                    s.dx_apply + DOWNSAMPLE_GRID_SHIFT_NATIVE,
+                    sampling)
+            cache[row] = stamp
+        return stamp
+
+    return get
+
+
+def nearest_zone_row(zones, x_orig, y_orig) -> int:
+    """Row of ``psf_zones`` whose centre is nearest detector ``(x_orig, y_orig)``.
+
+    The row index rather than ``plane_idx`` (which
+    :func:`spherex_photometry.prepare.select_zone_plane` returns), because the
+    core-shift table is keyed on ``zone_id`` and only the row knows both.
+    """
+    dx = np.asarray(zones["x"], dtype=np.float64) - float(x_orig)
+    dy = np.asarray(zones["y"], dtype=np.float64) - float(y_orig)
+    return int(np.argmin(dx * dx + dy * dy))
+
+
+def resolve_zone_stamps(cutout, cfg, *, prepare):
+    """Return ``(stamps, interp)`` — the zone kernels the CPU PSF is built from.
+
+    ``stamps`` are unit-flux 5x-oversampled native stamps with the config's core
+    shifts already applied. ``interp`` says whether they form a blend basis
+    (aligned with ``cutout.psf_zones``) or are the single centre-zone kernel of
+    the pre-fix behaviour.
+    """
+    zones = cutout.psf_zones
+    interp = bool(getattr(cfg, "psf_zone_interp", True)) and len(zones) > 1
+    get = zone_stamp_provider(cutout, cfg, prepare=prepare)
+
+    if interp:
+        return [get(r) for r in range(len(zones))], True
+
+    # centre-zone kernel, the pre-fix behaviour
+    H, W = cutout.image.shape
+    xo, yo = prepare.cutout_to_orig(W / 2.0, H / 2.0,
+                                    crpix1a=cutout.crpix1a,
+                                    crpix2a=cutout.crpix2a)
+    return [get(nearest_zone_row(zones, xo, yo))], False
+
+
+def build_cpu_psf(cutout, cfg, *, prepare):
+    """Resolve the CPU backend's PSF per the config's two PSF-fix flags.
 
     Returns a PSF object for ``tractor.Image``: an
     :class:`OversampledPixelizedPSF` when the cutout is single-zone or
     interpolation is off, a :class:`ZoneBlendedPSF` otherwise. Core shifts,
     when enabled, are applied to the zone stamps in either case.
+
+    This is the WHOLE-CUTOUT form, where one ``tractor.Image`` covers every
+    source and the PSF must therefore vary with position. The tiled path wants
+    :func:`build_cpu_psf_selector` instead: one constant kernel per tile.
     """
-    zones = cutout.psf_zones
-    K = len(zones)
-    interp = bool(getattr(cfg, "psf_zone_interp", True)) and K > 1
-    H, W = cutout.image.shape
-
-    if interp:
-        stamps = [prepare.downsample_psf_oversample2(cutout.psf_cube[int(p)])
-                  for p in np.asarray(zones["plane_idx"])]
-        zids = np.asarray(zones["zone_id"], dtype=int)
-    else:
-        # centre-zone kernel, the pre-fix behaviour
-        stamps = [prepare.select_psf_native(cutout, W / 2.0, H / 2.0)]
-        xo, yo = prepare.cutout_to_orig(W / 2.0, H / 2.0,
-                                        crpix1a=cutout.crpix1a,
-                                        crpix2a=cutout.crpix2a)
-        dxz = np.asarray(zones["x"]) - xo
-        dyz = np.asarray(zones["y"]) - yo
-        zids = np.asarray([zones["zone_id"][int(np.argmin(
-            dxz * dxz + dyz * dyz))]], dtype=int)
-
-    # unit flux before any shift
-    stamps = [s / s.sum() if s.sum() > 0 else s for s in stamps]
-
-    if bool(getattr(cfg, "psf_core_shift", False)):
-        from ..calib import DOWNSAMPLE_GRID_SHIFT_NATIVE, psf_core_shift
-        det = int(cutout.detector)
-        shifted = []
-        for stamp, z in zip(stamps, np.asarray(zids, dtype=int)):
-            s = psf_core_shift(det, int(z))
-            if s.source != "zone":
-                raise ValueError(
-                    f"psf_core_shift(det={det}, zone={int(z)}) fell back to "
-                    f"{s.source!r}; coverage is 726/726, so a fallback means "
-                    "the detector or zone_id is wrong")
-            shifted.append(shift_stamp_native(
-                stamp,
-                s.dy_apply + DOWNSAMPLE_GRID_SHIFT_NATIVE,
-                s.dx_apply + DOWNSAMPLE_GRID_SHIFT_NATIVE,
-                cfg.psf_sampling))
-        stamps = shifted
+    stamps, interp = resolve_zone_stamps(cutout, cfg, prepare=prepare)
 
     if not interp:
         return OversampledPixelizedPSF(stamps[0].astype(np.float32),
@@ -215,6 +260,62 @@ def build_cpu_psf(cutout, cfg, *, prepare):
         return prepare.cutout_to_orig(x_cut, y_cut,
                                       crpix1a=crpix1a, crpix2a=crpix2a)
 
-    return ZoneBlendedPSF(stamps, zones, pix_to_det, cfg.psf_sampling,
+    return ZoneBlendedPSF(stamps, cutout.psf_zones, pix_to_det, cfg.psf_sampling,
                           prepare.zone_bilinear_weights,
                           grid=getattr(cfg, "tile_size", 15))
+
+
+def build_cpu_psf_selector(cutout, cfg, *, prepare):
+    """Return ``f(x_cut, y_cut) -> PSF``: one CONSTANT kernel per tile.
+
+    The tiled CPU solve gives each tile its own small ``tractor.Image``, so the
+    PSF does not have to vary inside it — and must not, since the tile image
+    carries tile-local pixel coordinates that a position-dependent
+    :class:`ZoneBlendedPSF` would misread. This mirrors the JAX backend, which
+    resolves the kernel once at each tile's CORE CENTRE and renders the whole
+    tile (halo neighbours included) with it, in both branches:
+
+    * ``psf_zone_interp=True`` -> the bilinear zone blend at that position;
+    * ``psf_zone_interp=False`` -> the nearest zone's kernel at that position
+      (:func:`spherex_photometry.prepare.zone_psf_selector` on the JAX side) —
+      NOT the whole-cutout centre zone, which is what the untiled CPU path uses
+      and which would put every off-centre tile on the wrong kernel.
+
+    Results are cached, so a whole cutout costs at most one blend per tile (and
+    one kernel per zone when interpolation is off).
+    """
+    zones = cutout.psf_zones
+    interp = bool(getattr(cfg, "psf_zone_interp", True)) and len(zones) > 1
+    get_stamp = zone_stamp_provider(cutout, cfg, prepare=prepare)
+    crpix1a, crpix2a = cutout.crpix1a, cutout.crpix2a
+    sampling = cfg.psf_sampling
+    basis = None
+    cache: dict = {}
+
+    def _psf(key, make_stamp):
+        psf = cache.get(key)
+        if psf is None:
+            psf = OversampledPixelizedPSF(
+                np.asarray(make_stamp(), dtype=np.float32), sampling=sampling)
+            cache[key] = psf
+        return psf
+
+    def select(x_cut, y_cut):
+        x_orig, y_orig = prepare.cutout_to_orig(
+            x_cut, y_cut, crpix1a=crpix1a, crpix2a=crpix2a)
+        if not interp:
+            # keyed on the zone row: single-zone cutouts build exactly one PSF
+            row = nearest_zone_row(zones, x_orig, y_orig)
+            return _psf(row, lambda r=row: get_stamp(r))
+
+        def blend():
+            nonlocal basis
+            if basis is None:
+                basis = np.stack([get_stamp(r) for r in range(len(zones))])
+            w = np.asarray(prepare.zone_bilinear_weights(zones, x_orig, y_orig),
+                           dtype=np.float64)
+            return np.tensordot(w, basis, axes=(0, 0))
+
+        return _psf((round(float(x_cut), 6), round(float(y_cut), 6)), blend)
+
+    return select

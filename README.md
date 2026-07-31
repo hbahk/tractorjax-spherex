@@ -131,7 +131,8 @@ PhotometryConfig(gpu_preallocate=False, gpu_mem_fraction=0.45)
 | `linear` | sparse fields / shallow catalogs | yes | degenerate at full LS depth |
 
 See the docs' *Choosing a solver* page for the full trade-offs. The `cpu-tractor`
-backend supports `linear` only.
+backend supports `linear` only, but solves **per tile** on the same grid as the
+GPU path, which keeps `linear` well conditioned even at full catalog depth.
 
 ## Documentation
 

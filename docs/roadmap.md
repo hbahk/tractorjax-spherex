@@ -62,30 +62,31 @@ conversion, simulator paths) unblock the moment the corresponding SPHEREx
 products become public.
 
 
-## Planned: tiled solve for the `cpu-tractor` backend (decided 2026-07-31)
+## Done: tiled solve for the `cpu-tractor` backend (shipped 2026-07-31)
 
-Why: (1) the whole-cutout joint solve is the "global geometry" configuration —
-it carries the bright-end bias the tiled solve removes, and its ~4400-flux
-lsqr is exposed to conditioning (measured 29 s/cutout at full depth vs ~5 s
-for a comparable path); (2) the paper's accurate CPU-vs-GPU comparison wants
-both engines on the same tiled geometry; (3) CPU users get minutes -> seconds.
+Shipped as `cpu_tiling` (default `True`) — see {doc}`cpu_backend`. The tile
+geometry now lives in the backend-neutral {mod}`spherex_photometry.tiling`, which
+both backends import, so the 15 px core / 3 px halo grid is defined once. Tiling
+is ORCHESTRATION around upstream Tractor: each tile is a pure
+`optimize_forced_photometry` on a small `tractor.Tractor`, and the upstream
+engine is untouched.
 
-Identity is preserved: tiling is ORCHESTRATION around upstream Tractor — each
-tile is still a pure `optimize_forced_photometry` solve on a small
-`tractor.Tractor`; the upstream engine is not modified.
+Measured on real full-depth SPHEREx cutouts (a2537 `zm1`, ~4400 modelled
+sources, 49 tiles): **5–10× faster** end-to-end (29 s → 5.5 s), with an
+identical reported source set and, on S/N > 5 sources, identical fluxes to a
+median 0.01–0.09 %. The whole-cutout path is retained (`cpu_tiling=False`) as the
+"global geometry" cross-check.
 
-Sketch:
-- reuse the backend-neutral tile geometry (`iter_tiles`, 15 px core + 3 px
-  halo, the JAX backend's convention) over the prepared cutout;
-- per tile: sources whose positions fall in core+halo -> small Tractor with
-  the tile's data/invvar slices and the tile-centre PSF (ZoneBlendedPSF cell
-  = tile, so the PSF field matches the JAX backend exactly);
-- one `optimize_forced_photometry` per tile (tens of fluxes, so upstream
-  lsqr converges fast); read back only sources whose centres lie in the CORE
-  (halo overlaps never double-count — the engine's tested convention);
-- per-tile background column optional later; keep the per-cutout prefit first.
+Still open, deliberately:
 
-Config: `cpu_tiling: bool = True` (off = current whole-cutout path, kept as
-the cross-check of the global geometry). Tests: tiled == whole-cutout on
-isolated synth sources; tiled speed on a multi-zone full-depth cutout;
-core/halo bookkeeping (no double counts, no drops).
+- **Per-tile background is opt-in** (`cpu_tile_background`, default `False`),
+  where the JAX backend always carries the column. Off keeps `cpu_tiling` a pure
+  geometry change and pre-existing products reproducible. Measured, turning it on
+  cuts the median CPU-vs-JAX disagreement on S/N > 5 sources by 2–4× at no time
+  cost, so **making it the default is the obvious next decision** — it is left to
+  the researcher because it changes published numbers.
+- **Error bars remain a Fisher diagonal.** Upstream's `IV` is not the diagonal of
+  the inverted normal matrix, so CPU `flux_err` is not marginalized over co-fit
+  neighbours the way the JAX backend's is. Tiling does not change that; it is an
+  estimator difference and would need work upstream or a local normal-matrix
+  inversion per tile.

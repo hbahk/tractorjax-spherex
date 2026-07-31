@@ -117,6 +117,11 @@ run in **one `vmap`** on the GPU.
 matrix sizes) and `tile_chunk` splits the tile axis to bound peak GPU memory —
 both are output-preserving ({doc}`hardware`).
 
+The grid itself lives in {mod}`spherex_photometry.tiling`, not in either backend:
+the `cpu-tractor` backend walks the same tiles and runs one upstream
+`optimize_forced_photometry` per tile (`cpu_tiling=True`, the default), so the
+two engines are compared on one geometry rather than two ({doc}`cpu_backend`).
+
 ### 6. Extraction
 
 Because tiles overlap in their halos, a source could be measured twice. It is

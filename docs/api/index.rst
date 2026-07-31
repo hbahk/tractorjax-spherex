@@ -31,6 +31,7 @@ Modules
    spherex_photometry.priors
    spherex_photometry.models
    spherex_photometry.prepare
+   spherex_photometry.tiling
    spherex_photometry.device
    spherex_photometry.constants
    spherex_photometry.io.cutouts

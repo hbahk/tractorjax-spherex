@@ -7,10 +7,13 @@ Two ways to run without a GPU:
    dependencies beyond the CPU `jax` that ships with `tractor-jax`.
 2. **`cpu-tractor` backend** — `PhotometryConfig(backend="cpu-tractor")`. Forced
    photometry on the classic [Tractor](https://github.com/dstndstn/tractor), for
-   JAX-free environments or as an independent cross-check. `linear` solver only.
+   JAX-free environments or as an independent cross-check. `linear` solver only,
+   and **tiled on the same grid as the JAX backend** (see below).
 
-If you just lack a GPU, use option 1. Option 2 exists for users already in the
-Tractor ecosystem and as a second, independent code path.
+**If you lack a GPU, use option 2**, not option 1: measured at full catalog
+depth, the classic Tractor is ~3.2× faster than the JAX engine on CPU, and the
+tiled solve widens that further. Option 1 is for numerical cross-checks against
+the GPU path and for the solvers option 2 does not have.
 
 ## Installing upstream Tractor
 
@@ -53,6 +56,67 @@ oversampled engine vs. upstream Tractor with `OversampledPixelizedPSF`) agree to
 Run `backend="cpu-tractor", solver="linear"` against `backend="jax",
 solver="linear"` on your own field to reproduce it.
 
+## Tiled solve (`cpu_tiling`, on by default)
+
+The backend splits each cutout on the **same tile grid the JAX backend uses** —
+15 px cores with a 3 px halo, from the shared
+{mod}`spherex_photometry.tiling` module — and runs one upstream
+`optimize_forced_photometry` per tile. Each tile is a small, self-contained
+`tractor.Tractor` over the tile's data/invvar slice; the upstream engine is not
+modified in any way. Tiling here is **orchestration**, not a new estimator.
+
+Two things follow from the geometry:
+
+- **A source is modelled in every tile whose halo box it falls in, and reported
+  from the one tile whose *core* box contains it.** Cores tile the cutout exactly
+  (the last row/column is clipped at the edge), so every in-cutout source is
+  claimed by exactly one tile — halo overlaps can neither double-count nor drop
+  it. The halo copies exist so each tile's local deblend is right; their fitted
+  values are discarded.
+- **Each tile gets one constant PSF**, the zone kernels blended at that tile's
+  core centre (or, with `psf_zone_interp=False`, the nearest zone to it) — the
+  same piecewise-constant PSF field the JAX backend renders with.
+
+Why it is the default:
+
+- **Speed.** Tens of fluxes per tile instead of thousands per cutout, and the
+  small systems converge fast. Measured on real SPHEREx cutouts (~100×100 px,
+  49 tiles): **5–10× faster at full catalog depth** (29 s → 5.5 s per cutout,
+  ~3800 reported sources) and ~1.9× at `fit_zmag_max=21`.
+- **Conditioning.** The whole-cutout system at full LS depth is degenerate; each
+  tile's is not. This is why the untiled path needs a depth cut and the tiled one
+  does not.
+- **Comparability.** With both engines on one geometry, a CPU-vs-GPU comparison
+  measures the engines rather than the tiling.
+
+It does not change the answer where the answer is well defined: on the same real
+cutouts, restricted to sources the JAX backend detects at S/N > 5, tiled and
+whole-cutout fluxes agree to a **median 0.01–0.09 %** (p90 0.15–0.2 % at
+`fit_zmag_max=21`). The tails at full depth are large — that is the degeneracy
+of the whole-cutout system, which is the thing tiling removes, not a
+disagreement about a measurable quantity.
+
+Set `cpu_tiling=False` for the original **whole-cutout** solve: one joint fit over
+every source in the cutout. It is kept as the independent "global geometry"
+cross-check. At full LS depth that system is degenerate, so keep `fit_zmag_max`
+at a sensible depth (≈ 21) when you use it.
+
+### Per-tile background
+
+`prepare_pixels` subtracts a ZODI+model background fit once per cutout, on both
+paths. The JAX backend additionally carries a **free constant per tile**, solved
+jointly with the fluxes, which absorbs whatever DC the per-cutout prefit left
+behind. Set `cpu_tile_background=True` to fit one here too (upstream Tractor's
+`sky=True`) and complete the match; it requires `cpu_tiling=True`.
+
+It is **off by default** so that `cpu_tiling` on its own is a pure geometry
+change and pre-existing products stay reproducible. Turn it on when you are
+comparing against the JAX backend, or when you suspect residual background
+structure the per-cutout fit did not capture: on real cutouts it moves the CPU
+result measurably *towards* the JAX one, cutting the median S/N > 5 disagreement
+by 2–4× (e.g. 0.65 % → 0.19 % and 1.4 % → 0.32 % on two a2537 cutouts at
+`fit_zmag_max=21`), for no measurable time cost.
+
 ## Limitations of the `cpu-tractor` backend
 
 - **`linear` only.** No eigenvalue-floor / LASSO / SED-prior estimators.
@@ -61,7 +125,9 @@ solver="linear"` on your own field to reproduce it.
   Fourier convolution, so a well-resolved Sérsic is less accurate than in the JAX
   backend (which renders the whole galaxy at 5×). Most SPHEREx sources are
   unresolved, so this rarely matters; use the JAX backend if it does.
-- **Whole-cutout solve.** No tiling; at full LS depth the single WLS is
-  degenerate — keep `fit_zmag_max` at a sensible depth (≈ 21) for this backend.
-- **Background** is fit once per cutout (the JAX backend additionally fits a small
-  per-tile residual background column).
+- **Error bars are a Fisher diagonal.** Upstream returns `Σ (t·σ⁻¹)²` per source,
+  not the diagonal of the inverted normal matrix, so `flux_err` is *not*
+  marginalized over co-fit neighbours (nor over the per-tile background when it
+  is enabled). The JAX backend's variances are. Expect CPU errors to be
+  systematically smaller in blended tiles — this is an estimator difference, not
+  a tiling one.

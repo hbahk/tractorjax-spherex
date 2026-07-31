@@ -10,11 +10,14 @@ The engine renders every source on a 5x-oversampled grid (``psf_sampling=0.2``,
 convolution is done at oversampled resolution — the accurate low-resolution flux
 estimate. Cutouts are split into ``tile_size`` cores with a halo and all tiles
 of a cutout are solved in one ``vmap``.
+
+The tile grid itself lives in :mod:`spherex_photometry.tiling` and is shared with
+the ``cpu-tractor`` backend (re-exported here for callers that import it from
+this module), so a CPU-vs-GPU comparison is a comparison of engines rather than
+of geometries.
 """
 
 from __future__ import annotations
-
-import math
 
 import numpy as np
 
@@ -31,55 +34,12 @@ from ..prepare import (
     zone_psf_basis,
     zone_psf_selector,
 )
+from ..tiling import (
+    extract_tile_region,
+    iter_tiles,
+    shift_wcs,
+)
 from .base import FieldContext
-
-
-# --------------------------------------------------------------------------- #
-# Tiling helpers
-# --------------------------------------------------------------------------- #
-def iter_tiles(H, W, tile_size, halo):
-    """Yield tile metadata covering an H x W cutout (core box clipped, halo padded)."""
-    nx = max(1, math.ceil(W / tile_size))
-    ny = max(1, math.ceil(H / tile_size))
-    for iy in range(ny):
-        for ix in range(nx):
-            x0 = ix * tile_size
-            y0 = iy * tile_size
-            core_x1 = min(x0 + tile_size, W)
-            core_y1 = min(y0 + tile_size, H)
-            yield {
-                "ix": ix, "iy": iy,
-                "core_x0": x0, "core_y0": y0,
-                "core_x1": core_x1, "core_y1": core_y1,
-                "x_start": x0 - halo, "y_start": y0 - halo,
-                "x_end": x0 + tile_size + halo, "y_end": y0 + tile_size + halo,
-            }
-
-
-def extract_tile_region(arr, x_start, y_start, x_end, y_end, fill=0.0):
-    """Slice ``arr[y_start:y_end, x_start:x_end]``, zero-padding out-of-bounds."""
-    H, W = arr.shape
-    th = y_end - y_start
-    tw = x_end - x_start
-    out = np.full((th, tw), fill, dtype=arr.dtype)
-    im_x0 = max(0, x_start)
-    im_y0 = max(0, y_start)
-    im_x1 = min(W, x_end)
-    im_y1 = min(H, y_end)
-    if im_x1 > im_x0 and im_y1 > im_y0:
-        out[im_y0 - y_start: im_y1 - y_start,
-            im_x0 - x_start: im_x1 - x_start] = arr[im_y0:im_y1, im_x0:im_x1]
-    return out
-
-
-def shift_wcs(wcs, x_start, y_start):
-    """Return a WCS whose pixel (0,0) maps to the original ``(x_start, y_start)``.
-
-    Uses ``WCS.slice`` so both ``wcs.wcs.crpix`` and ``wcs.sip.crpix`` shift
-    together (hand-editing crpix alone mis-projects the SIP polynomial).
-    """
-    return wcs.slice((slice(int(y_start), int(y_start) + 10**6),
-                      slice(int(x_start), int(x_start) + 10**6)))
 
 
 # --------------------------------------------------------------------------- #
