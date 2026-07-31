@@ -2,7 +2,7 @@
 
 Two ways to run without a GPU:
 
-1. **JAX engine on CPU** (recommended) — `PhotometryConfig(device="cpu")`. Same
+1. **JAX engine on CPU** — `PhotometryConfig(device="cpu")`. NOT a performance path: measured ~3.2x SLOWER than the classic Tractor on one core at full catalog depth (the engine is shaped for accelerators; XLA-on-CPU does not vectorize these kernels well). Use it for numerical cross-checks against the GPU path, not for throughput. Same
    validated engine, every solver, accurate oversampled rendering. No extra
    dependencies beyond the CPU `jax` that ships with `tractor-jax`.
 2. **`cpu-tractor` backend** — `PhotometryConfig(backend="cpu-tractor")`. Forced

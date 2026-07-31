@@ -60,3 +60,32 @@ None of these blocks the v0.1 product. Each is an additive layer on the same
 forced-photometry core, and the deferred data-dependent items (secondary-catalog
 conversion, simulator paths) unblock the moment the corresponding SPHEREx
 products become public.
+
+
+## Planned: tiled solve for the `cpu-tractor` backend (decided 2026-07-31)
+
+Why: (1) the whole-cutout joint solve is the "global geometry" configuration —
+it carries the bright-end bias the tiled solve removes, and its ~4400-flux
+lsqr is exposed to conditioning (measured 29 s/cutout at full depth vs ~5 s
+for a comparable path); (2) the paper's accurate CPU-vs-GPU comparison wants
+both engines on the same tiled geometry; (3) CPU users get minutes -> seconds.
+
+Identity is preserved: tiling is ORCHESTRATION around upstream Tractor — each
+tile is still a pure `optimize_forced_photometry` solve on a small
+`tractor.Tractor`; the upstream engine is not modified.
+
+Sketch:
+- reuse the backend-neutral tile geometry (`iter_tiles`, 15 px core + 3 px
+  halo, the JAX backend's convention) over the prepared cutout;
+- per tile: sources whose positions fall in core+halo -> small Tractor with
+  the tile's data/invvar slices and the tile-centre PSF (ZoneBlendedPSF cell
+  = tile, so the PSF field matches the JAX backend exactly);
+- one `optimize_forced_photometry` per tile (tens of fluxes, so upstream
+  lsqr converges fast); read back only sources whose centres lie in the CORE
+  (halo overlaps never double-count — the engine's tested convention);
+- per-tile background column optional later; keep the per-cutout prefit first.
+
+Config: `cpu_tiling: bool = True` (off = current whole-cutout path, kept as
+the cross-check of the global geometry). Tests: tiled == whole-cutout on
+isolated synth sources; tiled speed on a multi-zone full-depth cutout;
+core/halo bookkeeping (no double counts, no drops).
