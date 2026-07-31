@@ -94,25 +94,24 @@ from __future__ import annotations
 
 import os
 from functools import lru_cache
-from typing import Optional
 
 import numpy as np
 from astropy.table import Table
 
 __all__ = [
-    "CoreOffset",
-    "CoreShift",
-    "TABLE_PATH",
     "NATIVE_PX_ARCSEC",
     "OVERSAMP",
+    "TABLE_PATH",
+    "CoreOffset",
+    "CoreShift",
+    "coverage",
     "load_core_offset_table",
     "psf_core_offset",
     "psf_core_shift",
     "psf_core_shift_arcsec",
-    "psf_core_shift_oversampled",
-    "psf_core_shift_for_kernel",
     "psf_core_shift_batch",
-    "coverage",
+    "psf_core_shift_for_kernel",
+    "psf_core_shift_oversampled",
 ]
 
 TABLE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -139,7 +138,7 @@ class _Pair:
     the fallback provenance without ever landing in the unpacked pair.
     """
 
-    __slots__ = ("_dy", "_dx", "source")
+    __slots__ = ("_dx", "_dy", "source")
 
     def __init__(self, dy, dx, source="zone"):
         object.__setattr__(self, "_dy", float(dy))
@@ -215,7 +214,7 @@ class CoreShift(_Pair):
 
 
 @lru_cache(maxsize=4)
-def load_core_offset_table(path: Optional[str] = None) -> Table:
+def load_core_offset_table(path: str | None = None) -> Table:
     """Read (and cache) the committed core-offset ECSV.
 
     The table is static: it is measured once by
@@ -233,7 +232,7 @@ def load_core_offset_table(path: Optional[str] = None) -> Table:
 
 
 @lru_cache(maxsize=4)
-def _index(path: Optional[str] = None):
+def _index(path: str | None = None):
     """Build the O(1) lookup structures and the fallback medians."""
     tab = load_core_offset_table(path)
     by_key = {}
@@ -245,7 +244,7 @@ def _index(path: Optional[str] = None):
         if md5:
             by_md5.setdefault(md5, (float(row["dy_core"]), float(row["dx_core"])))
     det_median = {}
-    for det in sorted(set(int(d) for d in tab["detector"])):
+    for det in sorted({int(d) for d in tab["detector"]}):
         sel = tab["detector"] == det
         det_median[det] = (
             float(np.median(tab["dy_core"][sel])),

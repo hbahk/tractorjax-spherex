@@ -6,7 +6,7 @@ were derived (research note 2026-07-30-psf-centring-audit). The loader module
 carries the full sign-convention documentation; read it before using either
 direction of the pair.
 """
-from .psf_core_offsets import (  # noqa: F401
+from .psf_core_offsets import (
     DOWNSAMPLE_GRID_SHIFT_NATIVE,
     psf_core_offset,
     psf_core_shift,
