@@ -46,7 +46,7 @@ from ..constants import SPHEREX_PIXSCALE
 from ..io.cutouts import sample_map_bilinear_vec
 from ..models import sky_pa_to_pixel_pa_batch
 from ..prepare import prepare_pixels, project_sources
-from ..tiling import extract_tile_region, iter_tiles
+from ..tiling import extract_tile_region, iter_tiles, tile_core_index
 from .base import FieldContext
 
 logger = logging.getLogger(__name__)
@@ -150,6 +150,20 @@ def _forced_solve(trac, *, fit_sky=False):
     that would prepend sky entries to ``IV`` and shift every source's variance
     by one (and it is broken upstream anyway). A shorter or absent ``IV`` becomes
     NaN variances rather than a misaligned gather.
+
+    **Unconstrained sources report no flux, not the seed.** Upstream's forced
+    photometry is an *update* from the current parameters: a source no live pixel
+    constrains (its whole footprint masked, or the entire tile masked) has an
+    all-zero column, which the optimizer drops — or, if every column is zero, it
+    abandons the solve entirely — WITHOUT calling ``setParams``. The source is
+    then still carrying the ``Flux(0.1)`` seed it was constructed with, and
+    reading its brightness back would publish a fabricated ~0.1 mJy detection.
+    ``IV == 0`` identifies exactly those sources (it is a sum of squared weighted
+    template values, zero iff nothing constrains them), so they are reported as
+    flux 0 with infinite error — which is what the JAX backend returns for the
+    same source. Tiling makes this reachable in ordinary data: one masked
+    bright-star or bad-pixel footprint can cover a whole 21x21 tile, where the
+    whole-cutout solve needed the entire cutout to be unusable.
     """
     n = len(trac.getCatalog())
     if n == 0:
@@ -160,15 +174,21 @@ def _forced_solve(trac, *, fit_sky=False):
                        for src in trac.getCatalog()], dtype=np.float64)
     iv = getattr(res, "IV", None)
     variances = np.full(n, np.nan)
-    if iv is not None:
-        iv = np.asarray(iv, dtype=np.float64).ravel()
-        if iv.size >= n:
-            with np.errstate(divide="ignore", invalid="ignore"):
-                variances = np.where(iv[:n] > 0, 1.0 / iv[:n], np.nan)
-        else:
-            logger.warning("optimize_forced_photometry returned %d inverse "
-                           "variances for %d sources; reporting NaN errors",
-                           iv.size, n)
+    if iv is None:
+        logger.warning("optimize_forced_photometry returned no inverse "
+                       "variances; reporting NaN errors for %d sources", n)
+        return fluxes, variances
+    iv = np.asarray(iv, dtype=np.float64).ravel()
+    if iv.size < n:
+        logger.warning("optimize_forced_photometry returned %d inverse "
+                       "variances for %d sources; reporting NaN errors",
+                       iv.size, n)
+        return fluxes, variances
+    iv = iv[:n]
+    constrained = iv > 0
+    with np.errstate(divide="ignore", invalid="ignore"):
+        variances = np.where(constrained, 1.0 / iv, np.inf)
+    fluxes = np.where(constrained, fluxes, 0.0)
     return fluxes, variances
 
 
@@ -255,12 +275,19 @@ class CpuTractorBackend:
 
         make_source = _SourceMaker(cutout, ctx.catalog, model_ci)
 
+        # Which tile OWNS each source, i.e. whose core box contains it (-1 for
+        # the out-of-cutout ones, which are modelled but never reported). Cores
+        # partition [0,W)x[0,H) exactly, so this single-valued lookup is what
+        # makes halo overlaps impossible to double-count or drop.
+        metas = list(iter_tiles(H, W, tile_size, halo))
+        owner = tile_core_index(metas, sx_all, sy_all)
+
         tiles: list = []
         report_ci_parts: list = []
         report_pos_parts: list = []
         slot_base = 0
         n_model = 0
-        for meta in iter_tiles(H, W, tile_size, halo):
+        for ti, meta in enumerate(metas):
             xs, ys = meta["x_start"], meta["y_start"]
             xe, ye = meta["x_end"], meta["y_end"]
             in_box = (mx >= xs) & (mx < xe) & (my >= ys) & (my < ye)
@@ -277,13 +304,7 @@ class CpuTractorBackend:
                 psf_select(cx, cy), fit_sky=fit_sky)
             tiles.append(tractor.Tractor([tim], srcs))
 
-            # Read back ONLY the sources whose centres lie in this tile's CORE.
-            # Cores tile [0,W)x[0,H) exactly, so every in-cutout source is
-            # claimed by exactly one tile: no double counts, no drops.
-            core = ((sx_all[idxs] >= meta["core_x0"])
-                    & (sx_all[idxs] < meta["core_x1"])
-                    & (sy_all[idxs] >= meta["core_y0"])
-                    & (sy_all[idxs] < meta["core_y1"]))
+            core = owner[idxs] == ti       # read back only this tile's own
             report_ci_parts.append(idxs[core])
             report_pos_parts.append(slot_base + np.where(core)[0])
             slot_base += idxs.size
@@ -313,7 +334,16 @@ class CpuTractorBackend:
             f, v = _forced_solve(trac, fit_sky=fit_sky)
             fluxes.append(f)
             variances.append(v)
-        return np.concatenate(fluxes), np.concatenate(variances)
+        fluxes = np.concatenate(fluxes)
+        variances = np.concatenate(variances)
+        # Sources no live pixel constrains come back as flux 0 / error inf (see
+        # _forced_solve). Say how many, so a fully masked tile shows up in the
+        # log instead of only as a column of infinite errors in the product.
+        blind = int(np.sum(~np.isfinite(variances) & ~np.isnan(variances)))
+        if blind:
+            logger.info("%d of %d fitted slots had no constraining pixels "
+                        "(flux 0, error inf)", blind, fluxes.size)
+        return fluxes, variances
 
     # ---- extract ---------------------------------------------------------
     def extract(self, inputs, fluxes, variances):

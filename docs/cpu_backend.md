@@ -125,6 +125,13 @@ by 2–4× (e.g. 0.65 % → 0.19 % and 1.4 % → 0.32 % on two a2537 cutouts at
   Fourier convolution, so a well-resolved Sérsic is less accurate than in the JAX
   backend (which renders the whole galaxy at 5×). Most SPHEREx sources are
   unresolved, so this rarely matters; use the JAX backend if it does.
+- **Sources with no live pixels report flux 0 and infinite error.** Upstream's
+  forced photometry *updates* the current parameters, so a source nothing
+  constrains — its whole footprint masked, or its whole tile masked — is never
+  stepped and would otherwise report the internal seed value as a measurement.
+  Those rows are zeroed and given an infinite error, matching what the JAX
+  backend returns; filter on `np.isfinite(flux_err)` if you want only measured
+  points. The count is logged per cutout.
 - **Error bars are a Fisher diagonal.** Upstream returns `Σ (t·σ⁻¹)²` per source,
   not the diagonal of the inverted normal matrix, so `flux_err` is *not*
   marginalized over co-fit neighbours (nor over the per-tile background when it

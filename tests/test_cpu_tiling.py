@@ -359,6 +359,51 @@ def test_tile_background_is_a_small_correction_after_a_real_prefit(tile_field):
 
 
 # --------------------------------------------------------------------------- #
+# A source no pixel constrains must not report the Flux(0.1) seed
+# --------------------------------------------------------------------------- #
+def test_fully_masked_tile_reports_no_flux_not_the_seed(tmp_path):
+    """Upstream's forced photometry is an UPDATE from the current parameters: a
+    source with an all-zero column is never stepped, so it still carries the
+    Flux(0.1) seed. Reading that back would publish a fabricated ~0.1 mJy
+    detection. Tiling makes this reachable — one masked bright-star footprint can
+    cover a whole 21x21 tile, where the whole-cutout solve needed the entire
+    cutout to be unusable.
+    """
+    from astropy.io import fits
+
+    from fixtures.synth import make_synth_catalog, make_synth_field
+    from spherex_photometry.constants import MASKBITS
+
+    srcs = [{"x": 7.0, "y": 7.0, "flux_mjy": 4.0},      # tile (0,0) core
+            {"x": 30.0, "y": 8.0, "flux_mjy": 3.0}]     # untouched
+    d = tmp_path / "cut"
+    make_synth_field(d, n_cutouts=1, seed=2, sources=srcs)
+    path = min(d.glob("cutout_*.fits"))
+
+    # mask tile (0,0)'s ENTIRE in-cutout halo box, [0,18) x [0,18)
+    bit = int(MASKBITS) & -int(MASKBITS)      # lowest bit that MASKBITS selects
+    with fits.open(path, mode="update") as hdul:
+        hdul["FLAGS"].data[0:18, 0:18] |= bit
+
+    c0 = read_cutout(path)
+    cat = tmp_path / "cat.parquet"
+    make_synth_catalog(cat, srcs, c0.wcs)
+    field = {"cutouts_dir": d, "catalog": cat}
+
+    res = _run(field, cpu_tiling=True)
+    res.sort("id")
+    flux = np.asarray(res["flux"])
+    ferr = np.asarray(res["flux_err"])
+
+    # source 1: no live pixel constrains it -> no flux, infinite error.
+    assert flux[0] == 0.0, f"reported {flux[0]} — the Flux(0.1) seed leaked out"
+    assert not np.isfinite(ferr[0])
+    # source 2 is unaffected and still measured
+    assert flux[1] == pytest.approx(srcs[1]["flux_mjy"], rel=0.05)
+    assert np.isfinite(ferr[1]) and ferr[1] > 0
+
+
+# --------------------------------------------------------------------------- #
 # Config surface
 # --------------------------------------------------------------------------- #
 def test_cpu_tiling_defaults_on_and_round_trips(tmp_path):
