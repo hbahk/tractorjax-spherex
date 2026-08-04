@@ -30,7 +30,7 @@ On the CLI, `--config run.yaml` loads a file and any explicit flags override it.
 | `lasso_alpha` | `"auto"` | LASSO penalty; `"auto"` = per-tile `sqrt(2 ln p)` |
 | `lasso_n_iter` | `1000` | FISTA iterations (`lasso`) |
 | `protect_zmag_max` | `20.0` | bright-source protection tier (`lasso`, `eigfloor_prior`) |
-| `prior_sigma_frac` | `0.5` | `sigma_prior = frac * f_SED` (`eigfloor_prior`) |
+| `prior_sigma_frac` | `0.15` | `sigma_prior = frac * f_SED` (`eigfloor_prior`); plateau scan over 0.05–0.5 on WISE/IRAC anchors — bright-end fidelity saturates below ~0.15, photo-z insensitive throughout |
 | `prior_sigma_min_ujy` | `5.0` | floor on `sigma_prior` [µJy] (`eigfloor_prior`) |
 
 ### Catalog depth

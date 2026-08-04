@@ -46,12 +46,18 @@ instead of floating freely. Requires SED band columns in the catalog
 (`dered_flux_*` / `flux_*`); sources without a usable SED stay free.
 
 ```python
-PhotometryConfig(solver="eigfloor_prior", prior_sigma_frac=0.5,
+PhotometryConfig(solver="eigfloor_prior", prior_sigma_frac=0.15,
                  prior_sigma_min_ujy=5.0, protect_zmag_max=20.0)
 ```
 
 The `prior_sigma_min_ujy` floor matters: without it, ultra-faint SED predictions
 inflate the relative eigen-floor and crush *all* fluxes (protected included).
+It is also what bounds `prior_sigma_frac` from below: a plateau scan over
+0.05–0.5 against WISE/IRAC broadband anchors shows bright-end fidelity improving
+monotonically as the prior tightens and saturating below ~0.15, because below
+that the 5 µJy floor rather than the fraction sets the width for the faint
+population. Photo-z metrics are insensitive to the fraction across the whole
+range, so `0.15` is adopted as the plateau entry point.
 
 ### `linear` — plain WLS
 

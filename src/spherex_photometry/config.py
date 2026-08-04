@@ -67,7 +67,12 @@ class PhotometryConfig:
     lasso_alpha: float | str = "auto"
     lasso_n_iter: int = 1000
     protect_zmag_max: float = 20.0
-    prior_sigma_frac: float = 0.5
+    # Plateau scan over 0.05-0.5 against WISE/IRAC broadband anchors (2026-08-03):
+    # bright-end fidelity improves monotonically as the prior tightens and
+    # saturates below ~0.15, where `prior_sigma_min_ujy` (not this fraction) sets
+    # the width for the faint population; photo-z metrics are insensitive across
+    # the whole range. 0.15 is the plateau entry point and the adopted default.
+    prior_sigma_frac: float = 0.15
     prior_sigma_min_ujy: float = 5.0
 
     # --- catalog depth ----------------------------------------------------
