@@ -46,3 +46,5 @@ intersphinx_mapping = {
 }
 
 exclude_patterns = ["_build"]
+
+html_extra_path = ["googlee20a25095441ea75.html"]
