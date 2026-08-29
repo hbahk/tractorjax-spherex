@@ -106,7 +106,7 @@ constant carried over from another field.
 
 | field | default | meaning |
 |---|---|---|
-| `bkg_model` | `"photutils"` | `photutils` / `cwave+photutils` / `plane` / `none` ({doc}`backgrounds_systematics`) |
+| `bkg_model` | `"cwave+photutils"` | `photutils` / `cwave+photutils` / `plane` / `none` ({doc}`backgrounds_systematics`) |
 | `bkg_box_size` | `10` | `Background2D` box size |
 | `bkg_filter_size` | `3` | `Background2D` filter size |
 | `bkg_cwave_nbins` | `48` | wavelength bins for the airglow profile (`cwave+photutils`) |
@@ -117,7 +117,15 @@ constant carried over from another field.
 | field | default | meaning |
 |---|---|---|
 | `psf_sampling` | `0.2` | native-pixel size per PSF-stamp pixel (0.2 = 5× oversampled) |
+| `psf_zone_interp` | `True` | blend the delivered zone kernels bilinearly at each tile centre instead of rounding to one zone |
+| `psf_core_shift` | `True` | re-register each zone kernel's core onto its declared fiducial (`calib/psf_core_offsets.ecsv`, 726/726 cells) |
 | `fixed_max_factor` | `5.0` | oversampled rendering factor |
+
+`psf_core_shift` needs `psf_zone_interp=True` on `backend="jax"` (the shifts are
+applied as phase ramps on the zone basis); `backend="cpu-tractor"` shifts the
+stamp directly and supports it standalone. Turning it off costs real flux
+accuracy on blends — measured on one blended QSO, p90 13–15% per visit on both
+backends — so leave it on unless you are reproducing a pre-0.2 product.
 
 ### Execution
 

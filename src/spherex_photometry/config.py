@@ -2,7 +2,8 @@
 
 :class:`PhotometryConfig` captures every optimization option in one place, with
 the frozen "F3" blind-production defaults (solver ``eigfloor``, tile 15 / halo 3
-/ pad-bucket 32 / prefetch thread / fp32). It serialises to/from YAML and TOML
+/ pad-bucket 32 / prefetch thread / fp32, ``cwave+photutils`` background and PSF
+core re-registration on). It serialises to/from YAML and TOML
 so a run is fully reproducible from a single file. See the *Choosing a solver*
 and *Configuration* pages in the docs for the trade-offs behind each field.
 """
@@ -117,7 +118,12 @@ class PhotometryConfig:
     cpu_tile_background: bool = True
 
     # --- background -------------------------------------------------------
-    bkg_model: str = "photutils"
+    # CWAVE-aware by default: the LVF maps wavelength onto detector stripes, so
+    # an airglow line (He I 1.083 um above all) is a stripe that a 2-D
+    # background cannot see. Fitting the wavelength profile first takes the
+    # He-line residual from +4.84 sigma to -0.08 sigma; the campaign carries it
+    # unconditionally. `photutils` is the A/B control, not the recommendation.
+    bkg_model: str = "cwave+photutils"
     bkg_box_size: int = 10
     bkg_filter_size: int = 3
     bkg_cwave_nbins: int = 48
@@ -140,9 +146,13 @@ class PhotometryConfig:
     # minus its measured core offset (calib/psf_core_offsets.ecsv, 726/726
     # detector-zone cells) plus the fixed 0.05 native px 10x->5x binning grid
     # term. JAX backend: per-basis-element Fourier phase ramps; CPU backend:
-    # Lanczos-shifted stamps. Off by default so pre-existing products stay
-    # reproducible; the SPHEREx deblending campaign runs with it on.
-    psf_core_shift: bool = False
+    # Lanczos-shifted stamps. ON by default: without it every source is rendered
+    # ~0.05 native px (~0.3") off its catalog position, which is a real flux
+    # error on a blend -- measured on one blended QSO, turning it off moves the
+    # target's per-visit fluxes by up to 13-15% (p90) on both backends. The
+    # SPHEREx deblending campaign runs with it on. Requires psf_zone_interp on
+    # the JAX backend (the shifts ride on the zone basis).
+    psf_core_shift: bool = True
     fixed_max_factor: float = 5.0
 
     # --- execution --------------------------------------------------------
@@ -195,6 +205,18 @@ class PhotometryConfig:
                 f"weighted least-squares solve); got solver={self.solver!r}. Use "
                 f"backend='jax' (device='cpu' works with no GPU) for eigfloor / "
                 f"eigfloor_prior / lasso. See docs/cpu_backend.")
+        # On the JAX backend the core shifts are applied as phase ramps on the
+        # zone basis, so they need that basis to exist. This combination became
+        # reachable by accident when psf_core_shift moved to True by default --
+        # a user who only sets psf_zone_interp=False would otherwise hit the
+        # error deep in the backend, one cutout into the run.
+        if (self.backend == "jax" and self.psf_core_shift
+                and not self.psf_zone_interp):
+            raise ConfigError(
+                "psf_core_shift=True requires psf_zone_interp=True on "
+                "backend='jax' (the core shifts ride on the zone basis). Set "
+                "psf_core_shift=False to keep psf_zone_interp=False, or use "
+                "backend='cpu-tractor', which supports the shift standalone.")
         # cpu_tile_background is deliberately NOT cross-validated against
         # backend / cpu_tiling. It is on by default, so an error on either
         # combination would reject `backend="jax"` and the documented

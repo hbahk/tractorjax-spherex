@@ -17,13 +17,15 @@ ZODI estimate is never discarded). Selection is `config.bkg_model`, one of
 pixels: flagged (`MASKBITS`), source-flagged (used only to mask the fit, never
 the photometry), and non-finite/non-positive `VARIANCE`.
 
-### `photutils` — 2-D residual background (default)
+### `photutils` — 2-D residual background
 
 Runs {class}`photutils.background.Background2D` on the **ZODI-subtracted
 residual** `img - zodi` (default box `10`, filter `3`) and adds the result to the
 ZODI base. This is the general-purpose choice: it removes smooth large-scale
 residual structure the ZODI model missed without assuming a functional form. Use
-it for most fields.
+it when you specifically want the airglow term out of the way — it is the A/B
+control for `cwave+photutils`, which is the default and does this same 2-D step
+after removing the wavelength profile.
 
 ```python
 PhotometryConfig(bkg_model="photutils", bkg_box_size=10, bkg_filter_size=3)
@@ -32,7 +34,7 @@ PhotometryConfig(bkg_model="photutils", bkg_box_size=10, bkg_filter_size=3)
 If the cutout is smaller than `bkg_box_size` in either axis (or `Background2D`
 raises), the model returns the ZODI base unchanged.
 
-### `cwave+photutils` — airglow-line removal, then 2-D
+### `cwave+photutils` — airglow-line removal, then 2-D (default)
 
 SPHEREx sits in low-Earth orbit and sees **geocoronal airglow** — most notably
 the He I 1.083 µm line. Because the linear variable filter (LVF) maps a fixed
@@ -45,9 +47,17 @@ by each pixel's central wavelength (a monotone PCHIP through per-bin medians,
 `bkg_cwave_nbins=48` bins, `bkg_cwave_min_per_bin=20` pixels), subtracts it, and
 *then* runs the standard `Background2D` on what remains. It falls back to plain
 `photutils` when no `CWAVE` map is present or there are too few valid pixels to
-bin. Use it for visits where airglow is significant — near 1.083 µm or otherwise
-elevated — and keep `include_wavelength=True` at retrieval so the `CWAVE` map is
-in the cutout.
+bin. Keep `include_wavelength=True` at retrieval so the `CWAVE` map is in the
+cutout.
+
+This is the **default**, and it is not conditional on the field looking like it
+has airglow: on the SPHEREx deblending campaign it takes the He 1.083 µm line
+residual from +4.84σ to −0.08σ, and it is a wavelength-domain step, so there is
+no reason to make it opt-in. Where there is no line to remove it costs little —
+on one real 15 px field the two models differ by p90 0.13% in flux. The
+exception is a *synthetic* field with no airglow and few background pixels per
+source, where the profile fit can absorb source flux (the packaged offline demo
+sets `bkg_model="photutils"` for exactly that reason).
 
 ```python
 PhotometryConfig(bkg_model="cwave+photutils",
@@ -80,8 +90,8 @@ PhotometryConfig(bkg_model="none")
 
 | situation | model |
 |---|---|
-| general field, want smooth residual removed | `photutils` *(default)* |
-| significant airglow / near He I 1.083 µm | `cwave+photutils` |
+| real SPHEREx data, anything | `cwave+photutils` *(default)* |
+| A/B control, or a synthetic field with no airglow | `photutils` |
 | small or sparse cutout, few clean pixels | `plane` |
 | debugging / keep background decoupled | `none` |
 

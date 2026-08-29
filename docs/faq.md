@@ -41,8 +41,9 @@ Check in this order:
    whichever fitted source is closest, and how much it lands depends on the
    dither. Run {func}`~spherex_photometry.diagnostics.plot_fit` on a couple of
    cutouts — an unmodelled neighbour shows up as a bright blob in `chi`.
-4. **Background model.** Try `bkg_model="cwave+photutils"` if the field is near
-   an airglow line.
+4. **Background model.** `bkg_model="cwave+photutils"` is the default and takes
+   the airglow stripes out; compare against `bkg_model="photutils"` (or
+   `"plane"` on a sparse cutout) to see how much of the wiggle is background.
 
 ### One of my galaxies came out near zero (or far too bright)
 

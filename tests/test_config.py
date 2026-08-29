@@ -8,7 +8,22 @@ def test_defaults_are_blind_production():
     assert c.solver == "eigfloor"
     assert c.tile_size == 15 and c.tile_halo == 3 and c.pad_bucket == 32
     assert c.precision == "fp32" and c.prefetch == "thread"
+    assert c.bkg_model == "cwave+photutils"
+    assert c.psf_zone_interp is True and c.psf_core_shift is True
     assert c.solver_spec() == {"kind": "eigfloor", "floor": 1e-2}
+
+
+def test_jax_core_shift_requires_zone_interp():
+    """The shifts ride on the zone basis on the JAX backend, so this pair is
+    rejected at config time rather than one cutout into the run. Reachable by
+    accident since psf_core_shift became a default: a user who only turns zone
+    interpolation off would otherwise hit it deep in the backend."""
+    with pytest.raises(ConfigError):
+        PhotometryConfig(backend="jax", psf_zone_interp=False)
+    # opting out of both is fine, and cpu-tractor shifts the stamp standalone
+    PhotometryConfig(backend="jax", psf_zone_interp=False, psf_core_shift=False)
+    PhotometryConfig(backend="cpu-tractor", solver="linear",
+                     psf_zone_interp=False, psf_core_shift=True)
 
 
 def test_cpu_tractor_rejects_nonlinear_solver():
