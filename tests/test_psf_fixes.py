@@ -127,15 +127,14 @@ def test_calib_table_ships_and_loads():
 
 
 def test_cross_backend_agreement_with_fixes(synth_field):
-    """Both backends, both fixes requested: fluxes still agree.
+    """Both backends, both fixes on: fluxes still agree.
 
-    The synth fixture is single-zone, so zone-interp is a no-op on both sides
-    by construction (the CPU one-hot test above and the JAX engine's own
-    one-hot test each prove their half) and core-shift on the JAX backend is
-    rejected without a basis — which the config contract documents. What THIS
-    test pins is that the CPU backend's standalone core-shift path runs
-    end-to-end and stays within tolerance of the unshifted JAX solve: a 0.05
-    native px kernel shift moves synthetic point-source fluxes well under 1%.
+    The synth fixture is single-zone, so zone-interp itself is a no-op on both
+    sides by construction (the CPU one-hot test above and the JAX engine's own
+    one-hot test each prove their half). Core-shift is NOT a no-op there on
+    either side any more — see the regression test below — so this pins that
+    the two independent shift implementations (CPU Lanczos stamp shift, JAX
+    Fourier phase ramp on a K=1 basis) land within tolerance of each other.
     """
     from spherex_photometry import PhotometryConfig, run_photometry
 
@@ -143,7 +142,8 @@ def test_cross_backend_agreement_with_fixes(synth_field):
     jax_res = run_photometry(
         synth_field["cutouts_dir"], synth_field["catalog"],
         PhotometryConfig(backend="jax", device="cpu", precision="fp64",
-                         prefetch="sync", solver="linear", pad_bucket=0),
+                         prefetch="sync", solver="linear", pad_bucket=0,
+                         psf_zone_interp=True, psf_core_shift=True),
         progress=False)
     cpu_res = run_photometry(
         synth_field["cutouts_dir"], synth_field["catalog"],
@@ -156,6 +156,36 @@ def test_cross_backend_agreement_with_fixes(synth_field):
 
     for sid in (1, 2):
         assert flux(cpu_res, sid) == pytest.approx(flux(jax_res, sid), rel=0.01)
+
+
+def test_core_shift_is_applied_on_single_zone_cutouts(synth_field):
+    """REGRESSION: psf_core_shift was a silent no-op on the JAX backend for any
+    single-zone cutout.
+
+    build_cutout_tiles attached the zone basis only when len(basis) > 1, and
+    the core shifts ride on that basis — so on a bundle retrieved without a
+    zone margin (one zone for anything under the ~185 px zone pitch) the JAX
+    backend ignored the shift entirely while cpu-tractor, which shifts the
+    stamp directly, applied it. The two backends therefore disagreed by
+    construction exactly where the flag was silently doing nothing.
+    """
+    from spherex_photometry import PhotometryConfig, run_photometry
+
+    pytest.importorskip("tractor_jax")
+
+    def run(core_shift):
+        cfg = PhotometryConfig(backend="jax", device="cpu", precision="fp64",
+                               prefetch="sync", solver="linear", pad_bucket=0,
+                               psf_zone_interp=True, psf_core_shift=core_shift)
+        r = run_photometry(synth_field["cutouts_dir"], synth_field["catalog"],
+                           cfg, progress=False)
+        return np.asarray(r["flux"], dtype=float)
+
+    off, on = run(False), run(True)
+    assert off.shape == on.shape
+    assert np.any(np.abs(on - off) > 0), (
+        "psf_core_shift changed nothing on a single-zone cutout — the basis "
+        "pass-through in build_cutout_tiles has regressed")
 
 
 def test_oversampled_radius_is_native_units():

@@ -133,7 +133,17 @@ def build_cutout_tiles(cutout, *, sx_all, sy_all, tile_size, halo,
             "src_indices": idxs,
             "tile_meta": meta,
         }
-        if psf_basis is not None and len(psf_basis) > 1:
+        # Single-zone cutouts skip the blend (its weights are one-hot, so it
+        # would only cost time) -- but NOT when core shifts are present: the
+        # shifts ride on this basis, so skipping it made psf_core_shift a
+        # silent no-op on any single-zone cutout, which is what a retrieval
+        # without a zone margin gives for anything under the ~185 px zone
+        # pitch. The cpu-tractor backend shifts the stamp directly and always
+        # applied it, so the two backends disagreed by construction there.
+        # zone_bilinear_weights degenerates to one-hot on one zone, so the K=1
+        # basis path is exact.
+        if psf_basis is not None and (len(psf_basis) > 1
+                                      or psf_basis_shifts is not None):
             rec["psf_basis"] = psf_basis
             rec["psf_weights"] = psf_weights(cx, cy)
             if psf_basis_shifts is not None:
