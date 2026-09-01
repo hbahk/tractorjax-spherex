@@ -60,7 +60,7 @@ def have_fitsio() -> bool:
     """True when the fitsio fast path can be used in this environment."""
     try:
         import fitsio  # noqa: F401
-    except Exception:
+    except Exception:  # noqa: BLE001 - a broken cfitsio build must fall back too
         return False
     return True
 

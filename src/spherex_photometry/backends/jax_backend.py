@@ -26,7 +26,6 @@ from tractor_jax.jax import batching as tjb
 from tractor_jax.jax.pipeline import prefetch_pipeline  # noqa: F401  (re-exported)
 
 from ..config import CapExceededError, ConfigError
-from ..constants import SPHEREX_PIXSCALE
 from ..io.cutouts import sample_map_bilinear_vec
 from ..prepare import (
     prepare_pixels,
@@ -35,11 +34,21 @@ from ..prepare import (
     zone_psf_selector,
 )
 from ..tiling import (
+    cd_inv_from_wcs,
     extract_tile_region,
     iter_tiles,
     shift_wcs,
 )
 from .base import FieldContext
+
+#: Build a sliced :class:`~astropy.wcs.WCS` for every tile.  Only the CD matrix
+#: is ever read from it, and :func:`~spherex_photometry.tiling.shift_wcs` leaves
+#: that bit-identical, so the default hands the batch builder one cutout-level
+#: ``cd_inv`` instead and skips ``WCS.slice`` -- a deep copy that cost ~40 ms
+#: per cutout in the driver's host profile, and scales with the tile count
+#: (a 2040x2040 frame at tile 15 has 18,496 tiles, not the ~44 of a 100x100
+#: cutout).  Set True to restore the per-tile WCS when bisecting a difference.
+PER_TILE_WCS = False
 
 
 # --------------------------------------------------------------------------- #
@@ -54,16 +63,12 @@ def extract_tiled_batches(tile_records, catalog_full, sx_all, sy_all,
     if len(tile_records) == 0:
         raise ValueError("extract_tiled_batches: tile_records is empty")
 
-    wcs0 = tile_records[0]["wcs"]
-    try:
-        cd_matrix = (np.asarray(wcs0.wcs.cd) if hasattr(wcs0.wcs, "cd")
-                     else np.asarray(wcs0.pixel_scale_matrix))
-    except Exception:  # noqa: BLE001 - any unusable WCS falls back to the nominal scale
-        cd_matrix = np.eye(2) * (SPHEREX_PIXSCALE / 3600.0)
-    try:
-        cd_inv = np.linalg.inv(cd_matrix).astype(np.float32, copy=False)
-    except np.linalg.LinAlgError:
-        cd_inv = np.eye(2, dtype=np.float32)
+    # Prefer the cutout-level cd_inv the tile builder computed once (see
+    # PER_TILE_WCS); fall back to deriving it from a tile WCS so tile_records
+    # assembled by an outside caller still work.
+    cd_inv = tile_records[0].get("cd_inv")
+    if cd_inv is None:
+        cd_inv = cd_inv_from_wcs(tile_records[0]["wcs"])
 
     views = []
     for t in tile_records:
@@ -116,6 +121,10 @@ def build_cutout_tiles(cutout, *, sx_all, sy_all, tile_size, halo,
     cutout_sx = sx_all[cutout_src_indices]
     cutout_sy = sy_all[cutout_src_indices]
 
+    # One per cutout, not one per tile: shift_wcs only moves the reference
+    # pixel, so every tile shares this matrix (see PER_TILE_WCS).
+    cd_inv = cd_inv_from_wcs(cutout["wcs"])
+
     tile_records = []
     for meta in iter_tiles(H, W, tile_size, halo):
         xs, ys = meta["x_start"], meta["y_start"]
@@ -129,7 +138,8 @@ def build_cutout_tiles(cutout, *, sx_all, sy_all, tile_size, halo,
             "data": extract_tile_region(data_scaled, xs, ys, xe, ye, fill=0.0),
             "invvar": extract_tile_region(invvar_scaled, xs, ys, xe, ye, fill=0.0),
             "psf": psf_select(cx, cy),
-            "wcs": shift_wcs(cutout["wcs"], xs, ys),
+            "wcs": shift_wcs(cutout["wcs"], xs, ys) if PER_TILE_WCS else None,
+            "cd_inv": cd_inv,
             "src_indices": idxs,
             "tile_meta": meta,
         }

@@ -26,6 +26,8 @@ import math
 
 import numpy as np
 
+from .constants import SPHEREX_PIXSCALE
+
 
 def iter_tiles(H, W, tile_size, halo):
     """Yield tile metadata covering an H x W cutout (core box clipped, halo padded)."""
@@ -67,9 +69,40 @@ def shift_wcs(wcs, x_start, y_start):
 
     Uses ``WCS.slice`` so both ``wcs.wcs.crpix`` and ``wcs.sip.crpix`` shift
     together (hand-editing crpix alone mis-projects the SIP polynomial).
+
+    Only the reference pixel moves — the CD matrix is untouched — so a tile
+    never needs its own WCS just to get the pixel scale; see
+    :func:`cd_inv_from_wcs`.
     """
     return wcs.slice((slice(int(y_start), int(y_start) + 10**6),
                       slice(int(x_start), int(x_start) + 10**6)))
+
+
+def cd_inv_from_wcs(wcs):
+    """World-to-pixel linear map (the inverted CD matrix) as ``float32``.
+
+    This is the only thing the engine takes from a WCS, and it is a property of
+    the *cutout*: :func:`shift_wcs` moves the reference pixel and leaves the CD
+    matrix bit-identical, so every tile of a cutout shares this matrix and it
+    can be computed once per cutout rather than once per tile.
+
+    Falls back to the nominal SPHEREx pixel scale for a WCS with no usable
+    linear part, and to the identity for a singular one, rather than raising —
+    a degenerate WCS should surface as a bad fit, not as an exception inside
+    the batch builder.
+    """
+    try:
+        # astropy raises AttributeError from .cd on a PC+CDELT WCS (which is
+        # what the SPHEREx cutouts carry), so hasattr is the branch, exactly as
+        # the pre-refactor code in the JAX backend had it.
+        cd = (np.asarray(wcs.wcs.cd) if hasattr(wcs.wcs, "cd")
+              else np.asarray(wcs.pixel_scale_matrix))
+    except Exception:  # noqa: BLE001 - any unusable WCS falls back to nominal
+        cd = np.eye(2) * (SPHEREX_PIXSCALE / 3600.0)
+    try:
+        return np.linalg.inv(cd).astype(np.float32, copy=False)
+    except np.linalg.LinAlgError:
+        return np.eye(2, dtype=np.float32)
 
 
 def tile_core_index(tile_metas, sx, sy):
