@@ -8,12 +8,18 @@ and ``cutout.get("key")`` so downstream lifted code reads unchanged.
 MEF layout::
 
     PRIMARY  IMAGE  FLAGS  VARIANCE  ZODI  PSF  PSF_ZONES  [CWAVE] [CBAND] [SAPM]
+
+Two readers produce the identical :class:`Cutout`: the astropy one below, and
+the ``fitsio`` fast path in :mod:`spherex_photometry.io.fast` (~4x faster per
+cutout).  :func:`read_cutout` picks the fast one when ``fitsio`` is installed;
+set ``fast=False`` (or the module flag :data:`FAST_IO`) to force astropy.
 """
 
 from __future__ import annotations
 
 import math
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -26,6 +32,10 @@ from astropy.wcs import WCS
 from ..constants import ARCSEC2_TO_SR
 
 CUTOUT_RE = re.compile(r"cutout_(\d{4})_(.+)_D(\d)\.fits$")
+
+#: Default reader. ``"auto"`` uses fitsio when importable, else astropy;
+#: ``True`` requires fitsio (raises if missing); ``False`` forces astropy.
+FAST_IO: bool | str = "auto"
 
 
 @dataclass
@@ -43,8 +53,10 @@ class Cutout:
     psf_cube: np.ndarray
     psf_zones: Table
     wcs: WCS
-    image_header: fits.Header
-    primary_header: fits.Header
+    # An astropy Header from the astropy reader, a HeaderDict from the fitsio
+    # one; both support ``[]`` / ``.get()`` / ``in``, which is all callers use.
+    image_header: fits.Header | Mapping
+    primary_header: fits.Header | Mapping
     crpix1a: float
     crpix2a: float
     psf_oversamp: int
@@ -90,14 +102,45 @@ def filter_ok(pairs: list[tuple[int, Path]],
     return [(idx, p) for idx, p in pairs if idx in ok]
 
 
-def read_cutout(path: str | Path) -> Cutout:
+def read_cutout(path: str | Path, *, fast: bool | str | None = None) -> Cutout:
     """Open one cutout MEF and return a :class:`Cutout`.
 
     Present-but-empty CWAVE/CBAND/SAPM HDUs (shape ``(0,)``) are guarded: a
     missing wavelength map yields ``cwave_center=None`` / ``cwave_map=None`` (the
     source is still photometered, just labelled NaN wavelength), and a missing
     SAPM falls back to the WCS pixel area in :func:`cutout_pixel_area_sr`.
+
+    Parameters
+    ----------
+    fast : bool or ``"auto"``, optional
+        Reader selection, overriding the module default :data:`FAST_IO`.
+        ``"auto"`` uses the fitsio fast path when importable; ``True`` requires
+        it; ``False`` forces astropy.  Both readers return the identical
+        :class:`Cutout` (asserted in ``tests/test_io_fast.py``).
     """
+    if _use_fast(FAST_IO if fast is None else fast):
+        from .fast import read_cutout_fields
+        return Cutout(**read_cutout_fields(path))
+    return _read_cutout_astropy(path)
+
+
+def _use_fast(fast: bool | str) -> bool:
+    from .fast import have_fitsio
+
+    if fast == "auto":
+        return have_fitsio()
+    if fast:
+        if not have_fitsio():
+            raise ImportError(
+                "fast=True requires fitsio (`pip install fitsio`, or "
+                "`conda install -c conda-forge fitsio`); pass fast=False to "
+                "use the astropy reader")
+        return True
+    return False
+
+
+def _read_cutout_astropy(path: str | Path) -> Cutout:
+    """Reference reader: astropy only. See :func:`read_cutout`."""
     path = Path(path)
     with fits.open(path, memmap=False) as hdul:
         primary = hdul[0].header.copy()

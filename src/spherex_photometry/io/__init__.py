@@ -9,6 +9,7 @@ from .catalogs import (
     zmag_from_flux_z,
 )
 from .cutouts import (
+    FAST_IO,
     Cutout,
     cutout_pixel_area_sr,
     discover_cutouts,
@@ -17,6 +18,7 @@ from .cutouts import (
     sample_map_bilinear,
     sample_map_bilinear_vec,
 )
+from .fast import HeaderDict, have_fitsio
 from .output import (
     COLUMN_NAMES,
     SCHEMA_VERSION,
@@ -28,14 +30,17 @@ from .output import (
 
 __all__ = [
     "COLUMN_NAMES",
+    "FAST_IO",
     "SCHEMA_VERSION",
     "Cutout",
+    "HeaderDict",
     "apply_depth_cut",
     "cutout_pixel_area_sr",
     "discover_cutouts",
     "empty_table",
     "filter_ok",
     "find_nearest_source",
+    "have_fitsio",
     "load_catalog",
     "make_table",
     "normalize_catalog",

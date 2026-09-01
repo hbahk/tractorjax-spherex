@@ -66,13 +66,20 @@ def cutout_occupancy(path, sco_all, is_gal, tile_size, halo):
     """Densest-tile ``(n_point_sources, n_galaxies)`` for one cutout.
 
     Reads only the IMAGE header — the WCS and the array shape — so a full-field
-    scan costs a header parse per cutout rather than a pixel read.
+    scan costs a header parse per cutout rather than a pixel read.  The fitsio
+    fast path is used when available (see :mod:`spherex_photometry.io.fast`).
     """
-    with fits.open(path, memmap=False) as hdul:
-        hdr = hdul["IMAGE"].header
-        H = int(hdr["NAXIS2"])
-        W = int(hdr["NAXIS1"])
-        wcs = WCS(hdr).celestial
+    from .io.cutouts import FAST_IO, _use_fast
+
+    if _use_fast(FAST_IO):
+        from .io.fast import read_image_geometry
+        H, W, wcs = read_image_geometry(path)
+    else:
+        with fits.open(path, memmap=False) as hdul:
+            hdr = hdul["IMAGE"].header
+            H = int(hdr["NAXIS2"])
+            W = int(hdr["NAXIS1"])
+            wcs = WCS(hdr).celestial
 
     px, py = wcs.world_to_pixel(sco_all)
     sx = np.asarray(px, dtype=np.float64)
