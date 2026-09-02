@@ -35,6 +35,7 @@ from ..prepare import (
     zone_psf_basis,
     zone_psf_selector,
 )
+from ..psf_cache import PSFCache
 from ..tiling import (
     cd_inv_from_wcs,
     extract_tile_region,
@@ -59,6 +60,15 @@ PER_TILE_WCS = False
 #: construction and by test; set False to restore the scalar helpers.
 VECTOR_ZONES = True
 
+#: Share PSF kernels, core-shift tables and the engine's Fourier transforms
+#: ACROSS cutouts.  Every cutout of one detector ships a byte-identical PSF
+#: cube, so downsampling and transforming it per cutout is repeat work (~20 ms
+#: per cutout in the driver's host profile, and it does not shrink with the
+#: cutout).  The cache lives on the backend instance, i.e. for one run.  Set
+#: False to rebuild per cutout.  See :mod:`spherex_photometry.psf_cache` for why
+#: the kernels and their transforms must be cached and cleared together.
+PSF_CACHE_ACROSS_CUTOUTS = True
+
 
 # --------------------------------------------------------------------------- #
 # Batch build
@@ -67,7 +77,8 @@ def extract_tiled_batches(tile_records, catalog_full, sx_all, sy_all,
                           psf_sampling=0.2, fixed_max_factor=5.0,
                           fit_background=True, profile_lookup_fn=None,
                           max_ps_cap=None, max_gal_cap=None,
-                          max_mog_k_cap=None, pad_bucket=None):
+                          max_mog_k_cap=None, pad_bucket=None,
+                          psf_fft_cache=None):
     """Build vmap-ready padded batches for a cutout's tiles (engine call)."""
     if len(tile_records) == 0:
         raise ValueError("extract_tiled_batches: tile_records is empty")
@@ -99,7 +110,8 @@ def extract_tiled_batches(tile_records, catalog_full, sx_all, sy_all,
         psf_sampling=psf_sampling, fixed_max_factor=fixed_max_factor,
         fit_background=fit_background, profile_lookup_fn=profile_lookup_fn,
         cd_inv=cd_inv, max_ps_cap=max_ps_cap, max_gal_cap=max_gal_cap,
-        max_mog_k_cap=max_mog_k_cap, pad_bucket=pad_bucket)
+        max_mog_k_cap=max_mog_k_cap, pad_bucket=pad_bucket,
+        psf_fft_cache=psf_fft_cache)
     return (bundle.images_data, bundle.batches, bundle.initial_fluxes,
             bundle.meta["src_slot"])
 
@@ -107,7 +119,7 @@ def extract_tiled_batches(tile_records, catalog_full, sx_all, sy_all,
 def build_cutout_tiles(cutout, *, sx_all, sy_all, tile_size, halo,
                        data_scaled, invvar_scaled, psf_native=None,
                        psf_select=None, psf_basis=None, psf_weights=None,
-                       psf_basis_shifts=None):
+                       psf_basis_shifts=None, psf_cache=None):
     """Construct tile records (core + halo boxes) for one cutout.
 
     ``psf_select(x, y) -> stamp`` (from
@@ -147,13 +159,23 @@ def build_cutout_tiles(cutout, *, sx_all, sy_all, tile_size, halo,
         if psf_native is not None:
             v_planes = None
 
-    _stamp_cache: dict[int, np.ndarray] = {}
+    # Kernels are shared objects: within the cutout always, and across cutouts
+    # when a PSFCache is given (the engine's transform cache keys on identity).
+    _local: dict[int, np.ndarray] = {}
+    _sig = None
+    if psf_cache is not None and v_planes is not None:
+        from ..psf_cache import cube_signature
+        _sig = cube_signature(cutout)
 
     def _stamp(plane):
-        s = _stamp_cache.get(plane)
+        def _build():
+            return downsample_psf_oversample2(cutout["psf_cube"][plane])
+        if _sig is not None:
+            return psf_cache.stamp(_sig, plane, _build)
+        s = _local.get(plane)
         if s is None:
-            s = downsample_psf_oversample2(cutout["psf_cube"][plane])
-            _stamp_cache[plane] = s
+            s = _build()
+            _local[plane] = s
         return s
 
     tile_records = []
@@ -299,6 +321,10 @@ class JaxBackend:
     def __init__(self, config):
         self.config = config
         self._solve_fn_cache: dict = {}
+        # Lives for the whole run: the PSF cube is byte-identical across every
+        # cutout of one detector, so its kernels and their engine transforms are
+        # built once instead of once per cutout (see PSF_CACHE_ACROSS_CUTOUTS).
+        self._psf_cache = PSFCache() if PSF_CACHE_ACROSS_CUTOUTS else None
 
     # ---- build (CPU stage; prefetch-safe) --------------------------------
     def build(self, cutout, ctx: FieldContext):
@@ -311,7 +337,7 @@ class JaxBackend:
 
         basis = weights = basis_shifts = None
         if getattr(cfg, "psf_zone_interp", True):
-            basis, weights = zone_psf_basis(cutout)
+            basis, weights = zone_psf_basis(cutout, cache=self._psf_cache)
         if getattr(cfg, "psf_core_shift", False):
             if basis is None:
                 raise ConfigError(
@@ -320,24 +346,33 @@ class JaxBackend:
                     "basis); the cpu-tractor backend supports it standalone.")
             from ..calib import DOWNSAMPLE_GRID_SHIFT_NATIVE, psf_core_shift
             det = int(cutout.detector)
-            rows = []
-            for z in np.asarray(cutout.psf_zones["zone_id"], dtype=int):
-                cs = psf_core_shift(det, int(z))
-                if cs.source != "zone":
-                    raise ValueError(
-                        f"psf_core_shift(det={det}, zone={int(z)}) fell back "
-                        f"to {cs.source!r}; coverage is 726/726, so a "
-                        "fallback means the detector or zone_id is wrong")
-                rows.append((cs.dy_apply + DOWNSAMPLE_GRID_SHIFT_NATIVE,
-                             cs.dx_apply + DOWNSAMPLE_GRID_SHIFT_NATIVE))
-            basis_shifts = np.asarray(rows, dtype=np.float64)
+            zone_ids = np.asarray(cutout.psf_zones["zone_id"], dtype=int)
+
+            def _shift_table():
+                rows = []
+                for z in zone_ids:
+                    cs = psf_core_shift(det, int(z))
+                    if cs.source != "zone":
+                        raise ValueError(
+                            f"psf_core_shift(det={det}, zone={int(z)}) fell back "
+                            f"to {cs.source!r}; coverage is 726/726, so a "
+                            "fallback means the detector or zone_id is wrong")
+                    rows.append((cs.dy_apply + DOWNSAMPLE_GRID_SHIFT_NATIVE,
+                                 cs.dx_apply + DOWNSAMPLE_GRID_SHIFT_NATIVE))
+                return np.asarray(rows, dtype=np.float64)
+
+            # The engine memoizes the native -> high-res conversion on this
+            # table's identity, so share ONE object per (detector, zone ids).
+            basis_shifts = (self._psf_cache.zone_shifts(det, zone_ids,
+                                                        _shift_table)
+                            if self._psf_cache is not None else _shift_table())
         tile_records = build_cutout_tiles(
             cutout, sx_all=sx_all, sy_all=sy_all,
             tile_size=cfg.tile_size, halo=cfg.tile_halo,
             data_scaled=data, invvar_scaled=invvar,
             psf_select=zone_psf_selector(cutout),
             psf_basis=basis, psf_weights=weights,
-            psf_basis_shifts=basis_shifts)
+            psf_basis_shifts=basis_shifts, psf_cache=self._psf_cache)
 
         max_ps, max_gal, max_mog_k = cfg.resolved_caps(ctx.occupancy)
         _check_caps(tile_records, ctx.catalog, max_ps, max_gal,
@@ -347,7 +382,9 @@ class JaxBackend:
             psf_sampling=cfg.psf_sampling, fixed_max_factor=cfg.fixed_max_factor,
             fit_background=True, profile_lookup_fn=ctx.profile_lookup_fn,
             max_ps_cap=max_ps, max_gal_cap=max_gal, max_mog_k_cap=max_mog_k,
-            pad_bucket=cfg.pad_bucket or None)
+            pad_bucket=cfg.pad_bucket or None,
+            psf_fft_cache=(self._psf_cache.fft
+                           if self._psf_cache is not None else None))
 
         batches_in_axes = tjb.batches_in_axes(batches)
         extract_index = build_extract_index(tile_records, src_slot,

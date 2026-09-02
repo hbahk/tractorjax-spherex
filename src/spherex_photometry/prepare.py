@@ -270,13 +270,18 @@ def zone_lookup_vectorized(cutout: Cutout, x_cut, y_cut):
     return zone_planes_and_weights(cutout["psf_zones"], x_orig, y_orig)
 
 
-def zone_psf_basis(cutout: Cutout):
+def zone_psf_basis(cutout: Cutout, cache=None):
     """Return ``(basis, f(x_cut, y_cut) -> weights)`` for a blended zone PSF.
 
     ``basis`` is the list of downsampled zone kernels — ONE object, because the
     engine keys its Fourier-transform cache on identity and blends in the
     Fourier domain, so the K transforms are shared by every tile instead of one
     transform per tile.
+
+    Pass a :class:`~spherex_photometry.psf_cache.PSFCache` as ``cache`` to
+    extend that sharing *across cutouts*: every cutout of one detector ships a
+    byte-identical cube, so the same list object is handed back and the engine's
+    transforms are reused instead of recomputed per cutout.
 
     Nearest-zone (:func:`zone_psf_selector`) leaves a tile using a kernel
     sampled up to ~93 detector px away, half the ~185 px zone pitch. Blending
@@ -293,8 +298,16 @@ def zone_psf_basis(cutout: Cutout):
     cube = cutout["psf_cube"]
     crpix1a = cutout["crpix1a"]
     crpix2a = cutout["crpix2a"]
-    basis = [downsample_psf_oversample2(cube[int(p)])
-             for p in np.asarray(zones["plane_idx"])]
+
+    def _build():
+        return [downsample_psf_oversample2(cube[int(p)])
+                for p in np.asarray(zones["plane_idx"])]
+
+    if cache is not None:
+        from .psf_cache import cube_signature
+        basis = cache.zone_basis(cube_signature(cutout), _build)
+    else:
+        basis = _build()
 
     def weights(x_cut, y_cut):
         x_orig, y_orig = cutout_to_orig(x_cut, y_cut,
