@@ -184,6 +184,92 @@ def zone_bilinear_weights(psf_zones_tab, x_orig, y_orig) -> np.ndarray:
     return w / w.sum()
 
 
+def zone_planes_and_weights(psf_zones_tab, x_orig, y_orig):
+    """Vectorised :func:`select_zone_plane` + :func:`zone_bilinear_weights`.
+
+    A tiled cutout calls both of those once per tile, and each call scans the
+    whole zone table in Python; a 2040x2040 frame at tile 15 has 18,496 tiles.
+    This does the same arithmetic for every tile at once.
+
+    It is a pure re-expression, not an approximation: the same comparisons in
+    the same order, including the tie-breaks (``argmin`` takes the FIRST
+    minimum, the corner match takes the FIRST hit, an absent corner falls back
+    to the nearest zone). ``tests/test_vector_zones.py`` asserts equality
+    against the scalar helpers element by element.
+
+    Parameters
+    ----------
+    psf_zones_tab : table with columns ``x``, ``y``, ``plane_idx``
+    x_orig, y_orig : (n,) detector coordinates (see :func:`cutout_to_orig`)
+
+    Returns
+    -------
+    planes : (n,) int
+        Nearest zone's plane index — matches :func:`select_zone_plane`.
+    rows : (n,) int
+        Nearest zone's ROW in the table (the index ``planes`` was read from).
+    weights : (n, K) float
+        Bilinear weights aligned with the table rows, each row summing to 1 —
+        matches :func:`zone_bilinear_weights`.
+    """
+    zx = np.asarray(psf_zones_tab["x"], dtype=np.float64)
+    zy = np.asarray(psf_zones_tab["y"], dtype=np.float64)
+    plane_idx = np.asarray(psf_zones_tab["plane_idx"])
+    x = np.asarray(x_orig, dtype=np.float64).reshape(-1)
+    y = np.asarray(y_orig, dtype=np.float64).reshape(-1)
+    n, K = x.size, zx.size
+
+    dx = zx[None, :] - x[:, None]
+    dy = zy[None, :] - y[:, None]
+    rows = np.argmin(dx * dx + dy * dy, axis=1)        # first minimum, as argmin
+    planes = plane_idx[rows].astype(int)
+
+    ux = np.unique(np.round(zx, 6))
+    uy = np.unique(np.round(zy, 6))
+
+    def _bracket(v, u):
+        if u.size == 1:
+            return np.full_like(v, u[0]), np.full_like(v, u[0]), np.ones_like(v)
+        i = np.clip(np.searchsorted(u, v) - 1, 0, u.size - 2)
+        lo, hi = u[i], u[i + 1]
+        t = np.clip((v - lo) / (hi - lo), 0.0, 1.0)    # clamp, no extrapolation
+        return lo, hi, 1.0 - t
+
+    x_lo, x_hi, wx = _bracket(x, ux)
+    y_lo, y_hi, wy = _bracket(y, uy)
+
+    weights = np.zeros((n, K), dtype=np.float64)
+    for xv, wxx in ((x_lo, wx), (x_hi, 1.0 - wx)):
+        for yv, wyy in ((y_lo, wy), (y_hi, 1.0 - wy)):
+            w = wxx * wyy
+            match = ((np.abs(zx[None, :] - xv[:, None]) < 1e-6)
+                     & (np.abs(zy[None, :] - yv[:, None]) < 1e-6))
+            has = match.any(axis=1)
+            first = np.argmax(match, axis=1)           # hit[0] of the scalar code
+            sel = has & (w != 0.0)
+            if np.any(sel):
+                idx = np.where(sel)[0]
+                weights[idx, first[idx]] += w[idx]
+    none = ~(weights > 0).any(axis=1)                  # corner absent: nearest
+    if np.any(none):
+        weights[np.where(none)[0], rows[none]] = 1.0
+    weights /= weights.sum(axis=1, keepdims=True)
+    return planes, rows, weights
+
+
+def zone_lookup_vectorized(cutout: Cutout, x_cut, y_cut):
+    """:func:`zone_planes_and_weights` at cutout pixel coordinates.
+
+    Convenience wrapper that applies this cutout's ``CRPIX*A`` offset, so a
+    caller with an array of tile centres gets planes and weights in one call.
+    """
+    x_orig, y_orig = cutout_to_orig(np.asarray(x_cut, dtype=np.float64),
+                                    np.asarray(y_cut, dtype=np.float64),
+                                    crpix1a=cutout["crpix1a"],
+                                    crpix2a=cutout["crpix2a"])
+    return zone_planes_and_weights(cutout["psf_zones"], x_orig, y_orig)
+
+
 def zone_psf_basis(cutout: Cutout):
     """Return ``(basis, f(x_cut, y_cut) -> weights)`` for a blended zone PSF.
 

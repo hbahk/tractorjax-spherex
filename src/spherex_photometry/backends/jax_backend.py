@@ -28,8 +28,10 @@ from tractor_jax.jax.pipeline import prefetch_pipeline  # noqa: F401  (re-export
 from ..config import CapExceededError, ConfigError
 from ..io.cutouts import sample_map_bilinear_vec
 from ..prepare import (
+    downsample_psf_oversample2,
     prepare_pixels,
     project_sources,
+    zone_lookup_vectorized,
     zone_psf_basis,
     zone_psf_selector,
 )
@@ -49,6 +51,13 @@ from .base import FieldContext
 #: (a 2040x2040 frame at tile 15 has 18,496 tiles, not the ~44 of a 100x100
 #: cutout).  Set True to restore the per-tile WCS when bisecting a difference.
 PER_TILE_WCS = False
+
+#: Do the PSF-zone lookup for every tile in ONE vectorised call
+#: (:func:`~spherex_photometry.prepare.zone_planes_and_weights`) instead of two
+#: Python scans of the zone table per tile -- ~15 ms per cutout in the driver's
+#: host profile, and it grows with the tile count.  Bit-identical by
+#: construction and by test; set False to restore the scalar helpers.
+VECTOR_ZONES = True
 
 
 # --------------------------------------------------------------------------- #
@@ -125,8 +134,30 @@ def build_cutout_tiles(cutout, *, sx_all, sy_all, tile_size, halo,
     # pixel, so every tile shares this matrix (see PER_TILE_WCS).
     cd_inv = cd_inv_from_wcs(cutout["wcs"])
 
+    metas = list(iter_tiles(H, W, tile_size, halo))
+
+    # One vectorised zone lookup for every tile core centre instead of two
+    # Python scans of the zone table per tile (see VECTOR_ZONES). The plane
+    # selection is skipped when the caller supplied a fixed psf_native.
+    v_planes = v_weights = None
+    if VECTOR_ZONES and cutout.get("psf_zones") is not None:
+        cxs = np.array([0.5 * (m["core_x0"] + m["core_x1"]) for m in metas])
+        cys = np.array([0.5 * (m["core_y0"] + m["core_y1"]) for m in metas])
+        v_planes, _v_rows, v_weights = zone_lookup_vectorized(cutout, cxs, cys)
+        if psf_native is not None:
+            v_planes = None
+
+    _stamp_cache: dict[int, np.ndarray] = {}
+
+    def _stamp(plane):
+        s = _stamp_cache.get(plane)
+        if s is None:
+            s = downsample_psf_oversample2(cutout["psf_cube"][plane])
+            _stamp_cache[plane] = s
+        return s
+
     tile_records = []
-    for meta in iter_tiles(H, W, tile_size, halo):
+    for ti, meta in enumerate(metas):
         xs, ys = meta["x_start"], meta["y_start"]
         xe, ye = meta["x_end"], meta["y_end"]
         in_box = ((cutout_sx >= xs) & (cutout_sx < xe)
@@ -137,7 +168,8 @@ def build_cutout_tiles(cutout, *, sx_all, sy_all, tile_size, halo,
         rec = {
             "data": extract_tile_region(data_scaled, xs, ys, xe, ye, fill=0.0),
             "invvar": extract_tile_region(invvar_scaled, xs, ys, xe, ye, fill=0.0),
-            "psf": psf_select(cx, cy),
+            "psf": (_stamp(int(v_planes[ti])) if v_planes is not None
+                    else psf_select(cx, cy)),
             "wcs": shift_wcs(cutout["wcs"], xs, ys) if PER_TILE_WCS else None,
             "cd_inv": cd_inv,
             "src_indices": idxs,
@@ -155,7 +187,8 @@ def build_cutout_tiles(cutout, *, sx_all, sy_all, tile_size, halo,
         if psf_basis is not None and (len(psf_basis) > 1
                                       or psf_basis_shifts is not None):
             rec["psf_basis"] = psf_basis
-            rec["psf_weights"] = psf_weights(cx, cy)
+            rec["psf_weights"] = (v_weights[ti] if v_weights is not None
+                                  else psf_weights(cx, cy))
             if psf_basis_shifts is not None:
                 # the SAME (K, 2) array for every tile: the engine memoizes
                 # the native->high-res conversion on the table's identity
