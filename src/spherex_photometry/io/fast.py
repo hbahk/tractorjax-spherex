@@ -4,8 +4,30 @@
 do with the pixels: header parsing and card verification of the ten HDUs,
 ``HDUList.index_of`` walks, the copies, and ``astropy.wcs`` parsing a ~200-card
 header through wcslib.  ``cfitsio`` reads the same arrays in a few
-milliseconds.  Measured on the reference field (24 cutouts, warm page cache):
-**20.8 -> 5.2 ms per cutout**.
+milliseconds.  Measured on the reference field (24 real cutouts, warm page
+cache): **20.5 -> 5.1 ms per cutout, 4.9 ms with the PSF-cube cache (4.2x)**.
+
+.. warning::
+
+   **That speedup is regime-dependent, and it inverts on cold reads of large
+   files.**  ``fitsio.FITS()`` indexes every HDU when it opens the file, while
+   ``astropy.io.fits.open(lazy_load_hdus=True)`` walks only as far as the HDU
+   asked for.  When each header touch is a cold storage request, that costs one
+   request per HDU before a single pixel is read.
+
+   Measured on a GPFS archive of 71.6 MB full-frame L2 MEFs (7 HDUs), cold —
+   each file touched once::
+
+       reading the IMAGE plane   astropy 45.6 ms | fitsio 215.6 ms | raw pread 38.0 ms
+       same files, warm          astropy  9.8 ms | fitsio   7.2 ms | raw pread  2.5 ms
+
+   fitsio's header-only, plane and stamp timings were all ~200-215 ms there,
+   i.e. entirely the open, which is the signature of eager HDU indexing.
+
+   So: this module is the right default for the **cutout** MEFs it was written
+   for — small files, usually warm, read many times per field.  A reader for
+   large cold frames (a whole-archive scan) should not assume it wins; measure,
+   and consider a positional read at a known data offset instead.
 
 Nothing here changes a number.  Every function is a re-expression of what
 :func:`spherex_photometry.io.cutouts.read_cutout` does with astropy, and
