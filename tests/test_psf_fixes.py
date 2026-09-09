@@ -15,8 +15,8 @@ import pytest
 
 pytest.importorskip("tractor")
 
-from spherex_photometry.backends.cpu_psf import OversampledPixelizedPSF
-from spherex_photometry.backends.zone_psf import (
+from tractorjax_spherex.backends.cpu_psf import OversampledPixelizedPSF
+from tractorjax_spherex.backends.zone_psf import (
     ZoneBlendedPSF,
     shift_stamp_native,
 )
@@ -51,7 +51,7 @@ class _Zones:
 def test_one_hot_blend_matches_plain_path():
     """A blend that lands exactly on a zone centre must reproduce the plain
     OversampledPixelizedPSF for that zone's stamp, patch for patch."""
-    from spherex_photometry.prepare import zone_bilinear_weights
+    from tractorjax_spherex.prepare import zone_bilinear_weights
 
     stamps = [_gauss(3.5), _gauss(4.5)]
     zones = _Zones([100.0, 300.0], [0.0, 0.0])
@@ -71,7 +71,7 @@ def test_one_hot_blend_matches_plain_path():
 
 def test_midpoint_blend_is_the_average_kernel():
     """Halfway between two zones the rendered patch is the 50/50 kernel."""
-    from spherex_photometry.prepare import zone_bilinear_weights
+    from tractorjax_spherex.prepare import zone_bilinear_weights
 
     stamps = [_gauss(3.5), _gauss(4.5)]
     zones = _Zones([0.0, 15.0], [0.0, 0.0])   # pitch = one grid cell
@@ -87,7 +87,7 @@ def test_midpoint_blend_is_the_average_kernel():
 
 
 def test_delegates_are_cached_per_cell():
-    from spherex_photometry.prepare import zone_bilinear_weights
+    from tractorjax_spherex.prepare import zone_bilinear_weights
 
     stamps = [_gauss(3.5), _gauss(4.5)]
     zones = _Zones([0.0, 40.0], [0.0, 0.0])
@@ -115,7 +115,7 @@ def test_shift_stamp_moves_centroid_by_the_applied_amount():
 
 
 def test_calib_table_ships_and_loads():
-    from spherex_photometry.calib import (
+    from tractorjax_spherex.calib import (
         DOWNSAMPLE_GRID_SHIFT_NATIVE,
         psf_core_shift,
     )
@@ -136,7 +136,7 @@ def test_cross_backend_agreement_with_fixes(synth_field):
     the two independent shift implementations (CPU Lanczos stamp shift, JAX
     Fourier phase ramp on a K=1 basis) land within tolerance of each other.
     """
-    from spherex_photometry import PhotometryConfig, run_photometry
+    from tractorjax_spherex import PhotometryConfig, run_photometry
 
     pytest.importorskip("tractor_jax")
     jax_res = run_photometry(
@@ -169,7 +169,7 @@ def test_core_shift_is_applied_on_single_zone_cutouts(synth_field):
     stamp directly, applied it. The two backends therefore disagreed by
     construction exactly where the flag was silently doing nothing.
     """
-    from spherex_photometry import PhotometryConfig, run_photometry
+    from tractorjax_spherex import PhotometryConfig, run_photometry
 
     pytest.importorskip("tractor_jax")
 

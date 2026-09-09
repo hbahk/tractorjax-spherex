@@ -53,11 +53,11 @@ def write_photometry(table: Table, path, config=None, extra_meta=None) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     table = table.copy()
-    table.meta["spherex_photometry.schema_version"] = SCHEMA_VERSION
-    table.meta["spherex_photometry.version"] = __version__
+    table.meta["tractorjax_spherex.schema_version"] = SCHEMA_VERSION
+    table.meta["tractorjax_spherex.version"] = __version__
     if config is not None:
-        table.meta["spherex_photometry.config"] = config.to_json()
-        table.meta["spherex_photometry.solver_spec"] = str(config.solver_spec())
+        table.meta["tractorjax_spherex.config"] = config.to_json()
+        table.meta["tractorjax_spherex.solver_spec"] = str(config.solver_spec())
     if extra_meta:
         table.meta.update(extra_meta)
     table.write(str(path), overwrite=True)

@@ -105,7 +105,7 @@ interpretation.
 
 Central wavelength is **not monotonic in detector pixel**: along a detector the
 LVF wavelength can increase and then decrease, so raw per-visit points are not
-ordered in wavelength. {func}`spherex_photometry.spectra.build_spectra` sorts
+ordered in wavelength. {func}`tractorjax_spherex.spectra.build_spectra` sorts
 each source's points by `central_wavelength` when it assembles a spectrum, so the
 reversal is transparent downstream — never order a spectrum by pixel, visit, or
 cutout index.

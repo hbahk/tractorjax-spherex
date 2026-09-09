@@ -1,8 +1,8 @@
-# spherex-photometry
+# tractorjax-spherex
 
 Forced photometry and spectrophotometry from **SPHEREx L2 spectral images**.
 
-`spherex-photometry` lets you go from a sky position to a per-source SPHEREx
+`tractorjax-spherex` lets you go from a sky position to a per-source SPHEREx
 spectrum on your own hardware (GPU **or** CPU): download the L2 cutouts, supply a
 reference catalog, run reference-catalog forced photometry with a joint
 deblending solve, and assemble the per-visit measurements into spectra. It wraps
@@ -35,21 +35,21 @@ Fluxes are in **mJy**; magnitudes are AB.
 
 ## Install
 
-`spherex-photometry` depends on two packages that are not yet on PyPI, so install
+`tractorjax-spherex` depends on two packages that are not yet on PyPI, so install
 them from source first:
 
 ```bash
 pip install git+https://github.com/hbahk/tractor-jax        # engine (CPU jax)
 pip install git+https://github.com/hbahk/spherex-retrieval  # L2 cutout downloader
-pip install git+https://github.com/hbahk/spherex-photometry # this package
+pip install git+https://github.com/hbahk/tractorjax-spherex # this package
 ```
 
 Optional extras:
 
 ```bash
-pip install "spherex-photometry[gpu]"      # CUDA 12 jax build (GPU)
-pip install "spherex-photometry[catalog]"  # NOIRLab Data Lab (Legacy Survey fetcher)
-pip install "spherex-photometry[plot]"     # matplotlib for spectrum plots
+pip install "tractorjax-spherex[gpu]"      # CUDA 12 jax build (GPU)
+pip install "tractorjax-spherex[catalog]"  # NOIRLab Data Lab (Legacy Survey fetcher)
+pip install "tractorjax-spherex[plot]"     # matplotlib for spectrum plots
 ```
 
 The optional **CPU-only `cpu-tractor` backend** additionally needs the upstream
@@ -65,7 +65,7 @@ CPU-only users generally do **not** need this: the default JAX engine runs on CP
 ## Quick start
 
 ```python
-from spherex_photometry import PhotometryConfig, run_photometry, build_spectra, retrieve
+from tractorjax_spherex import PhotometryConfig, run_photometry, build_spectra, retrieve
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 
@@ -74,7 +74,7 @@ retrieve(SkyCoord(150.0*u.deg, 2.0*u.deg), 100, output_dir="cutouts",
          include_wavelength=True, include_sapm=True)
 
 # 2. Bring a reference catalog (or fetch Legacy Survey DR10):
-from spherex_photometry import fetch_ls_dr10
+from tractorjax_spherex import fetch_ls_dr10
 fetch_ls_dr10(150.0, 2.0, out="catalog.parquet")     # needs [catalog] extra
 
 # 3. Run forced photometry (blind-production default: eigfloor)
@@ -88,11 +88,11 @@ spectra = build_spectra(phot)     # {id: table sorted by central_wavelength}
 Or from the command line:
 
 ```bash
-spherex-phot retrieve --ra 150.0 --dec 2.0 --out cutouts
-spherex-phot fetch-catalog --ra 150.0 --dec 2.0 --out catalog.parquet
-spherex-phot run --cutouts-dir cutouts --catalog catalog.parquet \
+tractorjax-spherex retrieve --ra 150.0 --dec 2.0 --out cutouts
+tractorjax-spherex fetch-catalog --ra 150.0 --dec 2.0 --out catalog.parquet
+tractorjax-spherex run --cutouts-dir cutouts --catalog catalog.parquet \
     --solver eigfloor --output phot.parquet
-spherex-phot spectra --photometry phot.parquet --all --plot spec
+tractorjax-spherex spectra --photometry phot.parquet --all --plot spec
 ```
 
 ## Try it offline (no data, no network, no GPU)
@@ -106,7 +106,7 @@ two figures — the fit and the recovered spectra against the injected truth:
 
 ![recovered spectrophotometry vs injected truth](docs/_static/spectra_vs_truth.png)
 
-`spherex_photometry.diagnostics.plot_fit` gives the data / model / chi view of
+`tractorjax_spherex.diagnostics.plot_fit` gives the data / model / chi view of
 any cutout so you can see what the solver did:
 
 ![data, fitted model, and chi for one cutout](docs/_static/fit_comparison.png)
@@ -138,7 +138,7 @@ GPU path, which keeps `linear` well conditioned even at full catalog depth.
 
 Full docs (installation, quickstart, solver guide, hardware/GPU sizing, data
 model, systematics, CPU backend, configuration reference):
-<https://spherex-photometry.readthedocs.io>.
+<https://tractorjax-spherex.readthedocs.io>.
 
 ## License
 

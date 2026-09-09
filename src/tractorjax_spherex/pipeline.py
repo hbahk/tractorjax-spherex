@@ -51,7 +51,7 @@ def run_photometry(cutouts_dir, catalog, config: PhotometryConfig | None = None,
         Directory of ``cutout_*.fits`` (+ optional ``summary.ecsv``) written by
         ``spherex_retrieval.retrieve``.
     catalog : path or astropy Table
-        Reference catalog (see :mod:`spherex_photometry.io.catalogs`).
+        Reference catalog (see :mod:`tractorjax_spherex.io.catalogs`).
     config : PhotometryConfig, optional
         All options; defaults to the blind-production profile.
     target : (ra, dec), optional
@@ -208,10 +208,10 @@ def run_photometry(cutouts_dir, catalog, config: PhotometryConfig | None = None,
     # Completeness travels WITH the product: a reader must be able to tell a
     # partial run from a full one without access to the log that produced it.
     completeness = {
-        "spherex_photometry.complete": not failed,
-        "spherex_photometry.n_cutouts_attempted": len(pairs),
-        "spherex_photometry.n_cutouts_failed": len(failed),
-        "spherex_photometry.failed_cutouts": list(failed),
+        "tractorjax_spherex.complete": not failed,
+        "tractorjax_spherex.n_cutouts_attempted": len(pairs),
+        "tractorjax_spherex.n_cutouts_failed": len(failed),
+        "tractorjax_spherex.failed_cutouts": list(failed),
     }
     results.meta.update(completeness)
 

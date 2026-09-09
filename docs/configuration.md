@@ -1,12 +1,12 @@
 # Configuration
 
-Every option lives on {class}`spherex_photometry.config.PhotometryConfig`. The
+Every option lives on {class}`tractorjax_spherex.config.PhotometryConfig`. The
 defaults reproduce the **blind-production ("F3") profile**: solver `eigfloor`,
 tile 15 / halo 3 / pad-bucket 32, prefetch thread, `fp32`. Change `solver` (and
 read {doc}`solvers`) to select a different estimator.
 
 ```python
-from spherex_photometry import PhotometryConfig
+from tractorjax_spherex import PhotometryConfig
 cfg = PhotometryConfig(solver="eigfloor", device="cpu")
 ```
 
@@ -68,11 +68,11 @@ Three guards make that visible and avoidable:
   `shape_r` through each cutout's WCS — so it costs one header parse per
   cutout, no pixels and no solve. Cutouts that a *manually* chosen cap would
   drop are listed in a warning up front, before the run spends time on them.
-- An overflow raises {class}`~spherex_photometry.config.CapExceededError`,
+- An overflow raises {class}`~tractorjax_spherex.config.CapExceededError`,
   which carries the width that was actually needed and the ways to fix it.
 - Every product records `complete`, `n_cutouts_attempted`, `n_cutouts_failed`
   and `failed_cutouts` in its parquet metadata, so a reader can tell a partial
-  run from a full one without the log. `spherex-phot run` exits **2** when the
+  run from a full one without the log. `tractorjax-spherex run` exits **2** when the
   product is incomplete, and `strict=True` turns the first failure into an
   exception so a partial product is never written at all.
 

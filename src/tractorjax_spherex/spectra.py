@@ -32,7 +32,7 @@ def build_spectra(photometry: Table, ids=None, min_snr=None) -> dict[int, Table]
     Parameters
     ----------
     photometry : Table
-        Output of :func:`~spherex_photometry.pipeline.run_photometry` (columns
+        Output of :func:`~tractorjax_spherex.pipeline.run_photometry` (columns
         ``id, central_wavelength, flux, flux_err, ...``).
     ids : iterable of int, optional
         Restrict to these source ids (default: all).

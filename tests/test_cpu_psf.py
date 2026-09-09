@@ -6,7 +6,7 @@ import pytest
 pytest.importorskip("tractor")
 
 from fixtures.synth import gaussian_oversampled
-from spherex_photometry.backends.cpu_psf import OversampledPixelizedPSF
+from tractorjax_spherex.backends.cpu_psf import OversampledPixelizedPSF
 
 
 def _psf5x():

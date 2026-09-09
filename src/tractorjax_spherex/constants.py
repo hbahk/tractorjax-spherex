@@ -2,7 +2,7 @@
 
 Lifted from the production driver (proj-spherex-gpupipe
 analysis/test_optimizer_spherex_batch_tiled.py, L153-232). Tunable pipeline
-defaults (tiling, background, solver) live in :mod:`spherex_photometry.config`;
+defaults (tiling, background, solver) live in :mod:`tractorjax_spherex.config`;
 this module holds only values that are fixed by the instrument / data format.
 """
 

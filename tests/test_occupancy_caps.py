@@ -10,9 +10,9 @@ import numpy as np
 import pytest
 from astropy.table import Table
 
-from spherex_photometry.config import CapExceededError, ConfigError, PhotometryConfig
-from spherex_photometry.io.cutouts import discover_cutouts, read_cutout
-from spherex_photometry.occupancy import Occupancy, measure_occupancy
+from tractorjax_spherex.config import CapExceededError, ConfigError, PhotometryConfig
+from tractorjax_spherex.io.cutouts import discover_cutouts, read_cutout
+from tractorjax_spherex.occupancy import Occupancy, measure_occupancy
 
 
 def test_auto_cap_requires_a_measurement():
@@ -81,7 +81,7 @@ def test_occupancy_flags_the_cutouts_a_small_cap_would_drop(synth_field):
 
 def test_cap_overflow_raises_actionable_error(synth_field):
     """An over-tight cap must fail with the width it actually needed."""
-    from spherex_photometry.backends.jax_backend import _check_caps
+    from tractorjax_spherex.backends.jax_backend import _check_caps
 
     cat = Table.read(synth_field["catalog"])
     n = len(cat)
@@ -101,7 +101,7 @@ def test_cap_overflow_raises_actionable_error(synth_field):
 
 
 def test_galaxy_overflow_reported_as_gal(synth_field):
-    from spherex_photometry.backends.jax_backend import _check_caps
+    from tractorjax_spherex.backends.jax_backend import _check_caps
 
     cat = Table.read(synth_field["catalog"])
     cat["shape_r"] = np.full(len(cat), 1.0)   # every source is now extended
@@ -112,25 +112,25 @@ def test_galaxy_overflow_reported_as_gal(synth_field):
 
 
 def test_complete_flag_written_for_a_clean_run(synth_field, tmp_path):
-    from spherex_photometry.io.output import read_photometry
-    from spherex_photometry.pipeline import run_photometry
+    from tractorjax_spherex.io.output import read_photometry
+    from tractorjax_spherex.pipeline import run_photometry
 
     out = tmp_path / "phot.parquet"
     cfg = PhotometryConfig(device="cpu", prefetch="sync", solver="linear")
     res = run_photometry(synth_field["cutouts_dir"], synth_field["catalog"],
                          cfg, output=out, progress=False)
 
-    assert res.meta["spherex_photometry.complete"] is True
-    assert res.meta["spherex_photometry.n_cutouts_failed"] == 0
+    assert res.meta["tractorjax_spherex.complete"] is True
+    assert res.meta["tractorjax_spherex.n_cutouts_failed"] == 0
     _tab, meta = read_photometry(out)
-    assert meta["spherex_photometry.complete"] is True
+    assert meta["tractorjax_spherex.complete"] is True
 
 
 def test_strict_turns_a_skipped_cutout_into_an_error(synth_field, tmp_path,
                                                      monkeypatch):
     """Default: skip and label incomplete. strict=True: raise."""
-    from spherex_photometry import pipeline as pl
-    from spherex_photometry.backends import jax_backend
+    from tractorjax_spherex import pipeline as pl
+    from tractorjax_spherex.backends import jax_backend
 
     def boom(*a, **k):
         raise RuntimeError("synthetic build failure")
@@ -141,8 +141,8 @@ def test_strict_turns_a_skipped_cutout_into_an_error(synth_field, tmp_path,
     res = pl.run_photometry(synth_field["cutouts_dir"],
                             synth_field["catalog"], lenient,
                             output=tmp_path / "partial.parquet", progress=False)
-    assert res.meta["spherex_photometry.complete"] is False
-    assert res.meta["spherex_photometry.n_cutouts_failed"] > 0
+    assert res.meta["tractorjax_spherex.complete"] is False
+    assert res.meta["tractorjax_spherex.n_cutouts_failed"] > 0
     assert len(res) == 0
 
     strict = PhotometryConfig(device="cpu", prefetch="sync", solver="linear",
@@ -154,7 +154,7 @@ def test_strict_turns_a_skipped_cutout_into_an_error(synth_field, tmp_path,
 
 def test_tiles_take_their_own_zone_psf(one_cutout):
     """Each tile must resolve the PSF at its own centre, not the cutout's."""
-    from spherex_photometry.prepare import zone_psf_selector
+    from tractorjax_spherex.prepare import zone_psf_selector
 
     cutout = read_cutout(one_cutout["path"])
     select = zone_psf_selector(cutout)

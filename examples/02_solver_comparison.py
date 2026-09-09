@@ -7,7 +7,7 @@ same photons. Point ``CUTOUTS`` and ``CATALOG`` at your own prepared field.
 
 import numpy as np
 
-from spherex_photometry import PhotometryConfig, run_photometry
+from tractorjax_spherex import PhotometryConfig, run_photometry
 
 CUTOUTS = "cutouts"
 CATALOG = "catalog.parquet"

@@ -1,6 +1,6 @@
 """The fitsio fast reader must be indistinguishable from the astropy one.
 
-Nothing in :mod:`spherex_photometry.io.fast` is allowed to change a number, so
+Nothing in :mod:`tractorjax_spherex.io.fast` is allowed to change a number, so
 these tests compare the two readers field by field on real cutout MEFs: arrays
 with dtype, the PSF-zone table, every scalar, every header keyword value, and
 the WCS through both projections (which is what the fast path rebuilds by hand).
@@ -10,8 +10,8 @@ import numpy as np
 import pytest
 from astropy.io import fits
 
-from spherex_photometry.io import cutouts as C
-from spherex_photometry.io import fast as F
+from tractorjax_spherex.io import cutouts as C
+from tractorjax_spherex.io import fast as F
 
 pytestmark = pytest.mark.skipif(not F.have_fitsio(),
                                 reason="fitsio not installed")

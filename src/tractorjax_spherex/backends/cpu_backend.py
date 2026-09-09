@@ -10,7 +10,7 @@ low-resolution flux estimate.
 Two solve geometries, selected by ``config.cpu_tiling``:
 
 **Tiled** (default). The cutout is split on the SAME 15 px core + 3 px halo grid
-the JAX backend uses (:mod:`spherex_photometry.tiling`) and each tile is a small,
+the JAX backend uses (:mod:`tractorjax_spherex.tiling`) and each tile is a small,
 self-contained ``tractor.Tractor`` solved with its own
 ``optimize_forced_photometry``. Each source is *reported* from the one tile whose
 core box contains it, so halo overlaps are never double-counted. This is pure

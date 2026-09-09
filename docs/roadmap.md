@@ -1,6 +1,6 @@
 # Roadmap
 
-`spherex-photometry` v0.1 ships one thing well: reference-catalog forced
+`tractorjax-spherex` v0.1 ships one thing well: reference-catalog forced
 photometry and spectrum assembly from SPHEREx L2 cutouts. Source positions and
 shapes come from the input catalog and are held fixed; only fluxes are solved
 (see {doc}`solvers`). A few capabilities that live in the research code, or that
@@ -10,9 +10,9 @@ of this release. This page records what and why.
 ## Deconfusion image models
 
 The `eigfloor_prior` solver already carries the *predictive* half of
-deconfusion: {func}`spherex_photometry.priors.predict_flux_ujy` builds a per-source
+deconfusion: {func}`tractorjax_spherex.priors.predict_flux_ujy` builds a per-source
 Legacy-Survey SED and evaluates it at each cutout's wavelength, and
-{func}`spherex_photometry.priors.make_prior_context` turns that prediction into
+{func}`tractorjax_spherex.priors.make_prior_context` turns that prediction into
 the Gaussian flux prior that constrains the faint, penalized nuisance sources
 (see {doc}`solvers`). **What is deferred is the image-model rendering** — using
 those SED predictions to render the sub-catalog of faint confusing sources into
@@ -37,12 +37,12 @@ fields.
 
 v0.1 produces the *per-visit* product: one `(wavelength, flux, flux_err)` point
 per source per cutout, assembled into spectra by
-{func}`spherex_photometry.spectra.build_spectra` (see {doc}`data_model`).
+{func}`tractorjax_spherex.spectra.build_spectra` (see {doc}`data_model`).
 Converting those points into a SPHEREx-style **secondary catalog** — fluxes
 collapsed onto the fixed spectral channels / points — needs the per-point (per
 spectral-channel) **filter response curves** to integrate each spectrum against.
 Those are not public yet, so this conversion is deferred until they are. In the
-meantime, {func}`spherex_photometry.spectra.bin_spectrum` gives an
+meantime, {func}`tractorjax_spherex.spectra.bin_spectrum` gives an
 inverse-variance-weighted rebinning onto user-chosen wavelength bins as a
 stand-in.
 
@@ -65,7 +65,7 @@ products become public.
 ## Done: tiled solve for the `cpu-tractor` backend (shipped 2026-07-31)
 
 Shipped as `cpu_tiling` (default `True`) — see {doc}`cpu_backend`. The tile
-geometry now lives in the backend-neutral {mod}`spherex_photometry.tiling`, which
+geometry now lives in the backend-neutral {mod}`tractorjax_spherex.tiling`, which
 both backends import, so the 15 px core / 3 px halo grid is defined once. Tiling
 is ORCHESTRATION around upstream Tractor: each tile is a pure
 `optimize_forced_photometry` on a small `tractor.Tractor`, and the upstream

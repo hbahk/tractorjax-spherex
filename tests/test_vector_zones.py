@@ -13,10 +13,10 @@ import numpy as np
 import pytest
 from astropy.table import Table
 
-from spherex_photometry.backends import jax_backend as JB
-from spherex_photometry.config import PhotometryConfig
-from spherex_photometry.pipeline import run_photometry
-from spherex_photometry.prepare import (
+from tractorjax_spherex.backends import jax_backend as JB
+from tractorjax_spherex.config import PhotometryConfig
+from tractorjax_spherex.pipeline import run_photometry
+from tractorjax_spherex.prepare import (
     select_zone_plane,
     zone_bilinear_weights,
     zone_planes_and_weights,

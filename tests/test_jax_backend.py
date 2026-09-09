@@ -3,7 +3,7 @@ import pytest
 
 pytest.importorskip("tractor_jax")
 
-from spherex_photometry import PhotometryConfig, run_photometry
+from tractorjax_spherex import PhotometryConfig, run_photometry
 
 
 def _run(field, **overrides):

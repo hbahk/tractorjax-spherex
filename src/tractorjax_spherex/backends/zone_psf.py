@@ -8,11 +8,11 @@ A single whole-cutout kernel mis-renders every source that sits in a
 neighbouring zone. :class:`ZoneBlendedPSF` blends the delivered zone kernels
 bilinearly at each evaluation position (the SPHEREx Sky Simulator convention,
 clamped at the lattice edge), matching
-:func:`spherex_photometry.prepare.zone_bilinear_weights`.
+:func:`tractorjax_spherex.prepare.zone_bilinear_weights`.
 
 **Core re-registration** (``psf_core_shift``). The delivered kernel's core sits
 ~-0.05 native px from its declared fiducial per axis (per detector and zone,
-measured; :mod:`spherex_photometry.calib`). Each zone stamp is shifted by its
+measured; :mod:`tractorjax_spherex.calib`). Each zone stamp is shifted by its
 measured correction — plus the fixed 10x->5x binning grid term — BEFORE
 blending, mirroring the JAX engine's per-basis-element phase ramps.
 
@@ -84,7 +84,7 @@ class ZoneBlendedPSF:
         Native px per stamp px (0.2 for 5x).
     weights_fn : callable
         ``(zones_tab, x_orig, y_orig) -> (K,) weights`` — pass
-        :func:`spherex_photometry.prepare.zone_bilinear_weights` so both
+        :func:`tractorjax_spherex.prepare.zone_bilinear_weights` so both
         backends share one convention (and one set of unit tests).
     grid : int
         Quantization cell in cutout px. Matches the JAX tile size by default
@@ -162,7 +162,7 @@ def zone_stamp_provider(cutout, cfg, *, prepare):
     offset plus the fixed binning-grid term. Each plane is resolved at most once
     per cutout, so a 49-tile cutout over 12 zones pays 12 downsamples.
 
-    ``prepare`` is the :mod:`spherex_photometry.prepare` module (passed in to
+    ``prepare`` is the :mod:`tractorjax_spherex.prepare` module (passed in to
     keep this module import-light for tractor-less environments).
     """
     zones = cutout.psf_zones
@@ -205,7 +205,7 @@ def nearest_zone_row(zones, x_orig, y_orig) -> int:
     """Row of ``psf_zones`` whose centre is nearest detector ``(x_orig, y_orig)``.
 
     The row index rather than ``plane_idx`` (which
-    :func:`spherex_photometry.prepare.select_zone_plane` returns), because the
+    :func:`tractorjax_spherex.prepare.select_zone_plane` returns), because the
     core-shift table is keyed on ``zone_id`` and only the row knows both.
     """
     dx = np.asarray(zones["x"], dtype=np.float64) - float(x_orig)
@@ -277,7 +277,7 @@ def build_cpu_psf_selector(cutout, cfg, *, prepare):
 
     * ``psf_zone_interp=True`` -> the bilinear zone blend at that position;
     * ``psf_zone_interp=False`` -> the nearest zone's kernel at that position
-      (:func:`spherex_photometry.prepare.zone_psf_selector` on the JAX side) —
+      (:func:`tractorjax_spherex.prepare.zone_psf_selector` on the JAX side) —
       NOT the whole-cutout centre zone, which is what the untiled CPU path uses
       and which would put every off-centre tile on the wrong kernel.
 

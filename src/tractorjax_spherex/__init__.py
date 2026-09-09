@@ -1,8 +1,8 @@
-"""spherex-photometry: forced photometry and spectrophotometry from SPHEREx L2.
+"""tractorjax-spherex: forced photometry and spectrophotometry from SPHEREx L2.
 
 Typical use::
 
-    from spherex_photometry import PhotometryConfig, run_photometry, build_spectra
+    from tractorjax_spherex import PhotometryConfig, run_photometry, build_spectra
 
     cfg = PhotometryConfig(solver="eigfloor")          # blind-production default
     phot = run_photometry("cutouts/", "catalog.parquet", cfg, output="phot.parquet")
@@ -33,7 +33,7 @@ __all__ = [
 
 
 def fetch_ls_dr10(*args, **kwargs):
-    """Lazy wrapper for :func:`spherex_photometry.catalog.fetch_ls.fetch_ls_dr10`."""
+    """Lazy wrapper for :func:`tractorjax_spherex.catalog.fetch_ls.fetch_ls_dr10`."""
     from .catalog.fetch_ls import fetch_ls_dr10 as _f
     return _f(*args, **kwargs)
 

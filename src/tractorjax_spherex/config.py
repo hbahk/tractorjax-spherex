@@ -250,7 +250,7 @@ class PhotometryConfig:
         value <= 0 disables that cap.
 
         ``"auto"`` sizes the cap from a measured
-        :class:`~spherex_photometry.occupancy.Occupancy` (times
+        :class:`~tractorjax_spherex.occupancy.Occupancy` (times
         ``cap_auto_margin``) instead of the built-in default, so the field's own
         crowding decides the width and no cutout is dropped. Passing ``"auto"``
         without an ``occupancy`` is a programming error: the pipeline measures
@@ -274,7 +274,7 @@ class PhotometryConfig:
                 elif meas is None:
                     raise ConfigError(
                         "cap='auto' needs a measured occupancy; "
-                        "spherex_photometry.occupancy.measure_occupancy runs "
+                        "tractorjax_spherex.occupancy.measure_occupancy runs "
                         "this automatically inside run_photometry")
                 else:
                     # Round before ceil: 100 * 1.1 is 110.00000000000001 in

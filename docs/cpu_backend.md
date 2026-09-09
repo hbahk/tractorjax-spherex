@@ -23,7 +23,7 @@ Not on PyPI; build from source (needs a C toolchain):
 pip install git+https://github.com/dstndstn/tractor
 ```
 
-`spherex-photometry` imports it lazily, so it is only required when you actually
+`tractorjax-spherex` imports it lazily, so it is only required when you actually
 select `backend="cpu-tractor"`.
 
 ## Accurate low-resolution rendering — and the PixelizedPSF flux bug
@@ -41,7 +41,7 @@ template sums to `sampling**2` (≈ 1/25 at 5×) and forced fluxes come out **~2
 too high**.
 
 This package ships a corrected subclass,
-{class}`spherex_photometry.backends.cpu_psf.OversampledPixelizedPSF`, which ports
+{class}`tractorjax_spherex.backends.cpu_psf.OversampledPixelizedPSF`, which ports
 the fix from the tractor-jax engine: it block-integrates the oversampled PSF to
 native pixels (keeping the convolution at oversampled resolution) and applies the
 correct flux scale, in both the point-source and Fourier (galaxy) paths. **Do not
@@ -60,7 +60,7 @@ solver="linear"` on your own field to reproduce it.
 
 The backend splits each cutout on the **same tile grid the JAX backend uses** —
 15 px cores with a 3 px halo, from the shared
-{mod}`spherex_photometry.tiling` module — and runs one upstream
+{mod}`tractorjax_spherex.tiling` module — and runs one upstream
 `optimize_forced_photometry` per tile. Each tile is a small, self-contained
 `tractor.Tractor` over the tile's data/invvar slice; the upstream engine is not
 modified in any way. Tiling here is **orchestration**, not a new estimator.

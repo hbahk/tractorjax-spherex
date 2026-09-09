@@ -32,7 +32,7 @@ class FieldContext:
     prior_ctx: dict | None = None
     profile_lookup_fn: Any = None
     # Densest-tile occupancy measured over the field before the first solve;
-    # set only when a cap is "auto" (see spherex_photometry.occupancy).
+    # set only when a cap is "auto" (see tractorjax_spherex.occupancy).
     occupancy: Any = None
 
 

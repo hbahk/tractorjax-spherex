@@ -6,14 +6,14 @@ matplotlib.use("Agg")
 
 pytest.importorskip("tractor_jax")
 
-from spherex_photometry import PhotometryConfig, run_photometry
-from spherex_photometry.diagnostics import (
+from tractorjax_spherex import PhotometryConfig, run_photometry
+from tractorjax_spherex.diagnostics import (
     fluxes_for_cutout,
     plot_fit,
     render_model_image,
 )
-from spherex_photometry.io.catalogs import load_catalog
-from spherex_photometry.io.cutouts import read_cutout
+from tractorjax_spherex.io.catalogs import load_catalog
+from tractorjax_spherex.io.cutouts import read_cutout
 
 
 def _run(field):

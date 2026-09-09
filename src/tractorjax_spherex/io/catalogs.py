@@ -37,7 +37,7 @@ def normalize_catalog(tab: Table) -> Table:
 
     Adds a canonical ``id`` (from ``id`` or ``ls_id``), fills missing shape
     columns with zeros, and derives ``shape_ab`` / ``shape_phi`` from the
-    ellipticity via :func:`~spherex_photometry.models.ls_shapes_to_ab_phi`.
+    ellipticity via :func:`~tractorjax_spherex.models.ls_shapes_to_ab_phi`.
     Original columns (including SED bands) are preserved.
     """
     tab = tab.copy()

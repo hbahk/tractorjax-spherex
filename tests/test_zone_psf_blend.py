@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 from astropy.table import Table
 
-from spherex_photometry.prepare import zone_bilinear_weights, zone_psf_basis
+from tractorjax_spherex.prepare import zone_bilinear_weights, zone_psf_basis
 
 PITCH = 185.4
 

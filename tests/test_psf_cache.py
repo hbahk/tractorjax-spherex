@@ -11,12 +11,12 @@ released together.
 import numpy as np
 import pytest
 
-from spherex_photometry.backends import jax_backend as JB
-from spherex_photometry.config import PhotometryConfig
-from spherex_photometry.io.cutouts import read_cutout
-from spherex_photometry.pipeline import run_photometry
-from spherex_photometry.prepare import zone_psf_basis
-from spherex_photometry.psf_cache import PSFCache, cube_signature
+from tractorjax_spherex.backends import jax_backend as JB
+from tractorjax_spherex.config import PhotometryConfig
+from tractorjax_spherex.io.cutouts import read_cutout
+from tractorjax_spherex.pipeline import run_photometry
+from tractorjax_spherex.prepare import zone_psf_basis
+from tractorjax_spherex.psf_cache import PSFCache, cube_signature
 
 
 def _cutouts(synth_field):

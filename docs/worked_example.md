@@ -2,17 +2,17 @@
 
 A complete, **self-contained** run you can execute right after installing — no
 network, no GPU, no IRSA account. The field is simulated with the package's toy
-simulator ({mod}`spherex_photometry.simulate`), so you see the whole pipeline
+simulator ({mod}`tractorjax_spherex.simulate`), so you see the whole pipeline
 (catalog → forced photometry → fit inspection → spectrum) and learn the API
 before touching real data. The full script is `examples/03_offline_demo.py`;
-swap step 1 for {func}`~spherex_photometry.retrieve` + a real catalog to do the
+swap step 1 for {func}`~tractorjax_spherex.retrieve` + a real catalog to do the
 same thing on real SPHEREx L2 cutouts.
 
 ## 1. Define sample sources and simulate a field
 
 ```python
-from spherex_photometry.simulate import make_synth_field, make_synth_catalog
-from spherex_photometry.io.cutouts import read_cutout
+from tractorjax_spherex.simulate import make_synth_field, make_synth_catalog
+from tractorjax_spherex.io.cutouts import read_cutout
 
 truth = [
     {"x": 12.0, "y": 14.0, "flux_mjy": 5.0},                              # point
@@ -33,7 +33,7 @@ wavelength band — exactly the shape of real retrieved data (same MEF layout,
 ## 2. Run forced photometry
 
 ```python
-from spherex_photometry import PhotometryConfig, run_photometry
+from tractorjax_spherex import PhotometryConfig, run_photometry
 
 cfg = PhotometryConfig(solver="eigfloor", device="cpu", prefetch="sync")
 phot = run_photometry("cutouts", "catalog.parquet", cfg, output="phot.parquet")
@@ -44,8 +44,8 @@ phot = run_photometry("cutouts", "catalog.parquet", cfg, output="phot.parquet")
 ## 3. Inspect the fit: data / model / chi
 
 ```python
-from spherex_photometry.diagnostics import plot_fit
-from spherex_photometry.io.catalogs import load_catalog
+from tractorjax_spherex.diagnostics import plot_fit
+from tractorjax_spherex.io.catalogs import load_catalog
 
 fig = plot_fit(cutout0, load_catalog("catalog.parquet"), phot,
                cutout_index=0, config=cfg)
@@ -67,8 +67,8 @@ suggests trying a different `bkg_model` ({doc}`backgrounds_systematics`).
 ## 4. Spectra vs the injected truth
 
 ```python
-from spherex_photometry import build_spectra
-from spherex_photometry.spectra import bin_spectrum
+from tractorjax_spherex import build_spectra
+from tractorjax_spherex.spectra import bin_spectrum
 
 spectra = build_spectra(phot)      # {id: table sorted by wavelength}
 ```

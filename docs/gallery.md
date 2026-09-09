@@ -87,7 +87,7 @@ flux regularizer can turn a wrong model into a right one.
    galaxy's spectrum is all you want. But the sum cannot separate out a real
    source like (e), and the individual fragment spectra remain meaningless.
 
-4. **Look at the fit.** {func}`~spherex_photometry.diagnostics.plot_fit` — a
+4. **Look at the fit.** {func}`~tractorjax_spherex.diagnostics.plot_fit` — a
    shredded model often reproduces the *image* tolerably while dividing the
    flux arbitrarily; structured residuals centred on the galaxy mean even the
    image is not reproduced.
@@ -101,5 +101,5 @@ The figure is generated from the private analysis repo (it needs the A2537
 cutouts, the Legacy Survey thumbnails, and the channel definitions):
 `proj-spherex-gpupipe/figures/docs_gallery_a2537.py`. The estimator products
 themselves come from ordinary
-{func}`~spherex_photometry.pipeline.run_photometry` runs with
+{func}`~tractorjax_spherex.pipeline.run_photometry` runs with
 `solver="linear"`, `"lasso"`, and `"eigfloor_prior"` on the full catalog.

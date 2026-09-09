@@ -1,16 +1,16 @@
-"""Sphinx configuration for spherex-photometry."""
+"""Sphinx configuration for tractorjax-spherex."""
 
 import os
 import sys
 
 sys.path.insert(0, os.path.abspath("../src"))
 
-project = "spherex-photometry"
+project = "tractorjax-spherex"
 author = "Hyeonguk Bahk"
 copyright = "2026, Hyeonguk Bahk"
 
 try:
-    from spherex_photometry.version import __version__ as release
+    from tractorjax_spherex.version import __version__ as release
 except Exception:
     release = "0.0.0"
 version = release
@@ -37,7 +37,7 @@ napoleon_numpy_docstring = True
 myst_enable_extensions = ["colon_fence", "deflist"]
 
 html_theme = "pydata_sphinx_theme"
-html_title = f"spherex-photometry {version}"
+html_title = f"tractorjax-spherex {version}"
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),

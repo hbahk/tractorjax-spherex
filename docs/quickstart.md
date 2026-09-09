@@ -8,7 +8,7 @@ From a sky position to a SPHEREx spectrum in four steps. The full script is
 ```python
 import astropy.units as u
 from astropy.coordinates import SkyCoord
-from spherex_photometry import retrieve
+from tractorjax_spherex import retrieve
 
 retrieve(SkyCoord(150.0*u.deg, 2.0*u.deg), 100, output_dir="cutouts",
          include_wavelength=True, include_sapm=True)
@@ -20,7 +20,7 @@ per-pixel wavelength maps and the solid-angle map the pipeline needs — keep th
 on. From the shell:
 
 ```bash
-spherex-phot retrieve --ra 150.0 --dec 2.0 --out cutouts
+tractorjax-spherex retrieve --ra 150.0 --dec 2.0 --out cutouts
 ```
 
 ## 2. Get a reference catalog
@@ -29,7 +29,7 @@ Positions and shapes are fixed from a reference catalog. Fetch Legacy Survey
 DR10 (needs the `[catalog]` extra):
 
 ```python
-from spherex_photometry import fetch_ls_dr10
+from tractorjax_spherex import fetch_ls_dr10
 fetch_ls_dr10(150.0, 2.0, out="catalog.parquet")
 ```
 
@@ -38,7 +38,7 @@ Or bring your own — see {doc}`catalogs` for the required columns.
 ## 3. Run forced photometry
 
 ```python
-from spherex_photometry import PhotometryConfig, run_photometry
+from tractorjax_spherex import PhotometryConfig, run_photometry
 
 cfg = PhotometryConfig(solver="eigfloor")          # blind-production default
 phot = run_photometry("cutouts", "catalog.parquet", cfg,
@@ -53,15 +53,15 @@ add `device="cpu"`.
 From the shell:
 
 ```bash
-spherex-phot run --cutouts-dir cutouts --catalog catalog.parquet \
+tractorjax-spherex run --cutouts-dir cutouts --catalog catalog.parquet \
     --solver eigfloor --ra 150.0 --dec 2.0 --output phot.parquet
 ```
 
 ## 4. Assemble spectra
 
 ```python
-from spherex_photometry import build_spectra, bin_spectrum
-from spherex_photometry.spectra import plot_spectrum
+from tractorjax_spherex import build_spectra, bin_spectrum
+from tractorjax_spherex.spectra import plot_spectrum
 
 spectra = build_spectra(phot)          # {id: table sorted by wavelength}
 spec = spectra[next(iter(spectra))]

@@ -1,6 +1,6 @@
 """Fit diagnostics: render the fitted model image and compare it to the data.
 
-After :func:`~spherex_photometry.pipeline.run_photometry`, these helpers let a
+After :func:`~tractorjax_spherex.pipeline.run_photometry`, these helpers let a
 user *see* the fit on any cutout: :func:`render_model_image` rebuilds the scene
 (every fitted source at its measured flux, rendered through the same
 5x-oversampled PSF machinery as the solver) and :func:`plot_fit` shows the
@@ -36,7 +36,7 @@ def render_model_image(cutout, catalog, flux_by_id, config=None):
     Parameters
     ----------
     cutout : Cutout
-        From :func:`~spherex_photometry.io.cutouts.read_cutout`.
+        From :func:`~tractorjax_spherex.io.cutouts.read_cutout`.
     catalog : Table
         The reference catalog (normalized or raw; normalized internally).
     flux_by_id : dict
@@ -124,7 +124,7 @@ def plot_fit(cutout, catalog, result, cutout_index, config=None,
     """Data / model / chi triptych for one cutout of a photometry result.
 
     Returns the matplotlib figure. ``result`` is the table returned by
-    :func:`~spherex_photometry.pipeline.run_photometry` (the fitted fluxes for
+    :func:`~tractorjax_spherex.pipeline.run_photometry` (the fitted fluxes for
     ``cutout_index`` are looked up from it).
     """
     import matplotlib.pyplot as plt

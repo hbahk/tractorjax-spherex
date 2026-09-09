@@ -1,7 +1,7 @@
 import numpy as np
 from astropy.table import Table
 
-from spherex_photometry.spectra import bin_spectrum, build_spectra, to_ab_mag
+from tractorjax_spherex.spectra import bin_spectrum, build_spectra, to_ab_mag
 
 
 def _phot():

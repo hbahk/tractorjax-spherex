@@ -39,7 +39,7 @@ Check in this order:
    `central_wavelength` before concluding anything.
 3. **A neighbour is missing from your catalog.** Unmodelled flux lands on
    whichever fitted source is closest, and how much it lands depends on the
-   dither. Run {func}`~spherex_photometry.diagnostics.plot_fit` on a couple of
+   dither. Run {func}`~tractorjax_spherex.diagnostics.plot_fit` on a couple of
    cutouts — an unmodelled neighbour shows up as a bright blob in `chi`.
 4. **Background model.** `bkg_model="cwave+photutils"` is the default and takes
    the airglow stripes out; compare against `bkg_model="photutils"` (or
@@ -77,14 +77,14 @@ it is the catalog, not the solver.
 
 That cutout shipped an empty `CWAVE` extension. The source is still photometered
 (the flux is fine), but it cannot be placed in a spectrum, so
-{func}`~spherex_photometry.spectra.build_spectra` drops those points. The
+{func}`~tractorjax_spherex.spectra.build_spectra` drops those points. The
 pipeline logs a warning listing the affected cutouts. Re-retrieving with
 `include_wavelength=True` usually fixes it.
 
 ### How do I get magnitudes?
 
 ```python
-from spherex_photometry import to_ab_mag
+from tractorjax_spherex import to_ab_mag
 mag, mag_err = to_ab_mag(phot["flux"], phot["flux_err"])   # flux in mJy
 ```
 
@@ -96,9 +96,9 @@ and convert only for display.
 ### `RuntimeWarning: setup_device(device='cpu') was called after jax was already imported`
 
 JAX picks its backend at import time, so `device="cpu"` has to be set before
-anything imports `jax`. Either use the CLI (`spherex-phot run --device cpu`,
+anything imports `jax`. Either use the CLI (`tractorjax-spherex run --device cpu`,
 which handles this before importing the backend) or call
-{func}`~spherex_photometry.device.setup_device` at the very top of your script,
+{func}`~tractorjax_spherex.device.setup_device` at the very top of your script,
 before importing anything that pulls in `tractor_jax`. Setting
 `JAX_PLATFORMS=cpu` in the environment always works.
 
@@ -172,13 +172,13 @@ present in the file are skipped and new rows are appended.
 The output parquet carries the full config as JSON in its metadata:
 
 ```python
-from spherex_photometry.io.output import read_photometry
+from tractorjax_spherex.io.output import read_photometry
 tab, meta = read_photometry("phot.parquet")
-print(meta["spherex_photometry.config"])
+print(meta["tractorjax_spherex.config"])
 ```
 
 You can also keep the config as a file (`cfg.to_yaml("run.yaml")`,
-`spherex-phot run --config run.yaml`).
+`tractorjax-spherex run --config run.yaml`).
 
 ### Can I try the package before I have any data?
 

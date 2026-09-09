@@ -67,7 +67,7 @@ def cutout_occupancy(path, sco_all, is_gal, tile_size, halo):
 
     Reads only the IMAGE header — the WCS and the array shape — so a full-field
     scan costs a header parse per cutout rather than a pixel read.  The fitsio
-    fast path is used when available (see :mod:`spherex_photometry.io.fast`).
+    fast path is used when available (see :mod:`tractorjax_spherex.io.fast`).
     """
     from .io.cutouts import FAST_IO, _use_fast
 

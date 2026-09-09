@@ -10,7 +10,7 @@ import warnings
 import pytest
 
 from fixtures.synth import make_synth_catalog, make_synth_field
-from spherex_photometry.io.cutouts import read_cutout
+from tractorjax_spherex.io.cutouts import read_cutout
 
 warnings.filterwarnings("ignore")
 

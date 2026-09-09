@@ -8,8 +8,8 @@ reference for anyone reading the inputs or the output parquet directly.
 
 Each input is one L2 cutout written by
 [`spherex-retrieval`](https://github.com/hbahk/spherex-retrieval) as a
-multi-extension FITS file. {func}`spherex_photometry.io.cutouts.read_cutout`
-parses one into a {class}`~spherex_photometry.io.cutouts.Cutout` dataclass (which
+multi-extension FITS file. {func}`tractorjax_spherex.io.cutouts.read_cutout`
+parses one into a {class}`~tractorjax_spherex.io.cutouts.Cutout` dataclass (which
 also supports `cutout["key"]` / `cutout.get("key")` access). The HDU layout is:
 
 ```
@@ -41,22 +41,22 @@ pixels back to the native detector for PSF-zone selection.
 
 ### Discovering cutouts
 
-{func}`~spherex_photometry.io.cutouts.discover_cutouts` scans a directory for
+{func}`~tractorjax_spherex.io.cutouts.discover_cutouts` scans a directory for
 files matching `cutout_<index>_<obs>_D<detector>.fits` and returns
 `(cutout_index, path)` pairs sorted by index.
-{func}`~spherex_photometry.io.cutouts.filter_ok` optionally keeps only the
+{func}`~tractorjax_spherex.io.cutouts.filter_ok` optionally keeps only the
 indices marked `status == "ok"` in a sibling `summary.ecsv` (if that file is
 absent, all pairs pass through).
 
 ## Flux unit flow
 
 The L2 `IMAGE` is a **surface brightness in MJy/sr**; forced photometry needs a
-**flux per pixel**. {func}`spherex_photometry.prepare.prepare_pixels` does the
-conversion, producing a {class}`~spherex_photometry.prepare.PreparedPixels` that
+**flux per pixel**. {func}`tractorjax_spherex.prepare.prepare_pixels` does the
+conversion, producing a {class}`~tractorjax_spherex.prepare.PreparedPixels` that
 both backends consume identically.
 
 **1. Per-pixel solid angle (`omega_sr`, sr).**
-{func}`~spherex_photometry.io.cutouts.cutout_pixel_area_sr` prefers the `SAPM`
+{func}`~tractorjax_spherex.io.cutouts.cutout_pixel_area_sr` prefers the `SAPM`
 HDU — the standalone calibration product in arcsec² that already absorbs SIP
 distortion — scaled to steradians by `ARCSEC2_TO_SR`. When `SAPM` is absent it
 falls back to the single WCS projected pixel area
@@ -85,7 +85,7 @@ the mJy/pixel space above, so no further unit conversion happens on output.
 (flags-bits)=
 ### FLAGS bits and masking
 
-`FLAG_BITS` in {mod}`spherex_photometry.constants` names the L2 bit positions.
+`FLAG_BITS` in {mod}`tractorjax_spherex.constants` names the L2 bit positions.
 Two derived masks matter:
 
 - **`MASKBITS`** — the OR of `MASK_FLAGS`
@@ -105,7 +105,7 @@ single cutout wavelength would therefore be wrong.
 
 Instead, each source is labelled at **its own pixel**: the backend bilinearly
 samples `cwave_map` and `cband_map` at the source's projected position with
-{func}`~spherex_photometry.io.cutouts.sample_map_bilinear_vec`, giving that
+{func}`~tractorjax_spherex.io.cutouts.sample_map_bilinear_vec`, giving that
 source's `central_wavelength` and `bandwidth` (both µm). `cwave_center` (the
 value at the cutout's center pixel) is retained only as a coarse per-cutout
 label; when `CWAVE` is missing the sampled wavelength is `NaN` and the source is
@@ -113,7 +113,7 @@ still photometered.
 
 ## Output schema
 
-{func}`spherex_photometry.io.output.write_photometry` writes a parquet whose
+{func}`tractorjax_spherex.io.output.write_photometry` writes a parquet whose
 schema is fixed by `COLUMNS` (`SCHEMA_VERSION = 1`). **One row is one
 spectrophotometric point: one catalog source measured on one cutout (one
 SPHEREx visit / spectral channel)** — i.e. one row per `(source, visit)`.
@@ -133,7 +133,7 @@ SPHEREx visit / spectral channel)** — i.e. one row per `(source, visit)`.
 
 Collecting the rows for one `id` across all its visits, ordered by
 `central_wavelength`, gives that source's spectrum — what
-{func}`spherex_photometry.spectra.build_spectra` assembles.
+{func}`tractorjax_spherex.spectra.build_spectra` assembles.
 
 ### Reproducibility metadata
 
@@ -141,14 +141,14 @@ Collecting the rows for one `id` across all its visits, ordered by
 
 | key | value |
 |---|---|
-| `spherex_photometry.schema_version` | `SCHEMA_VERSION` (`1`) |
-| `spherex_photometry.version` | package version |
-| `spherex_photometry.config` | full {class}`~spherex_photometry.config.PhotometryConfig` as JSON (see {doc}`configuration`) |
-| `spherex_photometry.solver_spec` | resolved solver spec string (see {doc}`solvers`) |
+| `tractorjax_spherex.schema_version` | `SCHEMA_VERSION` (`1`) |
+| `tractorjax_spherex.version` | package version |
+| `tractorjax_spherex.config` | full {class}`~tractorjax_spherex.config.PhotometryConfig` as JSON (see {doc}`configuration`) |
+| `tractorjax_spherex.solver_spec` | resolved solver spec string (see {doc}`solvers`) |
 
-{func}`~spherex_photometry.io.output.read_photometry` returns
+{func}`~tractorjax_spherex.io.output.read_photometry` returns
 `(Table, meta_dict)`. For `--resume`,
-{func}`~spherex_photometry.io.output.existing_cutout_indices` reports which
+{func}`~tractorjax_spherex.io.output.existing_cutout_indices` reports which
 cutout indices are already written, and
-{func}`~spherex_photometry.io.output.append_or_merge` vstacks new rows onto the
+{func}`~tractorjax_spherex.io.output.append_or_merge` vstacks new rows onto the
 existing parquet and rewrites it.

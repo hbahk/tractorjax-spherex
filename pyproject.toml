@@ -3,7 +3,7 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "spherex-photometry"
+name = "tractorjax-spherex"
 dynamic = ["version"]
 description = "Forced photometry and spectrophotometry from SPHEREx L2 spectral images"
 readme = "README.md"
@@ -22,7 +22,7 @@ classifiers = [
 ]
 # NOTE: `tractor-jax` and `spherex-retrieval` are REQUIRED at runtime but are
 # not on PyPI yet, so they are intentionally omitted here (see docs/installation).
-# Install them first from source, then `pip install spherex-photometry` (or
+# Install them first from source, then `pip install tractorjax-spherex` (or
 # `pip install -e . --no-deps` for local development). A helpful error is raised
 # at import time if either is missing.
 dependencies = [
@@ -36,16 +36,16 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/hbahk/spherex-photometry"
-Documentation = "https://spherex-photometry.readthedocs.io"
-Source = "https://github.com/hbahk/spherex-photometry"
+Homepage = "https://github.com/hbahk/tractorjax-spherex"
+Documentation = "https://tractorjax-spherex.readthedocs.io"
+Source = "https://github.com/hbahk/tractorjax-spherex"
 
 [project.optional-dependencies]
 # GPU: tractor-jax pulls plain (CPU) jax; this upgrades to the CUDA 12 build.
 gpu = ["jax[cuda12]"]
 # Faster cutout reading (cfitsio). Optional: without it the astropy reader runs
 # unchanged and returns the identical Cutout — this only buys speed (~4x on the
-# per-cutout read). See spherex_photometry.io.fast.
+# per-cutout read). See tractorjax_spherex.io.fast.
 fast = ["fitsio"]
 # Reference-catalog fetcher (NOIRLab Data Lab / Legacy Survey DR10).
 catalog = ["astro-datalab"]
@@ -70,17 +70,17 @@ dev = [
 ]
 
 [project.scripts]
-spherex-phot = "spherex_photometry.cli:main"
+tractorjax-spherex = "tractorjax_spherex.cli:main"
 
 [tool.setuptools.dynamic]
-version = { attr = "spherex_photometry.version.__version__" }
+version = { attr = "tractorjax_spherex.version.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["spherex_photometry*"]
+include = ["tractorjax_spherex*"]
 
 [tool.setuptools.package-data]
-"spherex_photometry.calib" = ["*.ecsv"]
+"tractorjax_spherex.calib" = ["*.ecsv"]
 
 [tool.ruff.lint]
 # Rules kept off on purpose (everything else is ruff's default set for the
@@ -92,7 +92,7 @@ ignore = [
 
 [tool.ruff.lint.isort]
 # `fixtures` is the tests' own helper package, not a third-party dependency.
-known-first-party = ["spherex_photometry", "fixtures"]
+known-first-party = ["tractorjax_spherex", "fixtures"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

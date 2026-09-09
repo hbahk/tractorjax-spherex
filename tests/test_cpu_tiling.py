@@ -10,12 +10,12 @@ geometries are physically equivalent (isolated sources).
 import numpy as np
 import pytest
 
-from spherex_photometry.tiling import iter_tiles, tile_core_index
+from tractorjax_spherex.tiling import iter_tiles, tile_core_index
 
 tractor = pytest.importorskip("tractor")
 
-from spherex_photometry import PhotometryConfig, run_photometry
-from spherex_photometry.io.cutouts import read_cutout
+from tractorjax_spherex import PhotometryConfig, run_photometry
+from tractorjax_spherex.io.cutouts import read_cutout
 
 # 40x40 synth cutouts at tile_size=15 -> 3x3 tiles, cores [0,15) [15,30) [30,40).
 # Positions chosen so that: 5 sits in the CORE of tile (1,1) but in the HALO box
@@ -106,9 +106,9 @@ def test_tiled_build_makes_one_tractor_per_occupied_tile(tile_field):
     """Guard against a silent fall-back to one whole-cutout solve."""
     from astropy.coordinates import SkyCoord
 
-    from spherex_photometry.backends.base import FieldContext
-    from spherex_photometry.backends.cpu_backend import CpuTractorBackend
-    from spherex_photometry.io.catalogs import load_catalog, normalize_catalog
+    from tractorjax_spherex.backends.base import FieldContext
+    from tractorjax_spherex.backends.cpu_backend import CpuTractorBackend
+    from tractorjax_spherex.io.catalogs import load_catalog, normalize_catalog
 
     tab = normalize_catalog(load_catalog(tile_field["catalog"]))
     ctx = FieldContext(catalog=tab, sco_all=SkyCoord(
@@ -223,8 +223,8 @@ def _multizone_cutout(tmp_path, *, interp_stamps=True):
     from astropy.table import Table
 
     from fixtures.synth import make_synth_field
-    from spherex_photometry.io.cutouts import read_cutout as _read
-    from spherex_photometry.simulate import gaussian_oversampled
+    from tractorjax_spherex.io.cutouts import read_cutout as _read
+    from tractorjax_spherex.simulate import gaussian_oversampled
 
     d = tmp_path / "mz"
     make_synth_field(d, n_cutouts=1, seed=1, sources=TILE_SOURCES)
@@ -246,8 +246,8 @@ def _multizone_cutout(tmp_path, *, interp_stamps=True):
 def test_per_tile_psf_tracks_the_tile_core_centre(tmp_path):
     """Tiles in different zones must get different kernels, blended AT the
     clipped core centre — the JAX backend's convention, not a quantized cell."""
-    from spherex_photometry import prepare as _prepare
-    from spherex_photometry.backends.zone_psf import build_cpu_psf_selector
+    from tractorjax_spherex import prepare as _prepare
+    from tractorjax_spherex.backends.zone_psf import build_cpu_psf_selector
 
     cutout = _multizone_cutout(tmp_path)
     cfg = PhotometryConfig(backend="cpu-tractor", solver="linear",
@@ -272,8 +272,8 @@ def test_per_tile_blend_is_bilinear_and_matches_the_jax_weights(tmp_path):
     kernels is exact rather than an approximation. Verified on real 12-zone
     a2537 data at machine precision; this pins it in CI on a synthetic lattice.
     """
-    from spherex_photometry import prepare as _prepare
-    from spherex_photometry.backends.zone_psf import (
+    from tractorjax_spherex import prepare as _prepare
+    from tractorjax_spherex.backends.zone_psf import (
         build_cpu_psf_selector,
         zone_stamp_provider,
     )
@@ -311,8 +311,8 @@ def test_per_tile_blend_is_bilinear_and_matches_the_jax_weights(tmp_path):
 def test_nearest_zone_selection_is_per_tile_when_interp_is_off(tmp_path):
     """With psf_zone_interp=False the JAX backend still picks the nearest zone
     PER TILE. Picking the cutout-centre zone for every tile is the bug."""
-    from spherex_photometry import prepare as _prepare
-    from spherex_photometry.backends.zone_psf import build_cpu_psf_selector
+    from tractorjax_spherex import prepare as _prepare
+    from tractorjax_spherex.backends.zone_psf import build_cpu_psf_selector
 
     cutout = _multizone_cutout(tmp_path)
     cfg = PhotometryConfig(backend="cpu-tractor", solver="linear",
@@ -337,9 +337,9 @@ def test_tile_background_column_absorbs_a_pedestal():
     back exact."""
     from tractor import Flux, PixPos, PointSource, Tractor
 
-    from spherex_photometry.backends.cpu_backend import _forced_solve, _make_image
-    from spherex_photometry.backends.cpu_psf import OversampledPixelizedPSF
-    from spherex_photometry.simulate import gaussian_oversampled
+    from tractorjax_spherex.backends.cpu_backend import _forced_solve, _make_image
+    from tractorjax_spherex.backends.cpu_psf import OversampledPixelizedPSF
+    from tractorjax_spherex.simulate import gaussian_oversampled
 
     psf = OversampledPixelizedPSF(
         gaussian_oversampled(51, 5, 2.5).astype(np.float32), sampling=0.2)
@@ -375,9 +375,9 @@ def test_tile_background_flag_reaches_every_tile(tile_field):
     tile images the solve actually runs on."""
     from astropy.coordinates import SkyCoord
 
-    from spherex_photometry.backends.base import FieldContext
-    from spherex_photometry.backends.cpu_backend import CpuTractorBackend
-    from spherex_photometry.io.catalogs import load_catalog, normalize_catalog
+    from tractorjax_spherex.backends.base import FieldContext
+    from tractorjax_spherex.backends.cpu_backend import CpuTractorBackend
+    from tractorjax_spherex.io.catalogs import load_catalog, normalize_catalog
 
     tab = normalize_catalog(load_catalog(tile_field["catalog"]))
     ctx = FieldContext(catalog=tab, sco_all=SkyCoord(
@@ -416,7 +416,7 @@ def test_fully_masked_tile_reports_no_flux_not_the_seed(tmp_path):
     from astropy.io import fits
 
     from fixtures.synth import make_synth_catalog, make_synth_field
-    from spherex_photometry.constants import MASKBITS
+    from tractorjax_spherex.constants import MASKBITS
 
     srcs = [{"x": 7.0, "y": 7.0, "flux_mjy": 4.0},      # tile (0,0) core
             {"x": 30.0, "y": 8.0, "flux_mjy": 3.0}]     # untouched
@@ -479,16 +479,16 @@ def test_untiled_path_ignores_the_background_flag(tile_field, caplog):
 
     from astropy.coordinates import SkyCoord
 
-    from spherex_photometry.backends.base import FieldContext
-    from spherex_photometry.backends.cpu_backend import CpuTractorBackend
-    from spherex_photometry.io.catalogs import load_catalog, normalize_catalog
+    from tractorjax_spherex.backends.base import FieldContext
+    from tractorjax_spherex.backends.cpu_backend import CpuTractorBackend
+    from tractorjax_spherex.io.catalogs import load_catalog, normalize_catalog
 
     tab = normalize_catalog(load_catalog(tile_field["catalog"]))
     ctx = FieldContext(catalog=tab, sco_all=SkyCoord(
         ra=tab["ra"], dec=tab["dec"], unit="deg"), main_idx=0)
     cfg = PhotometryConfig(backend="cpu-tractor", solver="linear",
                            cpu_tiling=False, cpu_tile_background=True)
-    with caplog.at_level(logging.INFO, logger="spherex_photometry"):
+    with caplog.at_level(logging.INFO, logger="tractorjax_spherex"):
         be = CpuTractorBackend(cfg)
     assert "inert" in caplog.text
     inputs = be.build(tile_field["cutout"], ctx)

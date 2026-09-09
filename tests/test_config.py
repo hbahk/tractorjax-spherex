@@ -1,6 +1,6 @@
 import pytest
 
-from spherex_photometry.config import ConfigError, PhotometryConfig
+from tractorjax_spherex.config import ConfigError, PhotometryConfig
 
 
 def test_defaults_are_blind_production():

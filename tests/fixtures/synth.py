@@ -1,10 +1,10 @@
 """Test-fixture shim: the synthetic-data makers are public package API now.
 
 Kept so tests read ``from fixtures.synth import ...``; the implementation lives
-in :mod:`spherex_photometry.simulate` (usable by end users for offline demos).
+in :mod:`tractorjax_spherex.simulate` (usable by end users for offline demos).
 """
 
-from spherex_photometry.simulate import (  # noqa: F401
+from tractorjax_spherex.simulate import (  # noqa: F401
     IMG_SCALE,
     OMEGA_SR,
     PIXSCALE,

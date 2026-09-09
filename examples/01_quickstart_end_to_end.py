@@ -3,7 +3,7 @@
 Run from anywhere; writes into ./quickstart_out/. Needs the tractor-jax engine
 and spherex-retrieval installed (see the README). The catalog step needs the
 [catalog] extra, or bring your own catalog with the columns documented in
-spherex_photometry.io.catalogs.
+tractorjax_spherex.io.catalogs.
 """
 
 from pathlib import Path
@@ -11,9 +11,9 @@ from pathlib import Path
 import astropy.units as u
 from astropy.coordinates import SkyCoord
 
-from spherex_photometry import (PhotometryConfig, build_spectra, fetch_ls_dr10,
+from tractorjax_spherex import (PhotometryConfig, build_spectra, fetch_ls_dr10,
                                 retrieve, run_photometry)
-from spherex_photometry.spectra import bin_spectrum, plot_spectrum
+from tractorjax_spherex.spectra import bin_spectrum, plot_spectrum
 
 RA, DEC = 150.0, 2.0
 out = Path("quickstart_out")

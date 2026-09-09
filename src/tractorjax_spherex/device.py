@@ -2,9 +2,9 @@
 
 JAX picks its backend and x64 mode at import time, so these must be configured
 BEFORE the first `import jax`. Library callers should call :func:`setup_device`
-before :func:`spherex_photometry.pipeline.run_photometry`; the pipeline also
+before :func:`tractorjax_spherex.pipeline.run_photometry`; the pipeline also
 calls it defensively. The CLI additionally peeks ``--device cpu`` out of argv
-before importing anything JAX-touching (see :mod:`spherex_photometry.cli`).
+before importing anything JAX-touching (see :mod:`tractorjax_spherex.cli`).
 """
 
 from __future__ import annotations

@@ -30,7 +30,7 @@ cache): **20.5 -> 5.1 ms per cutout, 4.9 ms with the PSF-cube cache (4.2x)**.
    and consider a positional read at a known data offset instead.
 
 Nothing here changes a number.  Every function is a re-expression of what
-:func:`spherex_photometry.io.cutouts.read_cutout` does with astropy, and
+:func:`tractorjax_spherex.io.cutouts.read_cutout` does with astropy, and
 ``tests/test_io_fast.py`` asserts array-by-array, keyword-by-keyword and
 WCS-projection equality against the astropy reader on real fixtures.  The
 fast path is used only when ``fitsio`` is importable; otherwise the astropy
@@ -219,7 +219,7 @@ def read_cutout_fields(path) -> dict:
     """Read one cutout MEF with fitsio; return the :class:`Cutout` field dict.
 
     Keys, dtypes and values match
-    :func:`spherex_photometry.io.cutouts.read_cutout` exactly, so the caller
+    :func:`tractorjax_spherex.io.cutouts.read_cutout` exactly, so the caller
     can hand the result straight to ``Cutout(**fields)``.
     """
     import fitsio

@@ -3,8 +3,8 @@ from astropy.table import Table
 
 pytest.importorskip("tractor_jax")
 
-from spherex_photometry import PhotometryConfig, run_photometry
-from spherex_photometry.io.output import COLUMN_NAMES, read_photometry
+from tractorjax_spherex import PhotometryConfig, run_photometry
+from tractorjax_spherex.io.output import COLUMN_NAMES, read_photometry
 
 
 def _cfg(**kw):
@@ -18,8 +18,8 @@ def test_output_schema_and_metadata(synth_field, tmp_path):
                          _cfg(), output=out, progress=False)
     assert tuple(res.colnames) == COLUMN_NAMES
     tab, meta = read_photometry(out)
-    assert meta["spherex_photometry.schema_version"] == 1
-    assert "spherex_photometry.config" in meta
+    assert meta["tractorjax_spherex.schema_version"] == 1
+    assert "tractorjax_spherex.config" in meta
     assert len(tab) == len(res)
 
 

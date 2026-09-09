@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from astropy.table import Table
 
-from spherex_photometry.io.catalogs import (
+from tractorjax_spherex.io.catalogs import (
     apply_depth_cut,
     find_nearest_source,
     normalize_catalog,

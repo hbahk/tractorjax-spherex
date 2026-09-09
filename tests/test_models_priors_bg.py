@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
 
-from spherex_photometry.background import build_background_mask, fit_background_plane
-from spherex_photometry.models import ls_shapes_to_ab_phi
-from spherex_photometry.priors import catalog_band_fluxes_ujy, predict_flux_ujy
+from tractorjax_spherex.background import build_background_mask, fit_background_plane
+from tractorjax_spherex.models import ls_shapes_to_ab_phi
+from tractorjax_spherex.priors import catalog_band_fluxes_ujy, predict_flux_ujy
 
 
 def test_ls_shapes_round_source():
@@ -25,7 +25,7 @@ def test_ls_shapes_pa_sign_convention():
 
 
 def test_predict_flux_interpolation():
-    from spherex_photometry.priors import BAND_LAM
+    from tractorjax_spherex.priors import BAND_LAM
     # flat SED in f_nu -> prediction equals the flat value anywhere in range
     bf = np.full((1, 6), 10.0)  # uJy already? no: catalog_band uses nmgy*3.631
     pred, nb = predict_flux_ujy(bf, np.array([BAND_LAM[2]]))
@@ -51,7 +51,7 @@ def test_catalog_band_fluxes_prefers_dered():
     from astropy.table import Table
     t = Table({"dered_flux_z": [2.0], "flux_z": [1.0]})
     bf = catalog_band_fluxes_ujy(t)
-    from spherex_photometry.priors import NMGY_TO_UJY
+    from tractorjax_spherex.priors import NMGY_TO_UJY
     assert bf[0, 3] == pytest.approx(2.0 * NMGY_TO_UJY)
 
 
@@ -70,7 +70,7 @@ def test_background_mask_flags_and_variance():
     flg = np.zeros((3, 3), dtype=np.int32)
     var = np.ones((3, 3))
     var[0, 0] = -1.0            # bad variance
-    from spherex_photometry.constants import SOURCE_BIT
+    from tractorjax_spherex.constants import SOURCE_BIT
     flg[1, 1] = SOURCE_BIT     # source pixel
     mask = build_background_mask(flg, var)
     assert mask[0, 0] and mask[1, 1] and not mask[2, 2]

@@ -10,7 +10,7 @@ MEF layout::
     PRIMARY  IMAGE  FLAGS  VARIANCE  ZODI  PSF  PSF_ZONES  [CWAVE] [CBAND] [SAPM]
 
 Two readers produce the identical :class:`Cutout`: the astropy one below, and
-the ``fitsio`` fast path in :mod:`spherex_photometry.io.fast` (~4x faster per
+the ``fitsio`` fast path in :mod:`tractorjax_spherex.io.fast` (~4x faster per
 cutout).  :func:`read_cutout` picks the fast one when ``fitsio`` is installed;
 set ``fast=False`` (or the module flag :data:`FAST_IO`) to force astropy.
 """

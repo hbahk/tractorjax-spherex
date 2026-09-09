@@ -1,7 +1,7 @@
 """Fully self-contained demo: simulate -> photometer -> inspect the fit -> spectrum.
 
 No network, no GPU, no real data needed — the field is simulated with the
-package's toy simulator (`spherex_photometry.simulate`), so you can run this
+package's toy simulator (`tractorjax_spherex.simulate`), so you can run this
 immediately after installing to see the whole pipeline working and to learn the
 API. Swap step 1 for `retrieve()` + a real catalog to do the same on real data.
 
@@ -16,12 +16,12 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from spherex_photometry import PhotometryConfig, build_spectra, run_photometry
-from spherex_photometry.diagnostics import plot_fit
-from spherex_photometry.io.catalogs import load_catalog
-from spherex_photometry.io.cutouts import read_cutout
-from spherex_photometry.simulate import make_synth_catalog, make_synth_field
-from spherex_photometry.spectra import bin_spectrum
+from tractorjax_spherex import PhotometryConfig, build_spectra, run_photometry
+from tractorjax_spherex.diagnostics import plot_fit
+from tractorjax_spherex.io.catalogs import load_catalog
+from tractorjax_spherex.io.cutouts import read_cutout
+from tractorjax_spherex.simulate import make_synth_catalog, make_synth_field
+from tractorjax_spherex.spectra import bin_spectrum
 
 out = Path("offline_demo_out")
 out.mkdir(exist_ok=True)

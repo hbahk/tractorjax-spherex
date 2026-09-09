@@ -1,8 +1,8 @@
 """Fetch a Legacy Survey DR10 reference catalog from NOIRLab Data Lab.
 
-Optional feature (``pip install 'spherex-photometry[catalog]'``). Users may
+Optional feature (``pip install 'tractorjax-spherex[catalog]'``). Users may
 instead supply their own catalog with the columns documented in
-:mod:`spherex_photometry.io.catalogs`. Lifted from the project's
+:mod:`tractorjax_spherex.io.catalogs`. Lifted from the project's
 ``fetch_ls_catalog_newfield.py``.
 """
 
@@ -34,7 +34,7 @@ DEFAULT_COLUMNS = [
 
 _DATALAB_HINT = (
     "fetch_ls_dr10 needs the NOIRLab Data Lab client, which is optional:\n"
-    "    pip install 'spherex-photometry[catalog]'\n"
+    "    pip install 'tractorjax-spherex[catalog]'\n"
     "Or supply your own reference catalog (see docs/catalogs).")
 
 

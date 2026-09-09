@@ -1,7 +1,7 @@
 import numpy as np
 
 from fixtures.synth import make_synth_cutout
-from spherex_photometry.io.cutouts import (
+from tractorjax_spherex.io.cutouts import (
     Cutout,
     cutout_pixel_area_sr,
     discover_cutouts,

@@ -278,7 +278,7 @@ def zone_psf_basis(cutout: Cutout, cache=None):
     Fourier domain, so the K transforms are shared by every tile instead of one
     transform per tile.
 
-    Pass a :class:`~spherex_photometry.psf_cache.PSFCache` as ``cache`` to
+    Pass a :class:`~tractorjax_spherex.psf_cache.PSFCache` as ``cache`` to
     extend that sharing *across cutouts*: every cutout of one detector ships a
     byte-identical cube, so the same list object is handed back and the engine's
     transforms are reused instead of recomputed per cutout.

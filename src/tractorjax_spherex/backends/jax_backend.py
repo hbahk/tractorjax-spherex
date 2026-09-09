@@ -1,9 +1,9 @@
 """GPU/JAX backend: tiled batched forced photometry on the tractor-jax engine.
 
 Lifted from the production driver, de-globalized so every knob comes from a
-:class:`~spherex_photometry.config.PhotometryConfig`. Imports JAX (via the
+:class:`~tractorjax_spherex.config.PhotometryConfig`. Imports JAX (via the
 tractor-jax engine) at module import, so this module is imported lazily by
-:func:`spherex_photometry.backends.get_backend` after the device is configured.
+:func:`tractorjax_spherex.backends.get_backend` after the device is configured.
 
 The engine renders every source on a 5x-oversampled grid (``psf_sampling=0.2``,
 ``fixed_max_factor=5``) and sum-bins to native pixels, so the PSF x source-shape
@@ -11,7 +11,7 @@ convolution is done at oversampled resolution — the accurate low-resolution fl
 estimate. Cutouts are split into ``tile_size`` cores with a halo and all tiles
 of a cutout are solved in one ``vmap``.
 
-The tile grid itself lives in :mod:`spherex_photometry.tiling` and is shared with
+The tile grid itself lives in :mod:`tractorjax_spherex.tiling` and is shared with
 the ``cpu-tractor`` backend (re-exported here for callers that import it from
 this module), so a CPU-vs-GPU comparison is a comparison of engines rather than
 of geometries.
@@ -45,7 +45,7 @@ from ..tiling import (
 from .base import FieldContext
 
 #: Build a sliced :class:`~astropy.wcs.WCS` for every tile.  Only the CD matrix
-#: is ever read from it, and :func:`~spherex_photometry.tiling.shift_wcs` leaves
+#: is ever read from it, and :func:`~tractorjax_spherex.tiling.shift_wcs` leaves
 #: that bit-identical, so the default hands the batch builder one cutout-level
 #: ``cd_inv`` instead and skips ``WCS.slice`` -- a deep copy that cost ~40 ms
 #: per cutout in the driver's host profile, and scales with the tile count
@@ -54,7 +54,7 @@ from .base import FieldContext
 PER_TILE_WCS = False
 
 #: Do the PSF-zone lookup for every tile in ONE vectorised call
-#: (:func:`~spherex_photometry.prepare.zone_planes_and_weights`) instead of two
+#: (:func:`~tractorjax_spherex.prepare.zone_planes_and_weights`) instead of two
 #: Python scans of the zone table per tile -- ~15 ms per cutout in the driver's
 #: host profile, and it grows with the tile count.  Bit-identical by
 #: construction and by test; set False to restore the scalar helpers.
@@ -65,7 +65,7 @@ VECTOR_ZONES = True
 #: cube, so downsampling and transforming it per cutout is repeat work (~20 ms
 #: per cutout in the driver's host profile, and it does not shrink with the
 #: cutout).  The cache lives on the backend instance, i.e. for one run.  Set
-#: False to rebuild per cutout.  See :mod:`spherex_photometry.psf_cache` for why
+#: False to rebuild per cutout.  See :mod:`tractorjax_spherex.psf_cache` for why
 #: the kernels and their transforms must be cached and cleared together.
 PSF_CACHE_ACROSS_CUTOUTS = True
 
@@ -123,7 +123,7 @@ def build_cutout_tiles(cutout, *, sx_all, sy_all, tile_size, halo,
     """Construct tile records (core + halo boxes) for one cutout.
 
     ``psf_select(x, y) -> stamp`` (from
-    :func:`~spherex_photometry.prepare.zone_psf_selector`) gives each tile the
+    :func:`~tractorjax_spherex.prepare.zone_psf_selector`) gives each tile the
     PSF of the zone containing its own core centre — the SPHEREx PSF varies
     across the focal plane and the zone pitch (~185 detector px) is smaller
     than a typical cutout, so one kernel per cutout mis-renders the tiles that

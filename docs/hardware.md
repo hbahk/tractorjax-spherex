@@ -5,7 +5,7 @@ solves — one batched vmap per cutout over its tiles. The build stage runs on t
 CPU (catalog geometry, PSF stamps, background) and the solve stage runs on the
 accelerator. This page covers how to size GPU memory, when precision matters, and
 how to run with no GPU at all. Every knob below lives on
-{class}`spherex_photometry.config.PhotometryConfig`; see {doc}`configuration` for
+{class}`tractorjax_spherex.config.PhotometryConfig`; see {doc}`configuration` for
 the full field table.
 
 ## GPU memory
@@ -27,7 +27,7 @@ PhotometryConfig(device="gpu", gpu_preallocate=False, gpu_mem_fraction=0.45)
 These are environment variables read by XLA at the first `import jax`, so they
 must be applied *before* JAX is imported. `run_photometry` handles this by
 calling `setup_device()` up front; a library caller doing its own imports should
-call `spherex_photometry.device.setup_device(...)` before anything JAX-touching
+call `tractorjax_spherex.device.setup_device(...)` before anything JAX-touching
 (the CLI additionally peeks `--device`/mem flags out of `argv`). Setting them
 after JAX is imported has no effect.
 

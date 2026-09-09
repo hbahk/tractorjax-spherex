@@ -4,8 +4,8 @@ import pytest
 pytest.importorskip("tractor")
 pytest.importorskip("tractor_jax")   # cross-backend comparison needs both
 
-from spherex_photometry import PhotometryConfig, run_photometry
-from spherex_photometry.config import ConfigError
+from tractorjax_spherex import PhotometryConfig, run_photometry
+from tractorjax_spherex.config import ConfigError
 
 
 def _flux_by_id(res, sid):
@@ -46,7 +46,7 @@ def test_cpu_handles_galaxy_and_nan_shape(tmp_path):
     # a galaxy (non-round ellipticity) renders, and a NaN shape_r is treated as a
     # point source instead of raising KeyError and dropping the whole cutout.
     from fixtures.synth import make_synth_catalog, make_synth_field
-    from spherex_photometry.io.cutouts import read_cutout
+    from tractorjax_spherex.io.cutouts import read_cutout
 
     srcs = [{"x": 10.0, "y": 10.0, "flux_mjy": 5.0},
             {"x": 28.0, "y": 22.0, "flux_mjy": 2.0, "shape_r": 1.5, "sersic": 1.0},

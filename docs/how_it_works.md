@@ -53,27 +53,27 @@ spherex_retrieval.retrieve            L2 cutout MEFs + summary.ecsv
 
 `spherex_retrieval.retrieve` writes one multi-extension FITS per overlapping
 SPHEREx pointing plus a `summary.ecsv`.
-{func}`~spherex_photometry.io.cutouts.discover_cutouts` finds them and
-{func}`~spherex_photometry.io.cutouts.filter_ok` keeps only the ones the
+{func}`~tractorjax_spherex.io.cutouts.discover_cutouts` finds them and
+{func}`~tractorjax_spherex.io.cutouts.filter_ok` keeps only the ones the
 retrieval marked `status == "ok"`.
-{func}`~spherex_photometry.io.cutouts.read_cutout` parses one MEF into a
-{class}`~spherex_photometry.io.cutouts.Cutout`, guarding the
+{func}`~tractorjax_spherex.io.cutouts.read_cutout` parses one MEF into a
+{class}`~tractorjax_spherex.io.cutouts.Cutout`, guarding the
 present-but-empty CWAVE/CBAND/SAPM extensions some cutouts ship.
 
 ### 2. Catalog, once per run
 
 The fit is *reference-catalog forced photometry*: positions and shapes are read
 from your catalog and **never fitted** — only fluxes are solved.
-{func}`~spherex_photometry.io.catalogs.normalize_catalog` fills the canonical
+{func}`~tractorjax_spherex.io.catalogs.normalize_catalog` fills the canonical
 columns (including `shape_ab` / `shape_phi` from the ellipticities),
-{func}`~spherex_photometry.io.catalogs.apply_depth_cut` optionally prunes to
+{func}`~tractorjax_spherex.io.catalogs.apply_depth_cut` optionally prunes to
 sources SPHEREx can constrain, and — for `lasso` / `eigfloor_prior` —
-{func}`~spherex_photometry.io.catalogs.protected_indices` marks the bright
+{func}`~tractorjax_spherex.io.catalogs.protected_indices` marks the bright
 sources that must stay unpenalized. See {doc}`catalogs`.
 
 ### 3. Pixels: background, units, masking
 
-{func}`~spherex_photometry.prepare.prepare_pixels` turns the raw extensions into
+{func}`~tractorjax_spherex.prepare.prepare_pixels` turns the raw extensions into
 what the solver actually sees:
 
 1. **Background** — the ZODI extension is the base; `bkg_model` refines it
@@ -90,9 +90,9 @@ pixels, which is what makes their agreement a meaningful cross-check.
 
 ### 4. Sources and PSF
 
-{func}`~spherex_photometry.prepare.project_sources` maps catalog RA/Dec to cutout
+{func}`~tractorjax_spherex.prepare.project_sources` maps catalog RA/Dec to cutout
 pixels through the cutout WCS.
-{func}`~spherex_photometry.prepare.select_psf_native` picks the PSF-cube plane
+{func}`~tractorjax_spherex.prepare.select_psf_native` picks the PSF-cube plane
 for the zone the source sits in (the SPHEREx PSF varies across the detector) and
 downsamples the delivered 10×-oversampled plane to a **5× stamp**.
 
@@ -100,7 +100,7 @@ downsamples the delivered 10×-oversampled plane to a **5× stamp**.
 convolved the PSF with a source at native resolution you would bias the flux. So
 every source is rendered on the 5× grid and *then* summed into native pixels
 (`psf_sampling=0.2`, `fixed_max_factor=5`). Both backends do this; the CPU one
-needs {class}`~spherex_photometry.backends.cpu_psf.OversampledPixelizedPSF`
+needs {class}`~tractorjax_spherex.backends.cpu_psf.OversampledPixelizedPSF`
 because the stock Tractor class mis-normalizes oversampled stamps
 ({doc}`cpu_backend`).
 
@@ -117,7 +117,7 @@ run in **one `vmap`** on the GPU.
 matrix sizes) and `tile_chunk` splits the tile axis to bound peak GPU memory —
 both are output-preserving ({doc}`hardware`).
 
-The grid itself lives in {mod}`spherex_photometry.tiling`, not in either backend:
+The grid itself lives in {mod}`tractorjax_spherex.tiling`, not in either backend:
 the `cpu-tractor` backend walks the same tiles and runs one upstream
 `optimize_forced_photometry` per tile (`cpu_tiling=True`, the default), so the
 two engines are compared on one geometry rather than two ({doc}`cpu_backend`).
@@ -132,12 +132,12 @@ value would mislabel off-axis sources.
 
 ### 7. Output and spectra
 
-{func}`~spherex_photometry.io.output.write_photometry` writes one row per
+{func}`~tractorjax_spherex.io.output.write_photometry` writes one row per
 (source, visit) with the config and schema version in the parquet metadata.
-{func}`~spherex_photometry.spectra.build_spectra` groups those rows by source and
+{func}`~tractorjax_spherex.spectra.build_spectra` groups those rows by source and
 sorts by wavelength — which is also what makes the within-detector wavelength
 reversal a non-issue — and
-{func}`~spherex_photometry.spectra.bin_spectrum` combines repeat visits with
+{func}`~tractorjax_spherex.spectra.bin_spectrum` combines repeat visits with
 inverse-variance weights.
 
 ## Why the backend has three stages
@@ -145,7 +145,7 @@ inverse-variance weights.
 A backend implements `build` → `solve` → `extract` rather than one function
 (`backends/base.py`). `build` is pure CPU work (FITS I/O, background fitting,
 tiling, batch assembly) and `solve` is the GPU part. Splitting them lets
-{func}`~spherex_photometry.pipeline.run_photometry` run `build` for cutout *N+1*
+{func}`~tractorjax_spherex.pipeline.run_photometry` run `build` for cutout *N+1*
 in a worker thread while the GPU solves cutout *N* (`prefetch="thread"`), so the
 CPU stage is hidden behind the GPU stage. Set `prefetch="sync"` to disable that
 when debugging.
@@ -163,5 +163,5 @@ behind the identical interface and produce the identical output schema.
 | GPU out of memory | `tile_chunk`, `gpu_mem_fraction` ({doc}`hardware`) |
 | wavelength is NaN | the cutout shipped an empty CWAVE extension ({doc}`faq`) |
 
-{func}`~spherex_photometry.diagnostics.plot_fit` renders the data / model / chi
+{func}`~tractorjax_spherex.diagnostics.plot_fit` renders the data / model / chi
 triptych for any cutout so you can see which of these you have.

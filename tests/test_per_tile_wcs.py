@@ -13,11 +13,11 @@ although the only thing ever read back from it was the CD matrix, which
 import numpy as np
 import pytest
 
-from spherex_photometry.backends import jax_backend as JB
-from spherex_photometry.config import PhotometryConfig
-from spherex_photometry.io.cutouts import read_cutout
-from spherex_photometry.pipeline import run_photometry
-from spherex_photometry.tiling import cd_inv_from_wcs, shift_wcs
+from tractorjax_spherex.backends import jax_backend as JB
+from tractorjax_spherex.config import PhotometryConfig
+from tractorjax_spherex.io.cutouts import read_cutout
+from tractorjax_spherex.pipeline import run_photometry
+from tractorjax_spherex.tiling import cd_inv_from_wcs, shift_wcs
 
 SHIFTS = [(0, 0), (-3, -3), (12, 42), (87, 87), (900, 900), (-3, 60)]
 COMPARED = ("flux", "flux_err", "central_wavelength", "bandwidth", "id")

@@ -1,6 +1,6 @@
-"""Command-line interface: ``spherex-phot {retrieve,fetch-catalog,run,spectra}``.
+"""Command-line interface: ``tractorjax-spherex {retrieve,fetch-catalog,run,spectra}``.
 
-``run`` builds a :class:`~spherex_photometry.config.PhotometryConfig` from an
+``run`` builds a :class:`~tractorjax_spherex.config.PhotometryConfig` from an
 optional ``--config`` file overridden by any explicit flags, so a full run is
 reproducible from a single YAML/TOML plus the command line.
 """
@@ -93,7 +93,7 @@ def _cmd_run(args):
                              resume=args.resume,
                              max_cutouts=args.max_cutouts, progress=True)
     # A partial product must not look like a successful run to a shell script.
-    n_failed = int(results.meta.get("spherex_photometry.n_cutouts_failed", 0))
+    n_failed = int(results.meta.get("tractorjax_spherex.n_cutouts_failed", 0))
     if n_failed:
         print(f"INCOMPLETE: {n_failed} cutouts were skipped; the output is "
               f"missing them (see the log, and the complete=False flag in the "
@@ -143,7 +143,7 @@ def _cmd_spectra(args):
 
 def build_parser():
     p = argparse.ArgumentParser(
-        prog="spherex-phot",
+        prog="tractorjax-spherex",
         description="Forced photometry / spectrophotometry from SPHEREx L2 images")
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = p.add_subparsers(dest="command", required=True)

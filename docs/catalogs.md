@@ -1,18 +1,18 @@
 # Reference catalogs
 
-`spherex-photometry` does **reference-catalog forced photometry**: source
+`tractorjax-spherex` does **reference-catalog forced photometry**: source
 positions and shapes come from an input catalog and are held **fixed** — only
 per-source fluxes are solved. The catalog therefore defines *what* is fit and
 *where*; the SPHEREx cutouts only ever contribute fluxes. Pick the estimator that
 regularizes that solve in {doc}`solvers`.
 
 You either bring your own catalog (any table with the columns below) or fetch one
-from Legacy Survey DR10 with {func}`~spherex_photometry.fetch_ls_dr10`.
+from Legacy Survey DR10 with {func}`~tractorjax_spherex.fetch_ls_dr10`.
 
 ## The canonical schema
 
-{func}`~spherex_photometry.io.catalogs.load_catalog` reads the input and
-{func}`~spherex_photometry.io.catalogs.normalize_catalog` fills in the canonical
+{func}`~tractorjax_spherex.io.catalogs.load_catalog` reads the input and
+{func}`~tractorjax_spherex.io.catalogs.normalize_catalog` fills in the canonical
 columns — adds `id`, defaults missing shape columns, and derives the engine
 shape columns `shape_ab` / `shape_phi` from the ellipticity. Original columns
 (including SED bands) are preserved.
@@ -31,7 +31,7 @@ Details on the optional columns:
 
 - **`id`** — required and must be unique. If absent but `ls_id` is present, `id`
   is derived from it (and vice versa). With neither,
-  {func}`~spherex_photometry.io.catalogs.normalize_catalog` raises `ValueError`.
+  {func}`~tractorjax_spherex.io.catalogs.normalize_catalog` raises `ValueError`.
 - **`flux_z`** — only needed for the depth cut and for LASSO / prior *protection*
   (see below). If absent it is filled with `NaN`; those sources then have an
   undefined z-mag and are dropped by any active depth cut. Full-catalog blind
@@ -41,7 +41,7 @@ Details on the optional columns:
 - **`sersic`** — missing ⇒ `1.0` (exponential); only meaningful for galaxies.
 - **`shape_e1` / `shape_e2`** — missing ⇒ `0` (round). Normalization turns these
   into `shape_ab` / `shape_phi` via
-  {func}`~spherex_photometry.models.ls_shapes_to_ab_phi`, using the Legacy Survey
+  {func}`~tractorjax_spherex.models.ls_shapes_to_ab_phi`, using the Legacy Survey
   sky-frame position-angle convention.
 - **SED bands** — `dered_flux_{g,r,i,z,w1,w2}` (preferred) or `flux_{...}`
   (fallback), in nanomaggies. These feed the per-source SED flux predictor for
@@ -57,7 +57,7 @@ defaults above when missing.
 
 ```python
 from astropy.table import Table
-from spherex_photometry import run_photometry, PhotometryConfig
+from tractorjax_spherex import run_photometry, PhotometryConfig
 
 cat = Table()
 cat["id"]  = [1, 2, 3]
@@ -112,12 +112,12 @@ sources are rarely shredded.
 
 ## Fetching Legacy Survey DR10
 
-{func}`~spherex_photometry.fetch_ls_dr10` queries `ls_dr10.tractor` around a sky
+{func}`~tractorjax_spherex.fetch_ls_dr10` queries `ls_dr10.tractor` around a sky
 position and returns (and optionally writes) an Astropy Table already carrying
 the required columns plus the SED bands. It is an **optional** feature:
 
 ```bash
-pip install 'spherex-photometry[catalog]'      # adds the astro-datalab client
+pip install 'tractorjax-spherex[catalog]'      # adds the astro-datalab client
 ```
 
 It needs **NOIRLab Data Lab credentials**, passed as `user` / `password`
@@ -125,13 +125,13 @@ arguments or via the `DATALAB_USER` / `DATALAB_PASSWORD` environment variables;
 missing credentials raise `ValueError`.
 
 ```python
-from spherex_photometry import fetch_ls_dr10
+from tractorjax_spherex import fetch_ls_dr10
 
 cat = fetch_ls_dr10(150.0, 2.0, out="catalog.parquet")   # creds from env
 ```
 
 ```bash
-spherex-phot fetch-catalog --ra 150.0 --dec 2.0 --out catalog.parquet
+tractorjax-spherex fetch-catalog --ra 150.0 --dec 2.0 --out catalog.parquet
 ```
 
 The cone `radius_deg` defaults to the half-diagonal of a `cutout_pixels`
@@ -147,7 +147,7 @@ bands — everything the solvers can use.
 
 Fitting every faint source in a deep catalog is the blind-production regime, but
 you can prune the catalog by z-band depth with `fit_zmag_max` on
-{class}`~spherex_photometry.config.PhotometryConfig`:
+{class}`~tractorjax_spherex.config.PhotometryConfig`:
 
 ```python
 PhotometryConfig(solver="eigfloor", fit_zmag_max=21.0)   # fit sources with z < 21
