@@ -16,7 +16,13 @@ from __future__ import annotations
 
 from .config import ConfigError, PhotometryConfig
 from .pipeline import run_photometry
-from .spectra import bin_spectrum, build_spectra, to_ab_mag
+from .spectra import (
+    bin_spectrum,
+    bin_to_channels,
+    build_spectra,
+    spherex_channels,
+    to_ab_mag,
+)
 from .version import __version__
 
 __all__ = [
@@ -24,10 +30,12 @@ __all__ = [
     "PhotometryConfig",
     "__version__",
     "bin_spectrum",
+    "bin_to_channels",
     "build_spectra",
     "fetch_ls_dr10",
     "retrieve",
     "run_photometry",
+    "spherex_channels",
     "to_ab_mag",
 ]
 

@@ -62,18 +62,22 @@ tractorjax-spherex run --cutouts-dir cutouts --catalog catalog.parquet \
 ## 4. Assemble spectra
 
 ```python
-from tractorjax_spherex import build_spectra, bin_spectrum
+from tractorjax_spherex import build_spectra, bin_to_channels
 from tractorjax_spherex.spectra import plot_spectrum
 
 spectra = build_spectra(phot)          # {id: table sorted by wavelength}
 spec = spectra[next(iter(spectra))]
-ax = plot_spectrum(spec, binned=bin_spectrum(spec, dlam=0.05))
+ax = plot_spectrum(spec, binned=bin_to_channels(spec))
 ax.figure.savefig("spectrum.png", dpi=150)
 ```
 
 `build_spectra` groups the per-visit points by source and sorts them by
 wavelength (which transparently handles the within-detector wavelength reversal);
-`bin_spectrum` combines repeat visits with inverse-variance weighting.
+`bin_to_channels` combines repeat visits with inverse-variance weighting on the
+102 SPHEREx spectral channels (17 per detector band, constant resolving power;
+`spherex_channels()` lists them). `bin_spectrum(spec, dlam=...)` does the same
+on a uniform wavelength grid. On the CLI: `tractorjax-spherex spectra ...
+--channels`.
 
 ## Next steps
 

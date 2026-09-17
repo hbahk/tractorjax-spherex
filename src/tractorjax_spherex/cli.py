@@ -122,20 +122,28 @@ def _cmd_fetch_catalog(args):
 def _cmd_spectra(args):
     from astropy.table import Table
 
-    from .spectra import bin_spectrum, build_spectra
+    from .spectra import bin_spectrum, bin_to_channels, build_spectra
     phot = Table.read(args.photometry)
     ids = None if args.all else ([args.id] if args.id is not None else None)
     spectra = build_spectra(phot, ids=ids, min_snr=args.min_snr)
+
+    def _binned(spec):
+        if args.channels:
+            return bin_to_channels(spec)
+        return bin_spectrum(spec, dlam=args.bin) if args.bin else None
+
     if args.out:
         for sid, spec in spectra.items():
             spec.write(f"{args.out}_{sid}.ecsv", overwrite=True)
+            if args.channels:
+                bin_to_channels(spec).write(f"{args.out}_{sid}_channels.ecsv",
+                                            overwrite=True)
     if args.plot:
         import matplotlib.pyplot as plt
 
         from .spectra import plot_spectrum
         for sid, spec in spectra.items():
-            ax = plot_spectrum(spec, binned=bin_spectrum(spec, dlam=args.bin)
-                               if args.bin else None, label=f"id={sid}")
+            ax = plot_spectrum(spec, binned=_binned(spec), label=f"id={sid}")
             ax.figure.savefig(f"{args.plot}_{sid}.png", dpi=150)
             plt.close(ax.figure)
     print(f"Built {len(spectra)} spectra")
@@ -175,6 +183,9 @@ def build_parser():
     ps.add_argument("--all", action="store_true")
     ps.add_argument("--min-snr", type=float, default=None)
     ps.add_argument("--bin", type=float, default=None, help="bin width (micron)")
+    ps.add_argument("--channels", action="store_true",
+                    help="bin onto the 102 SPHEREx channels instead (also writes "
+                         "<out>_<id>_channels.ecsv with --out)")
     ps.add_argument("--out", default=None, help="prefix for per-source ecsv output")
     ps.add_argument("--plot", default=None, help="prefix for per-source png output")
     ps.set_defaults(func=_cmd_spectra)

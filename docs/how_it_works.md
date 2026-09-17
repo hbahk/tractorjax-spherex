@@ -137,8 +137,9 @@ value would mislabel off-axis sources.
 {func}`~tractorjax_spherex.spectra.build_spectra` groups those rows by source and
 sorts by wavelength — which is also what makes the within-detector wavelength
 reversal a non-issue — and
-{func}`~tractorjax_spherex.spectra.bin_spectrum` combines repeat visits with
-inverse-variance weights.
+{func}`~tractorjax_spherex.spectra.bin_to_channels` combines repeat visits with
+inverse-variance weights on the 102 SPHEREx channels
+({func}`~tractorjax_spherex.spectra.bin_spectrum` does so on a uniform grid).
 
 ## Why the backend has three stages
 
