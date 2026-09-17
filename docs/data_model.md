@@ -18,7 +18,7 @@ PRIMARY  IMAGE  FLAGS  VARIANCE  ZODI  PSF  PSF_ZONES  [CWAVE] [CBAND] [SAPM]
 
 | HDU | `Cutout` field | contents |
 |---|---|---|
-| `PRIMARY` | `primary_header` | `OBSID`, `DETECTOR`, `OVERSAMP`, … |
+| `PRIMARY` | `primary_header` | `OBSID`, `DETECTOR`, `OVERSAMP`, `PSFSRC`, … |
 | `IMAGE` | `image` | L2 surface brightness, **MJy/sr** |
 | `FLAGS` | `flags` | per-pixel L2 bitmask (see [FLAGS bits](#flags-bits)) |
 | `VARIANCE` | `variance` | per-pixel variance of `IMAGE`, (MJy/sr)² |
@@ -34,6 +34,16 @@ present-but-empty (shape `(0,)`): a missing/empty `CWAVE` yields
 `cwave_center=None` and `cwave_map=None` (the source is still photometered, just
 labelled NaN wavelength), a missing `SAPM` falls back to the WCS pixel area, and
 a missing `CBAND` leaves the bandwidth NaN.
+
+`PSFSRC` records where the PSF cube came from. The 121-plane cube inside an L2
+file is a per-detector calibration constant, byte-identical to IRSA's
+`average_psf` calibration product, so `spherex-retrieval` fetches it once per
+detector (`PSFSRC = 'cal:average_psf_D4_…fits'`) instead of re-downloading 5 MB
+of it with every cutout; `PSFSRC = 'l2'` marks a cube taken from the L2 file
+itself (every retrieval with `psf_source="l2"`, and the sampled cutouts the
+default mode downloads in full to check the two against each other). The pixel
+values are the same either way and the zone table always comes from the L2 file.
+Bundles written before this keyword existed are read unchanged.
 
 The `IMAGE` header carries the celestial WCS plus `CRPIX1A`/`CRPIX2A` — the
 1-based detector positions of the cutout's `(0, 0)` pixel — used to map cutout

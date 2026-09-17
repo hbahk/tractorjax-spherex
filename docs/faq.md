@@ -176,6 +176,19 @@ Yes — you need `id`, `ra`, `dec`, and optionally shape columns; see
 {doc}`catalogs`. Anything not in your catalog is not modelled, so include the
 neighbours, not just your targets.
 
+### Retrieval is slow, or downloads far more than the cutouts hold
+
+Update `spherex-retrieval`. IRSA's cutout service passes the full PSF cube
+through with every cutout, which is 4.9 MB of a ~5 MB response for a small box,
+and older versions downloaded it every time. The current default
+(`psf_source="cal"`) takes the cube once per detector from the `average_psf`
+calibration product and stops each cutout download before the PSF data, which
+cuts the transfer by a factor of ten to forty depending on the box size. The
+bundles are identical apart from the `PSFSRC` keyword ({doc}`data_model`); pass
+`psf_source="l2"` to {func}`~tractorjax_spherex.retrieve` for the old behaviour.
+What is left is IRSA's own latency, a second or two per cutout, and the
+occasional `503` under load, which is retried automatically.
+
 ### How do I resume an interrupted run?
 
 Pass the same `output` path with `resume=True` (CLI: `--resume`). Cutouts already
