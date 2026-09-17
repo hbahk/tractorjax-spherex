@@ -7,7 +7,8 @@ your own hardware (GPU or CPU).
 spectrum: download the L2 cutouts, supply a reference catalog, run
 reference-catalog forced photometry with a joint deblending solve, and assemble
 the per-visit measurements into spectra. It wraps the
-[`tractor-jax`](https://github.com/hbahk/tractor-jax) GPU/JAX engine and the
+[`tractor-jax`](https://github.com/hbahk/tractor-jax) GPU/JAX engine
+([documentation](https://tractor-jax.readthedocs.io/en/latest/)) and the
 [`spherex-retrieval`](https://github.com/hbahk/spherex-retrieval) cutout
 downloader.
 

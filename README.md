@@ -6,7 +6,8 @@ Forced photometry and spectrophotometry from **SPHEREx L2 spectral images**.
 spectrum on your own hardware (GPU **or** CPU): download the L2 cutouts, supply a
 reference catalog, run reference-catalog forced photometry with a joint
 deblending solve, and assemble the per-visit measurements into spectra. It wraps
-the [`tractor-jax`](https://github.com/hbahk/tractor-jax) GPU/JAX engine and the
+the [`tractor-jax`](https://github.com/hbahk/tractor-jax) GPU/JAX engine
+([docs](https://tractor-jax.readthedocs.io/en/latest/)) and the
 [`spherex-retrieval`](https://github.com/hbahk/spherex-retrieval) cutout
 downloader, and packages the blind-production pipeline used for SPHEREx
 deblending / photo-z work as a self-serve tool.
