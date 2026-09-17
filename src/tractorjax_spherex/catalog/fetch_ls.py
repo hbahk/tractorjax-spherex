@@ -38,6 +38,18 @@ _DATALAB_HINT = (
     "Or supply your own reference catalog (see docs/catalogs).")
 
 
+def _stored_login() -> bool:
+    """True if the Data Lab client already holds a valid token for a named user."""
+    try:
+        from dl import authClient as ac
+        who = ac.whoAmI()
+        if not who or who == "anonymous":
+            return False
+        return bool(ac.isUserLoggedIn(who))
+    except Exception:  # noqa: BLE001 - any client/network hiccup means "no login"
+        return False
+
+
 def fetch_ls_dr10(ra, dec, *, radius_deg=None, cutout_pixels=100,
                   columns=DEFAULT_COLUMNS, name="field", user=None,
                   password=None, out=None, poll_seconds=5.0,
@@ -55,6 +67,10 @@ def fetch_ls_dr10(ra, dec, *, radius_deg=None, cutout_pixels=100,
         Columns to select (default: the standard forced-photometry set).
     user, password : str, optional
         Data Lab credentials (or ``DATALAB_USER`` / ``DATALAB_PASSWORD`` env).
+        When neither is given, an existing Data Lab login is reused if the
+        client already holds a valid token for a named user (``dl.authClient``
+        caches one under ``~/.datalab`` after any earlier ``login``); otherwise
+        ``ValueError`` is raised.
     out : path, optional
         If given, write the result parquet there.
     drop_dup : bool
@@ -73,11 +89,15 @@ def fetch_ls_dr10(ra, dec, *, radius_deg=None, cutout_pixels=100,
 
     user = user or os.environ.get("DATALAB_USER")
     password = password or os.environ.get("DATALAB_PASSWORD")
-    if not user or not password:
+    if user and password:
+        ac.login(user, password)
+        logger.info("Logged into Data Lab as %s", ac.whoAmI())
+    elif _stored_login():
+        logger.info("Reusing the stored Data Lab login for %s", ac.whoAmI())
+    else:
         raise ValueError("Data Lab credentials required (args or "
-                         "DATALAB_USER/DATALAB_PASSWORD env)")
-    ac.login(user, password)
-    logger.info("Logged into Data Lab as %s", ac.whoAmI())
+                         "DATALAB_USER/DATALAB_PASSWORD env), or log in once "
+                         "with dl.authClient.login so the token is cached")
 
     cols = "*" if columns in ("*", None) else ", ".join(columns)
     sql = (f"SELECT {cols} FROM ls_dr10.tractor "
