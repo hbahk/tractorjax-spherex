@@ -41,7 +41,9 @@ autodoc_typehints = "description"
 napoleon_google_docstring = True
 napoleon_numpy_docstring = True
 
-myst_enable_extensions = ["colon_fence", "deflist"]
+# dollarmath renders the $...$ / $$...$$ math the example notebooks use (Jupyter
+# does so natively; MyST needs the extension or the dollars come out verbatim).
+myst_enable_extensions = ["colon_fence", "deflist", "dollarmath", "amsmath"]
 
 html_theme = "pydata_sphinx_theme"
 html_title = f"tractorjax-spherex {version}"
