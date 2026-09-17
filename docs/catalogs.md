@@ -32,10 +32,13 @@ Details on the optional columns:
 - **`id`** — required and must be unique. If absent but `ls_id` is present, `id`
   is derived from it (and vice versa). With neither,
   {func}`~tractorjax_spherex.io.catalogs.normalize_catalog` raises `ValueError`.
-- **`flux_z`** — only needed for the depth cut and for LASSO / prior *protection*
-  (see below). If absent it is filled with `NaN`; those sources then have an
-  undefined z-mag and are dropped by any active depth cut. Full-catalog blind
-  runs (`fit_zmag_max=None`) do not require it.
+- **`flux_z`** — drives the depth cut (on by default, `fit_zmag_max=21`) and
+  LASSO / prior *protection* (see below). If the column is absent, or has no
+  positive value anywhere, the pipeline logs a warning and fits the catalog at
+  its own depth rather than reducing it to the kept target. If it is present,
+  sources whose own `flux_z` is `NaN` or `<= 0` have an undefined z-mag and
+  are dropped by the cut. Full-catalog runs (`fit_zmag_max=None`) never read
+  it.
 - **`shape_r`** — missing ⇒ `0` ⇒ the source is rendered as a point source.
   A positive radius makes it a galaxy.
 - **`sersic`** — missing ⇒ `1.0` (exponential); only meaningful for galaxies.
@@ -145,24 +148,39 @@ bands — everything the solvers can use.
 
 ## Depth cuts
 
-Fitting every faint source in a deep catalog is the blind-production regime, but
-you can prune the catalog by z-band depth with `fit_zmag_max` on
-{class}`~tractorjax_spherex.config.PhotometryConfig`:
+The catalog is truncated at z-band AB 21 **by default** (`fit_zmag_max=21` on
+{class}`~tractorjax_spherex.config.PhotometryConfig`). This is the configuration
+of record of the SPHEREx deblending campaign, and the single setting a first
+run most often gets wrong by turning it off:
+
+- At full Legacy Survey DR10 depth a SPHEREx cutout carries ~22 catalog sources
+  per PSF core. The flux solve is then under-determined, and even the
+  regularized `eigfloor` estimator pays for it: on the same sources, the paired
+  scatter of the full-catalog fit is ~1.3× that of the m_z<21 fit (~1.9× for
+  `linear`), and a much larger share of the reported fluxes has S/N below 5.
+- Sources fainter than z ≈ 21 are below the single-visit SPHEREx noise, so
+  dropping them loses almost no measurable flux, while keeping them adds a
+  degenerate nuisance per source. The cut removes about 85 % of a DR10 catalog
+  and the photometry of what remains gets *better*.
 
 ```python
-PhotometryConfig(solver="eigfloor", fit_zmag_max=21.0)   # fit sources with z < 21
+PhotometryConfig()                        # eigfloor on the m_z < 21 catalog
+PhotometryConfig(fit_zmag_max=None)       # the full catalog (eigfloor_prior arm)
+PhotometryConfig(fit_zmag_max=20.0)       # a shallower cut
 ```
 
-- `fit_zmag_max=None` (default) fits the **full catalog** — the production blind
-  regime, and the only one that needs no `flux_z`.
 - A finite value keeps only sources **brighter** than that AB z-mag
   (`apply_depth_cut`). Sources with `flux_z ≤ 0` (undefined z-mag) are dropped;
-  the always-kept `target` survives the cut unconditionally.
-- A too-aggressive cut removes real flux from blends and biases the fit — cut
-  only sources genuinely too faint to matter at SPHEREx S/N. This is distinct
-  from `protect_zmag_max`, which does not remove sources but marks bright ones as
-  unpenalized reported targets for `lasso` / `eigfloor_prior` (see {doc}`solvers`
-  and {doc}`configuration`).
+  the always-kept `target` survives the cut unconditionally. A catalog with no
+  usable `flux_z` at all is fitted unchanged, with a warning.
+- `fit_zmag_max=None` fits the **full catalog**. Use it with `eigfloor_prior`
+  (which ridges the faint nuisances toward their SED-predicted fluxes,
+  {doc}`solvers`), not with a blind estimator.
+- A *much* more aggressive cut removes real flux from blends and biases the fit:
+  cut only sources genuinely too faint to matter at SPHEREx S/N. The depth cut
+  is distinct from `protect_zmag_max`, which does not remove sources but marks
+  bright ones as unpenalized reported targets for `lasso` / `eigfloor_prior`
+  (see {doc}`solvers` and {doc}`configuration`).
 
 Because positions and shapes are fixed, catalog quality is the dominant input to
 the photometry: a missing or mislocated source is never recovered, and a wrong

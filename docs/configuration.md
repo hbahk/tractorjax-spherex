@@ -1,13 +1,26 @@
 # Configuration
 
 Every option lives on {class}`tractorjax_spherex.config.PhotometryConfig`. The
-defaults reproduce the **blind-production ("F3") profile**: solver `eigfloor`,
-tile 15 / halo 3 / pad-bucket 32, prefetch thread, `fp32`. Change `solver` (and
-read {doc}`solvers`) to select a different estimator.
+defaults are the **configuration of record** of the SPHEREx deblending
+campaign, so `PhotometryConfig()` with no arguments is the recommended setup:
+
+| what | default | why |
+|---|---|---|
+| estimator | `solver="eigfloor"` | sign-free, calibrated errors, no faint-end bias ({doc}`solvers`) |
+| catalog depth | `fit_zmag_max=21` | fit only sources brighter than z-band AB 21: at full Legacy Survey depth the solve is under-determined and the paired scatter on common sources is ~1.3× wider ({doc}`catalogs`) |
+| background | `bkg_model="cwave+photutils"` | removes the He I 1.083 µm airglow stripe before the 2-D fit ({doc}`backgrounds_systematics`) |
+| tiling | `tile_size=15`, `tile_halo=3`, a free constant per tile | the geometry every calibration was measured on ({doc}`how_it_works`) |
+| PSF | `psf_zone_interp=True`, `psf_core_shift=True` | zone-blended kernels re-registered on their measured cores; off costs 10–15 % on blends |
+| execution | `precision="fp32"`, `pad_bucket=32`, `prefetch="thread"` | the error calibration was established at fp32; the rest is throughput only |
+
+Change `solver` (and read {doc}`solvers`) to select a different estimator, and
+`fit_zmag_max=None` to fit the full catalog (the `eigfloor_prior` trade-off
+arm). A real-data walk-through of these defaults on a crowded cluster field is
+{doc}`cluster_example`.
 
 ```python
 from tractorjax_spherex import PhotometryConfig
-cfg = PhotometryConfig(solver="eigfloor", device="cpu")
+cfg = PhotometryConfig(device="cpu")           # defaults, on CPU
 ```
 
 A config round-trips to YAML/TOML so a run is reproducible from one file:
@@ -37,7 +50,7 @@ On the CLI, `--config run.yaml` loads a file and any explicit flags override it.
 
 | field | default | meaning |
 |---|---|---|
-| `fit_zmag_max` | `None` | fit only sources brighter than this z-mag; `None` = full catalog |
+| `fit_zmag_max` | `21.0` | fit only sources brighter than this z-band AB mag (the configuration of record); `None` = full catalog. A catalog with no usable `flux_z` at all is fitted at its own depth, with a warning |
 
 ### Tiling / batching
 

@@ -21,9 +21,16 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinx.ext.intersphinx",
-    "myst_parser",
+    # myst_nb is a superset of myst_parser: it renders the stored outputs of
+    # the example notebooks (docs/cluster_example.ipynb) as documentation.
+    "myst_nb",
     "sphinx_copybutton",
 ]
+
+# The notebooks need IRSA, Data Lab and a GPU; the docs build must never try
+# to run them. Their committed outputs are the documentation.
+nb_execution_mode = "off"
+nb_merge_streams = True
 
 # The engine (tractor-jax / jax) and upstream tractor are heavy optional imports;
 # mock them so autodoc can import the backend modules without them installed.

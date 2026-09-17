@@ -29,6 +29,20 @@ use its errors for population statistics.
 neighbours. It does *not* include absolute calibration, PSF-model error, or
 background systematics ({doc}`backgrounds_systematics`).
 
+### My spectra are noisy and scattered — what is the recommended setup?
+
+`PhotometryConfig()` with no arguments. The defaults *are* the tuned
+configuration of record: `eigfloor` on the catalog truncated at z-band AB 21,
+the CWAVE-aware background, PSF zone interpolation and core re-registration,
+15 px tiles with a 3 px halo. The setting a first run most often changes for
+the worse is the depth cut: `fit_zmag_max=None` fits every Legacy Survey
+source, the solve becomes under-determined, and the per-visit scatter grows by
+~1.3× for the same sources ({doc}`catalogs`). Versions before 0.2 defaulted to
+the full catalog, the plain `photutils` background and no core shift, so a
+product made with an older default is worth re-running.
+{doc}`cluster_example` shows the defaults on a crowded real field and what the
+full-catalog fit does to the same sources.
+
 ### My source scatters more between visits than its error bars suggest
 
 Check in this order:

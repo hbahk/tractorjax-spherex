@@ -30,6 +30,7 @@ Fluxes are in **mJy**; magnitudes are AB.
 
 installation
 quickstart
+cluster_example
 worked_example
 gallery
 ```
@@ -62,10 +63,16 @@ api/index
 ```python
 from tractorjax_spherex import PhotometryConfig, run_photometry, build_spectra
 
-cfg = PhotometryConfig(solver="eigfloor")     # blind-production default
+cfg = PhotometryConfig()      # configuration of record: eigfloor, m_z < 21
 phot = run_photometry("cutouts", "catalog.parquet", cfg, output="phot.parquet")
 spectra = build_spectra(phot)                 # {id: per-source spectrum}
 ```
+
+The defaults are the tuned recipe of the SPHEREx deblending campaign
+({doc}`configuration`). {doc}`cluster_example` runs it end to end on a real
+crowded field, the strong-lensing cluster Abell 2537: box sizing, cutout
+retrieval, catalog, photometry, fit inspection, and the spectra of the
+brightest cluster galaxy and of a blended pair.
 
 {doc}`gallery` shows real SPHEREx spectra of six A2537 galaxies from all three
 estimators — including a worked case of the one failure mode every user should

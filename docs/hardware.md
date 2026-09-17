@@ -49,7 +49,7 @@ vector and design matrix have tile-dependent widths. Feeding raw widths to a
 jitted solver forces a fresh XLA compile per distinct shape. Two policies tame
 this, and they trade **compile count against matrix size**:
 
-- **`pad_bucket`** (default `32`, the "F3" profile) rounds each tile's widths up
+- **`pad_bucket`** (default `32`) rounds each tile's widths up
   to the nearest multiple. Matrices stay close to their real size (small, fast
   per-solve), at the cost of a handful of distinct bucketed shapes — a few
   compiles instead of one.

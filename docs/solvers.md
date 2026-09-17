@@ -6,6 +6,11 @@ Legacy-Survey depth a SPHEREx cutout has ~22 catalog sources per PSF core, so th
 raw system is ill-conditioned and the choice of regularizer *is* the science
 decision. Set it with `PhotometryConfig(solver=...)` or `--solver`.
 
+The other half of that decision is **catalog depth**. The default
+`fit_zmag_max=21` truncates the catalog at z-band AB 21, and `eigfloor` on that
+truncated catalog is the configuration of record ({doc}`catalogs` has the
+numbers). Only `eigfloor_prior` is designed for the full catalog.
+
 ## The four solvers
 
 ### `eigfloor` — blind product (default)
@@ -46,9 +51,15 @@ instead of floating freely. Requires SED band columns in the catalog
 (`dered_flux_*` / `flux_*`); sources without a usable SED stay free.
 
 ```python
-PhotometryConfig(solver="eigfloor_prior", prior_sigma_frac=0.15,
-                 prior_sigma_min_ujy=5.0, protect_zmag_max=20.0)
+PhotometryConfig(solver="eigfloor_prior", fit_zmag_max=None,     # full catalog
+                 protect_zmag_max=21.0,                          # m_z<21 unpenalized
+                 prior_sigma_frac=0.15, prior_sigma_min_ujy=5.0)
 ```
+
+This is the campaign's full-catalog trade-off arm: the sources the default
+configuration would fit (m_z<21) stay exactly `eigfloor`, and everything
+fainter is added as an SED-ridged nuisance. Leaving `fit_zmag_max` at its
+default of 21 would give the prior almost nothing to act on.
 
 The `prior_sigma_min_ujy` floor matters: without it, ultra-faint SED predictions
 inflate the relative eigen-floor and crush *all* fluxes (protected included).
@@ -97,9 +108,9 @@ solvers. See {doc}`cpu_backend`.
 
 ## Protection and depth knobs
 
-- `fit_zmag_max` — fit only sources brighter than this z-band AB mag (`None` =
-  full catalog, the production blind regime). The always-kept target survives the
-  cut.
+- `fit_zmag_max` — fit only sources brighter than this z-band AB mag (default
+  `21`, the configuration of record; `None` = full catalog). The always-kept
+  target survives the cut. See {doc}`catalogs` for why the cut is on by default.
 - `protect_zmag_max` — for `lasso` / `eigfloor_prior`, sources brighter than this
   are *protected* (unpenalized, unbiased reported targets); fainter ones are
   penalized nuisances.

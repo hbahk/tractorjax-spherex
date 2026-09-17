@@ -29,7 +29,7 @@ Levenberg–Marquardt optimizer (`JaxOptimizer`) that can thaw positions and sha
 and fit them jointly with flux. Exposing that as an **optional, non-forced mode**
 — thaw a chosen subset of parameters and refine the catalog geometry against the
 SPHEREx data — is deferred. It is an add-on to the forced core, not a change to
-it: the blind-production default stays fully forced and linear, and forced
+it: the default stays fully forced and linear, and forced
 photometry remains the right tool at SPHEREx's undersampled resolution for most
 fields.
 

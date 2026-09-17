@@ -22,6 +22,9 @@ docs/api/generated/
 !docs/_static/*.png
 cutouts/
 data/
+# example notebook / script outputs (cutouts, catalogs, photometry)
+examples/*_out/
+docs/jupyter_execute/
 
 # Env
 .venv/

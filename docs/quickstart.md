@@ -40,11 +40,13 @@ Or bring your own — see {doc}`catalogs` for the required columns.
 ```python
 from tractorjax_spherex import PhotometryConfig, run_photometry
 
-cfg = PhotometryConfig(solver="eigfloor")          # blind-production default
+cfg = PhotometryConfig()      # configuration of record: eigfloor, m_z < 21
 phot = run_photometry("cutouts", "catalog.parquet", cfg,
                       target=(150.0, 2.0), output="phot.parquet")
 ```
 
+The defaults are the tuned setup (estimator, catalog depth, background, PSF
+handling); a first run should not change them, see {doc}`configuration`.
 `phot` has one row per (source, visit): `cutout_index, obs_id, detector, id, ra,
 dec, central_wavelength, bandwidth, flux, flux_err` (flux in mJy). On a shared
 GPU add `gpu_preallocate=False, gpu_mem_fraction=0.45`; on a machine with no GPU
@@ -54,7 +56,7 @@ From the shell:
 
 ```bash
 tractorjax-spherex run --cutouts-dir cutouts --catalog catalog.parquet \
-    --solver eigfloor --ra 150.0 --dec 2.0 --output phot.parquet
+    --ra 150.0 --dec 2.0 --output phot.parquet
 ```
 
 ## 4. Assemble spectra
@@ -75,6 +77,9 @@ wavelength (which transparently handles the within-detector wavelength reversal)
 
 ## Next steps
 
+- {doc}`cluster_example` — the same four steps on a real, crowded cluster
+  field (Abell 2537), with the box sizing, the fit inspection and the spectra
+  of blended sources worked through.
 - {doc}`solvers` — pick the estimator for your science.
 - {doc}`hardware` — GPU-memory sizing and CPU-only guidance.
 - {doc}`configuration` — the full option reference.

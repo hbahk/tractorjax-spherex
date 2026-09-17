@@ -77,8 +77,11 @@ retrieve(SkyCoord(150.0*u.deg, 2.0*u.deg), 100, output_dir="cutouts",
 from tractorjax_spherex import fetch_ls_dr10
 fetch_ls_dr10(150.0, 2.0, out="catalog.parquet")     # needs [catalog] extra
 
-# 3. Run forced photometry (blind-production default: eigfloor)
-cfg = PhotometryConfig(solver="eigfloor")
+# 3. Run forced photometry. The defaults are the configuration of record of
+#    the SPHEREx deblending campaign (eigfloor on the m_z < 21 catalog,
+#    CWAVE-aware background, zone-interpolated PSF with core shift): a first
+#    run should not change them.
+cfg = PhotometryConfig()
 phot = run_photometry("cutouts", "catalog.parquet", cfg, output="phot.parquet")
 
 # 4. Assemble per-source spectra
@@ -91,9 +94,19 @@ Or from the command line:
 tractorjax-spherex retrieve --ra 150.0 --dec 2.0 --out cutouts
 tractorjax-spherex fetch-catalog --ra 150.0 --dec 2.0 --out catalog.parquet
 tractorjax-spherex run --cutouts-dir cutouts --catalog catalog.parquet \
-    --solver eigfloor --output phot.parquet
+    --output phot.parquet
 tractorjax-spherex spectra --photometry phot.parquet --all --plot spec
 ```
+
+## Worked example on a real cluster field
+
+`examples/04_cluster_field_end_to_end.ipynb` (rendered in the docs as *Cluster
+field, end to end*) runs the whole chain on the strong-lensing cluster Abell
+2537: sizing the cutout box from R200, retrieving 370 L2 cutouts, fetching the
+Legacy Survey catalog, forced photometry with the defaults, inspecting a fit,
+and the spectra of the brightest cluster galaxy and of a blended pair 4″
+apart. It also shows what fitting the full catalog does to the same sources,
+which is why the m_z < 21 cut is the default.
 
 ## Try it offline (no data, no network, no GPU)
 
@@ -125,9 +138,9 @@ PhotometryConfig(gpu_preallocate=False, gpu_mem_fraction=0.45)
 
 | solver | use it for | keeps negatives | notes |
 |---|---|---|---|
-| `eigfloor` *(default)* | **blind** photometry / photo-z | yes | calibrated errors |
+| `eigfloor` *(default, m_z < 21)* | **blind** photometry / photo-z | yes | calibrated errors; the configuration of record |
 | `lasso` | **targeted** bright sources | no | best σ at S/N 3–30; under-covering posteriors |
-| `eigfloor_prior` | **regularized full-catalog** | yes (protected) | SED priors on faint nuisances |
+| `eigfloor_prior` (`fit_zmag_max=None`) | **regularized full-catalog** | yes (protected) | SED priors on faint nuisances |
 | `linear` | sparse fields / shallow catalogs | yes | degenerate at full LS depth |
 
 See the docs' *Choosing a solver* page for the full trade-offs. The `cpu-tractor`
