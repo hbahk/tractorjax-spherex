@@ -4,7 +4,7 @@ Typical use::
 
     from tractorjax_spherex import PhotometryConfig, run_photometry, build_spectra
 
-    cfg = PhotometryConfig(solver="eigfloor")          # blind-production default
+    cfg = PhotometryConfig()     # configuration of record: eigfloor, m_z < 21
     phot = run_photometry("cutouts/", "catalog.parquet", cfg, output="phot.parquet")
     spectra = build_spectra(phot)                      # id -> per-source spectrum
 

@@ -53,7 +53,8 @@ def run_photometry(cutouts_dir, catalog, config: PhotometryConfig | None = None,
     catalog : path or astropy Table
         Reference catalog (see :mod:`tractorjax_spherex.io.catalogs`).
     config : PhotometryConfig, optional
-        All options; defaults to the blind-production profile.
+        All options; defaults to the configuration of record (``eigfloor`` on
+        the catalog truncated at z-band AB 21).
     target : (ra, dec), optional
         The always-kept / labelled main source. Defaults to the catalog centroid.
     output : path, optional
@@ -94,8 +95,15 @@ def run_photometry(cutouts_dir, catalog, config: PhotometryConfig | None = None,
     ra0, dec0 = _field_center(tab, target)
     main_idx, _ = find_nearest_source(tab, ra0, dec0)
 
+    n_catalog = len(tab)
     tab, _kept = apply_depth_cut(tab, config.fit_zmag_max, keep_indices=(main_idx,))
     main_idx, sco_all = find_nearest_source(tab, ra0, dec0)
+    # The depth cut is the setting a user most needs to see applied: say what
+    # it did, in the same breath as the main source it kept.
+    logger.info("Catalog: %d sources, %d fitted (fit_zmag_max=%s); main source "
+                "id=%d at ra=%.5f dec=%.5f", n_catalog, len(tab),
+                config.fit_zmag_max, int(tab["id"][main_idx]),
+                float(tab["ra"][main_idx]), float(tab["dec"][main_idx]))
 
     protect_ci = None
     if config.solver in ("lasso", "eigfloor_prior"):

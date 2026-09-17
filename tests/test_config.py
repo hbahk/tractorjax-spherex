@@ -3,9 +3,13 @@ import pytest
 from tractorjax_spherex.config import ConfigError, PhotometryConfig
 
 
-def test_defaults_are_blind_production():
+def test_defaults_are_the_configuration_of_record():
+    """eigfloor on the m_z<21 catalog with the campaign's background / PSF
+    recipe. The depth cut is a default, not an opt-in: at full DR10 depth the
+    solve is under-determined and a naive run gives a visibly worse product."""
     c = PhotometryConfig()
     assert c.solver == "eigfloor"
+    assert c.fit_zmag_max == 21.0
     assert c.tile_size == 15 and c.tile_halo == 3 and c.pad_bucket == 32
     assert c.precision == "fp32" and c.prefetch == "thread"
     assert c.bkg_model == "cwave+photutils"
@@ -41,7 +45,7 @@ def test_bad_enums_raise():
 
 
 def test_resolved_caps_policy():
-    # pad_bucket set (F3 default) -> caps off
+    # pad_bucket set (the default) -> caps off
     assert PhotometryConfig(pad_bucket=32).resolved_caps() == (None, None, None)
     # full depth, no pad_bucket -> field caps on
     assert PhotometryConfig(pad_bucket=0, fit_zmag_max=None).resolved_caps() \

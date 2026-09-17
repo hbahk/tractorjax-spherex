@@ -1,11 +1,13 @@
 """User-facing configuration for the SPHEREx forced-photometry pipeline.
 
 :class:`PhotometryConfig` captures every optimization option in one place, with
-the frozen "F3" blind-production defaults (solver ``eigfloor``, tile 15 / halo 3
-/ pad-bucket 32 / prefetch thread / fp32, ``cwave+photutils`` background and PSF
-core re-registration on). It serialises to/from YAML and TOML
-so a run is fully reproducible from a single file. See the *Choosing a solver*
-and *Configuration* pages in the docs for the trade-offs behind each field.
+the SPHEREx deblending campaign's **configuration of record** as defaults:
+solver ``eigfloor`` on the catalog truncated at z-band AB 21
+(``fit_zmag_max=21``), tile 15 / halo 3 / pad-bucket 32 / prefetch thread /
+fp32, ``cwave+photutils`` background, PSF zone interpolation and core
+re-registration on. It serialises to/from YAML and TOML so a run is fully
+reproducible from a single file. See the *Choosing a solver* and
+*Configuration* pages in the docs for the trade-offs behind each field.
 """
 
 from __future__ import annotations
@@ -54,12 +56,14 @@ class CapExceededError(RuntimeError):
 
 @dataclass
 class PhotometryConfig:
-    """All forced-photometry options with blind-production (F3) defaults.
+    """All forced-photometry options, defaulting to the configuration of record.
 
     Attributes are grouped as solver / catalog-depth / tiling-batching /
     background / rendering / execution. The defaults reproduce the calibrated
-    blind photo-z product; change ``solver`` (and read ``docs/solvers``) to
-    select a different estimator.
+    blind photo-z product of the SPHEREx deblending campaign: ``eigfloor`` on
+    the catalog truncated at ``fit_zmag_max=21``. Set ``fit_zmag_max=None`` to
+    fit the full catalog (the ``eigfloor_prior`` trade-off arm), and change
+    ``solver`` (read ``docs/solvers``) to select a different estimator.
     """
 
     # --- solver -----------------------------------------------------------
@@ -77,11 +81,17 @@ class PhotometryConfig:
     prior_sigma_min_ujy: float = 5.0
 
     # --- catalog depth ----------------------------------------------------
-    # None => fit the full catalog (production blind regime). A positive value
-    # fits only sources with z-band AB mag brighter than it.
-    fit_zmag_max: float | None = None
+    # Fit only sources with z-band AB mag brighter than this; None => the full
+    # catalog. 21 is the configuration of record: at full Legacy Survey depth
+    # a SPHEREx cutout holds ~22 catalog sources per PSF core, the flux solve is
+    # under-determined, and the paired scatter on common sources is 1.3x wider
+    # than at m_z<21 for the same estimator (2026-09 campaign; DR10 sources
+    # fainter than 21 are below the single-visit SPHEREx noise). Set None for
+    # the regularized full-catalog arm (`eigfloor_prior`). A catalog with no
+    # usable `flux_z` at all skips the cut with a warning instead of emptying.
+    fit_zmag_max: float | None = 21.0
 
-    # --- tiling / batching (F3) ------------------------------------------
+    # --- tiling / batching ------------------------------------------------
     tile_size: int = 15
     tile_halo: int = 3
     pad_bucket: int = 32

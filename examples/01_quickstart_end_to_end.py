@@ -27,9 +27,10 @@ retrieve(SkyCoord(RA * u.deg, DEC * u.deg), 100,
 # 2. Fetch a Legacy Survey DR10 reference catalog (or supply your own parquet).
 fetch_ls_dr10(RA, DEC, out=str(out / "catalog.parquet"))
 
-# 3. Forced photometry with the blind-production default (eigfloor).
+# 3. Forced photometry with the configuration of record: eigfloor on the
+#    catalog truncated at z-band AB 21 (both are the defaults).
 #    For a shared GPU, add gpu_preallocate=False, gpu_mem_fraction=0.45.
-cfg = PhotometryConfig(solver="eigfloor")
+cfg = PhotometryConfig()
 phot = run_photometry(out / "cutouts", out / "catalog.parquet", cfg,
                       target=(RA, DEC), output=out / "phot.parquet")
 print(f"Photometered {len(phot)} (source, visit) points")

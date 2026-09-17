@@ -17,12 +17,16 @@ The canonical internal schema (see the *Reference catalogs* docs page):
 
 from __future__ import annotations
 
+import logging
+
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.table import Table
 
 from ..models import ls_shapes_to_ab_phi
+
+logger = logging.getLogger(__name__)
 
 
 def load_catalog(path_or_table) -> Table:
@@ -91,10 +95,23 @@ def apply_depth_cut(tab: Table, fit_zmag_max, keep_indices=()):
     ``keep_indices`` are kept unconditionally (the pointing target). Returns
     ``(pruned_table, kept_original_indices)``. ``fit_zmag_max`` None or <= 0
     disables the cut (returns the table unchanged).
+
+    A catalog with **no usable** ``flux_z`` at all (column missing, or every
+    value NaN / non-positive) also returns unchanged, with a warning: the cut
+    is on by default, and silently reducing such a catalog to the single kept
+    target would be a far worse product than fitting it at its own depth.
     """
     if fit_zmag_max is None or fit_zmag_max <= 0:
         return tab, np.arange(len(tab))
     zmag = zmag_from_flux_z(tab["flux_z"])
+    if not np.any(np.isfinite(zmag)):
+        logger.warning(
+            "fit_zmag_max=%.2f requested but the catalog has no usable flux_z "
+            "(missing, NaN or <= 0 everywhere): fitting all %d sources at the "
+            "catalog's own depth. Add a z-band flux in nanomaggies to enable "
+            "the depth cut, or set fit_zmag_max=None to silence this.",
+            fit_zmag_max, len(tab))
+        return tab, np.arange(len(tab))
     keep = np.isfinite(zmag) & (zmag < fit_zmag_max)
     for idx in keep_indices:
         keep[int(idx)] = True

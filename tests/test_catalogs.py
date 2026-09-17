@@ -57,6 +57,26 @@ def test_zmag_and_depth_cut():
     assert len(cut2) == 3
 
 
+def test_depth_cut_skips_catalog_without_flux_z(caplog):
+    """The cut is on by default (fit_zmag_max=21). A bring-your-own catalog
+    with no z-band flux must NOT collapse to the single kept target: it is
+    fitted at its own depth, with a warning that says why."""
+    t = normalize_catalog(Table({"id": [1, 2, 3], "ra": [1.0, 1.01, 1.02],
+                                 "dec": [1.0, 1.0, 1.0]}))
+    with caplog.at_level("WARNING", logger="tractorjax_spherex.io.catalogs"):
+        cut, kept = apply_depth_cut(t, fit_zmag_max=21.0, keep_indices=(0,))
+    assert len(cut) == 3 and list(kept) == [0, 1, 2]
+    assert "no usable flux_z" in caplog.text
+    # all non-positive is the same situation
+    t["flux_z"] = [0.0, -1.0, 0.0]
+    cut, _ = apply_depth_cut(t, fit_zmag_max=21.0)
+    assert len(cut) == 3
+    # but ONE usable value means the cut is real: the NaN rows are dropped
+    t["flux_z"] = [1000.0, np.nan, 0.0]
+    cut, kept = apply_depth_cut(t, fit_zmag_max=21.0)
+    assert list(kept) == [0]
+
+
 def test_protected_indices():
     t = normalize_catalog(_cat())
     prot = protected_indices(t, protect_zmag_max=18.0, always=(2,))

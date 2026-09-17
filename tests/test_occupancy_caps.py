@@ -16,7 +16,9 @@ from tractorjax_spherex.occupancy import Occupancy, measure_occupancy
 
 
 def test_auto_cap_requires_a_measurement():
-    cfg = PhotometryConfig(pad_bucket=0, max_ps_cap="auto")
+    # Caps are a full-depth device, so these tests fit the full catalog
+    # explicitly (the default fit_zmag_max=21 turns them off, tested below).
+    cfg = PhotometryConfig(pad_bucket=0, fit_zmag_max=None, max_ps_cap="auto")
     assert cfg.wants_auto_caps()
     with pytest.raises(ConfigError, match="needs a measured occupancy"):
         cfg.resolved_caps()
@@ -25,7 +27,7 @@ def test_auto_cap_requires_a_measurement():
 def test_auto_cap_sizes_from_occupancy_with_margin():
     occ = Occupancy(max_ps=100, max_gal=200, n_cutouts=1,
                     per_cutout={0: (100, 200)})
-    cfg = PhotometryConfig(pad_bucket=0, max_ps_cap="auto",
+    cfg = PhotometryConfig(pad_bucket=0, fit_zmag_max=None, max_ps_cap="auto",
                            max_gal_cap="auto", cap_auto_margin=1.1)
     ps, gal, _ = cfg.resolved_caps(occ)
     assert ps == 110 and gal == 220
@@ -40,9 +42,12 @@ def test_auto_cap_is_inert_when_caps_are_off():
     cfg = PhotometryConfig(pad_bucket=32, max_ps_cap="auto")
     assert not cfg.wants_auto_caps()
     assert cfg.resolved_caps() == (None, None, None)
-    # z-cut => caps off as well, and "auto" must not demand a measurement.
+    # z-cut (the default) => caps off as well, and "auto" must not demand a
+    # measurement.
     cfg = PhotometryConfig(pad_bucket=0, fit_zmag_max=21.0, max_ps_cap="auto")
     assert cfg.resolved_caps() == (None, None, None)
+    assert PhotometryConfig(pad_bucket=0, max_ps_cap="auto").resolved_caps() \
+        == (None, None, None)
 
 
 def test_bad_cap_string_rejected():
@@ -63,7 +68,8 @@ def test_occupancy_scan_counts_point_sources_and_galaxies(synth_field):
     assert 0 < occ.max_ps <= len(cat)
     assert occ.max_gal == 0
     # An "auto" cap built from this must admit every cutout.
-    cfg = PhotometryConfig(pad_bucket=0, max_ps_cap="auto", max_gal_cap="auto")
+    cfg = PhotometryConfig(pad_bucket=0, fit_zmag_max=None, max_ps_cap="auto",
+                           max_gal_cap="auto")
     ps, gal, _ = cfg.resolved_caps(occ)
     assert occ.overflowing(ps, gal) == []
 
