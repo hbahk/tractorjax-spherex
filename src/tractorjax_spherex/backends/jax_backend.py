@@ -28,9 +28,11 @@ from tractor_jax.jax.pipeline import prefetch_pipeline  # noqa: F401  (re-export
 from ..config import CapExceededError, ConfigError
 from ..io.cutouts import sample_map_bilinear_vec
 from ..prepare import (
-    downsample_psf_oversample2,
+    core_shift_applies,
+    pixel_integration_for,
     prepare_pixels,
     project_sources,
+    psf_stamp_5x,
     zone_lookup_vectorized,
     zone_psf_basis,
     zone_psf_selector,
@@ -169,7 +171,7 @@ def build_cutout_tiles(cutout, *, sx_all, sy_all, tile_size, halo,
 
     def _stamp(plane):
         def _build():
-            return downsample_psf_oversample2(cutout["psf_cube"][plane])
+            return psf_stamp_5x(cutout, plane)
         if _sig is not None:
             return psf_cache.stamp(_sig, plane, _build)
         s = _local.get(plane)
@@ -284,19 +286,25 @@ def build_extract_index(tile_records, src_slot, sx_all, sy_all, W, H):
 
 
 def make_tiled_solver(spec, batches_in_axes, penalty_weights=None,
-                      prior_arrays=None):
-    """Build the vmapped per-tile solver for ``spec`` (thin engine wrapper)."""
+                      prior_arrays=None, pixel_integration="window"):
+    """Build the vmapped per-tile solver for ``spec`` (thin engine wrapper).
+
+    ``pixel_integration`` is the engine's static rendering option: ``"window"``
+    for the QR2 optical PSF, ``"point"`` for the R7 effective PSF (see
+    :func:`tractorjax_spherex.prepare.pixel_integration_for`).
+    """
     kind = spec["kind"]
+    static = dict(pixel_integration=pixel_integration)
     if kind == "linear":
         return tjb.make_batched_solver(
-            "linear", in_axes=batches_in_axes, rcond=spec.get("rcond", 1e-12))
+            "linear", in_axes=batches_in_axes, rcond=spec.get("rcond", 1e-12), **static)
     if kind == "eigfloor":
         return tjb.make_batched_solver(
-            "eigfloor", in_axes=batches_in_axes, floor=spec.get("floor", 1e-2))
+            "eigfloor", in_axes=batches_in_axes, floor=spec.get("floor", 1e-2), **static)
     if kind == "eigfloor_prior":
         jfn = tjb.make_batched_solver(
             "eigfloor_prior", in_axes=batches_in_axes,
-            floor=spec.get("floor", 1e-2))
+            floor=spec.get("floor", 1e-2), **static)
         lam0, fp0 = prior_arrays if prior_arrays is not None else (None, None)
         return lambda init, imgd, bat, lam=lam0, fp=fp0: jfn(init, imgd, bat, lam, fp)
     if kind == "lasso":
@@ -305,7 +313,7 @@ def make_tiled_solver(spec, batches_in_axes, penalty_weights=None,
             alpha=spec.get("alpha", "auto"), penalty_mode="snr",
             nonneg=True, debias=True,
             debias_signfree=spec.get("debias_signfree", "protected"),
-            n_iter=spec.get("n_iter", 1000))
+            n_iter=spec.get("n_iter", 1000), **static)
         return lambda init, imgd, bat, pw=penalty_weights: jfn(init, imgd, bat, pw)
     raise ValueError(f"unknown solver kind {kind!r}")
 
@@ -338,7 +346,7 @@ class JaxBackend:
         basis = weights = basis_shifts = None
         if getattr(cfg, "psf_zone_interp", True):
             basis, weights = zone_psf_basis(cutout, cache=self._psf_cache)
-        if getattr(cfg, "psf_core_shift", False):
+        if core_shift_applies(cfg, cutout):
             if basis is None:
                 raise ConfigError(
                     "psf_core_shift on the JAX backend requires "
@@ -410,7 +418,10 @@ class JaxBackend:
                     sx_all=sx_all, sy_all=sy_all, W=W, H=H, cutout=cutout,
                     extract_index=extract_index, protect_ci=ctx.protect_ci,
                     prior_flux=prior_flux, prior_sigma=prior_sigma,
-                    n_prior_free=n_prior_free)
+                    n_prior_free=n_prior_free,
+                    # static engine option: one compiled solver per value, so a
+                    # run mixing QR2 (window) and R7 (point) cutouts compiles two
+                    pixel_integration=pixel_integration_for(cutout))
 
     # ---- solve (GPU stage) -----------------------------------------------
     def solve(self, inputs):
@@ -423,12 +434,14 @@ class JaxBackend:
 
         solve_fn = None
         lam_d = f_pr = pw = None
+        pix = inputs.get("pixel_integration", "window")
         if spec["kind"] == "lasso":
             n_tiles = int(np.asarray(initial_fluxes).shape[0])
             n_flux = int(np.asarray(initial_fluxes).shape[1])
             pw = tjb.penalty_weights_from_slots(
                 inputs["src_slot"], n_tiles, n_flux, protect_ci or set())
-            solve_fn = make_tiled_solver(spec, batches_in_axes, penalty_weights=pw)
+            solve_fn = make_tiled_solver(spec, batches_in_axes, penalty_weights=pw,
+                                         pixel_integration=pix)
         elif spec["kind"] == "eigfloor_prior":
             if inputs.get("prior_flux") is None:
                 raise ValueError("eigfloor_prior requires prior_ctx (SED priors)")
@@ -439,12 +452,14 @@ class JaxBackend:
                 inputs["prior_flux"], inputs["prior_sigma"],
                 protected=sorted(protect_ci) if protect_ci else [])
             solve_fn = make_tiled_solver(spec, batches_in_axes,
-                                         prior_arrays=(lam_d, f_pr))
+                                         prior_arrays=(lam_d, f_pr),
+                                         pixel_integration=pix)
         else:
-            struct_key = tuple(sorted(batches.keys()))
+            struct_key = (tuple(sorted(batches.keys())), pix)
             solve_fn = self._solve_fn_cache.get(struct_key)
             if solve_fn is None:
-                solve_fn = make_tiled_solver(spec, batches_in_axes)
+                solve_fn = make_tiled_solver(spec, batches_in_axes,
+                                             pixel_integration=pix)
                 self._solve_fn_cache[struct_key] = solve_fn
 
         n_tiles_total = int(np.asarray(initial_fluxes).shape[0])

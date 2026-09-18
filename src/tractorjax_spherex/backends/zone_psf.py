@@ -92,9 +92,10 @@ class ZoneBlendedPSF:
     """
 
     def __init__(self, stamps, zones_tab, pix_to_det, sampling, weights_fn,
-                 grid=15):
+                 grid=15, pixel_integrated=False):
         if len(stamps) == 0:
             raise ValueError("ZoneBlendedPSF needs at least one zone stamp")
+        self._pixel_integrated = bool(pixel_integrated)
         self._stamps = [np.asarray(s, dtype=np.float64) for s in stamps]
         self._zones = zones_tab
         self._pix_to_det = pix_to_det
@@ -124,7 +125,8 @@ class ZoneBlendedPSF:
                 raise ValueError("weights length does not match the zone basis")
             blended = np.tensordot(w, np.stack(self._stamps), axes=(0, 0))
             d = OversampledPixelizedPSF(blended.astype(np.float32),
-                                        sampling=self._sampling)
+                                        sampling=self._sampling,
+                                        pixel_integrated=self._pixel_integrated)
             self._delegates[key] = d
         return d
 
@@ -166,8 +168,7 @@ def zone_stamp_provider(cutout, cfg, *, prepare):
     keep this module import-light for tractor-less environments).
     """
     zones = cutout.psf_zones
-    cube = cutout.psf_cube
-    core_shift = bool(getattr(cfg, "psf_core_shift", False))
+    core_shift = prepare.core_shift_applies(cfg, cutout)
     sampling = cfg.psf_sampling
     det = int(cutout.detector) if core_shift else None
     cache: dict[int, np.ndarray] = {}
@@ -176,8 +177,7 @@ def zone_stamp_provider(cutout, cfg, *, prepare):
         row = int(row)
         stamp = cache.get(row)
         if stamp is None:
-            stamp = prepare.downsample_psf_oversample2(
-                cube[int(zones["plane_idx"][row])])
+            stamp = prepare.psf_stamp_5x(cutout, int(zones["plane_idx"][row]))
             total = stamp.sum()
             if total > 0:
                 stamp = stamp / total          # unit flux before any shift
@@ -249,10 +249,12 @@ def build_cpu_psf(cutout, cfg, *, prepare):
     :func:`build_cpu_psf_selector` instead: one constant kernel per tile.
     """
     stamps, interp = resolve_zone_stamps(cutout, cfg, prepare=prepare)
+    effective = cutout.psf_kind == "effective"
 
     if not interp:
         return OversampledPixelizedPSF(stamps[0].astype(np.float32),
-                                       sampling=cfg.psf_sampling)
+                                       sampling=cfg.psf_sampling,
+                                       pixel_integrated=effective)
 
     crpix1a, crpix2a = cutout.crpix1a, cutout.crpix2a
 
@@ -262,7 +264,8 @@ def build_cpu_psf(cutout, cfg, *, prepare):
 
     return ZoneBlendedPSF(stamps, cutout.psf_zones, pix_to_det, cfg.psf_sampling,
                           prepare.zone_bilinear_weights,
-                          grid=getattr(cfg, "tile_size", 15))
+                          grid=getattr(cfg, "tile_size", 15),
+                          pixel_integrated=effective)
 
 
 def build_cpu_psf_selector(cutout, cfg, *, prepare):
@@ -289,6 +292,7 @@ def build_cpu_psf_selector(cutout, cfg, *, prepare):
     get_stamp = zone_stamp_provider(cutout, cfg, prepare=prepare)
     crpix1a, crpix2a = cutout.crpix1a, cutout.crpix2a
     sampling = cfg.psf_sampling
+    effective = cutout.psf_kind == "effective"
     basis = None
     cache: dict = {}
 
@@ -296,7 +300,8 @@ def build_cpu_psf_selector(cutout, cfg, *, prepare):
         psf = cache.get(key)
         if psf is None:
             psf = OversampledPixelizedPSF(
-                np.asarray(make_stamp(), dtype=np.float32), sampling=sampling)
+                np.asarray(make_stamp(), dtype=np.float32), sampling=sampling,
+                pixel_integrated=effective)
             cache[key] = psf
         return psf
 

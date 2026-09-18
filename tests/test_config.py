@@ -13,8 +13,15 @@ def test_defaults_are_the_configuration_of_record():
     assert c.tile_size == 15 and c.tile_halo == 3 and c.pad_bucket == 32
     assert c.precision == "fp32" and c.prefetch == "thread"
     assert c.bkg_model == "cwave+photutils"
-    assert c.psf_zone_interp is True and c.psf_core_shift is True
+    # "auto" = the QR2 core shift on optical cutouts (the configuration of
+    # record is unchanged), skipped on R7 effective-PSF cutouts
+    assert c.psf_zone_interp is True and c.psf_core_shift == "auto"
     assert c.solver_spec() == {"kind": "eigfloor", "floor": 1e-2}
+
+
+def test_psf_core_shift_accepts_only_auto_true_false():
+    with pytest.raises(ConfigError):
+        PhotometryConfig(psf_core_shift="yes")
 
 
 def test_jax_core_shift_requires_zone_interp():

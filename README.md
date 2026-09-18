@@ -24,8 +24,12 @@ deblending / photo-z work as a self-serve tool.
 - **Four estimators, one flag.** Choose the solver that matches your science
   (blind vs targeted vs regularized full-catalog) — see *Choosing a solver*.
 - **Accurate low-resolution rendering.** Every source is rendered on a 5×
-  oversampled grid and binned to native pixels, so the PSF × source-shape
-  convolution is done at oversampled resolution.
+  oversampled grid and brought to native pixels the way its PSF product
+  demands: integrated over each pixel for the QR2 optical PSF, sampled at the
+  pixel centres for the R7 effective PSF (QR3 and DR1 files, `PSFKIND =
+  'EPSF'`), so the PSF × source-shape convolution is done at oversampled
+  resolution either way and the pixel response is applied exactly once. The
+  kind is read from the bundle; no flag needed, releases may be mixed.
 - **GPU or CPU.** The default JAX engine runs on GPU or CPU; a separate
   `cpu-tractor` backend runs on the classic [Tractor](https://github.com/dstndstn/tractor)
   for JAX-free environments.

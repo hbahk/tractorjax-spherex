@@ -162,7 +162,14 @@ class PhotometryConfig:
     # target's per-visit fluxes by up to 13-15% (p90) on both backends. The
     # SPHEREx deblending campaign runs with it on. Requires psf_zone_interp on
     # the JAX backend (the shifts ride on the zone basis).
-    psf_core_shift: bool = True
+    #
+    # The table was measured on the QR2 OPTICAL PSF product and the grid term
+    # belongs to its 10x->5x binning; neither applies to the R7 effective PSF
+    # (QR3/DR1 bundles, PSFKIND='EPSF'), which is anchored to the R7 astrometry
+    # (measured registration <= 0.02 px). "auto" (default) applies the shift to
+    # optical cutouts and skips it on effective ones; True forces it and raises
+    # on an effective cutout; False never shifts.
+    psf_core_shift: bool | str = "auto"
     fixed_max_factor: float = 5.0
 
     # --- execution --------------------------------------------------------
@@ -220,6 +227,9 @@ class PhotometryConfig:
         # reachable by accident when psf_core_shift moved to True by default --
         # a user who only sets psf_zone_interp=False would otherwise hit the
         # error deep in the backend, one cutout into the run.
+        if self.psf_core_shift not in (True, False, "auto"):
+            raise ConfigError(
+                f"psf_core_shift must be True, False or 'auto'; got {self.psf_core_shift!r}")
         if (self.backend == "jax" and self.psf_core_shift
                 and not self.psf_zone_interp):
             raise ConfigError(

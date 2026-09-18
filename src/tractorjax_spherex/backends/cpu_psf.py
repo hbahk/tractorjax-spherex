@@ -30,8 +30,14 @@ from tractor.psf import PixelizedPSF, lanczos_shift_image
 class OversampledPixelizedPSF(PixelizedPSF):
     """PixelizedPSF for an oversampled stamp, with flux normalization corrected."""
 
-    def __init__(self, img, sampling=1.0, Lorder=3):
+    def __init__(self, img, sampling=1.0, Lorder=3, pixel_integrated=False):
+        # The upstream (legacy) tractor.psf.PixelizedPSF knows nothing of PSF
+        # kinds; the flag is handled entirely in this subclass.
         super().__init__(img, sampling=sampling, Lorder=Lorder)
+        #: True for an EFFECTIVE PSF (the SPHEREx R7 ePSF): the stamp already
+        #: contains the pixel response, so both rendering paths sample the
+        #: block centres (times k^2) instead of block-integrating.
+        self.pixel_integrated = bool(pixel_integrated)
         # The integer-factor block-integration path (the one forced photometry
         # uses) centers the binned PSF at native index (nativeW-1)/2, which only
         # equals the patch origin's implied center (nativeW//2) for ODD native
@@ -57,6 +63,44 @@ class OversampledPixelizedPSF(PixelizedPSF):
     def __str__(self):
         return "OversampledPixelizedPSF"
 
+    def _native_from_canvas(self, img, dx, dy, k):
+        """Shift ``img`` by the sub-pixel offset at oversampled resolution and
+        bring it to native pixels: the block sum for an optical PSF, the
+        block-centre sample times ``k^2`` for an effective one (the ePSF value
+        at the pixel centre is the fraction of the flux in that pixel).
+        Returned in the block-sum normalisation, i.e. to be divided by ``k^2``
+        and multiplied by ``scale`` like the block sum."""
+        target_h = self.nativeH * k
+        target_w = self.nativeW * k
+        h, w = img.shape
+        margin = int(np.ceil(max(abs(dx * k), abs(dy * k)))) + 10
+        canvas_h = max(h, target_h) + 2 * margin
+        canvas_w = max(w, target_w) + 2 * margin
+        crop_x0 = (canvas_w - target_w) // 2
+        crop_y0 = (canvas_h - target_h) // 2
+        target_center_x = crop_x0 + (target_w - 1) / 2.0
+        target_center_y = crop_y0 + (target_h - 1) / 2.0
+        desired_x = target_center_x + dx * k
+        desired_y = target_center_y + dy * k
+        pw = round(desired_x - (w // 2))
+        ph = round(desired_y - (h // 2))
+        pw = max(0, min(canvas_w - w, pw))
+        ph = max(0, min(canvas_h - h, ph))
+        pad_img = np.zeros((canvas_h, canvas_w), dtype=img.dtype)
+        pad_img[ph:ph + h, pw:pw + w] = img
+        shift_x = desired_x - ((w // 2) + pw)
+        shift_y = desired_y - ((h // 2) + ph)
+        shifted = lanczos_shift_image(pad_img, shift_x, shift_y)
+        crop = shifted[crop_y0:crop_y0 + target_h, crop_x0:crop_x0 + target_w]
+        crop = crop.reshape(self.nativeH, k, self.nativeW, k)
+        if self.pixel_integrated:
+            wts = np.zeros(k, dtype=crop.dtype)
+            lo, hi = (k - 1) // 2, k // 2
+            wts[lo] += 0.5 if lo != hi else 1.0
+            wts[hi] += 0.5 if lo != hi else 0.0
+            return np.einsum("ajbk,j,k->ab", crop, wts, wts) * (k * k)
+        return crop.sum(axis=(1, 3))
+
     def _getOversampledPointSourcePatch(self, px, py, minval=0., modelMask=None,
                                         radius=None, **kwargs):
         img = self.getImage(px, py)
@@ -80,32 +124,10 @@ class OversampledPixelizedPSF(PixelizedPSF):
             # Block-integrate the oversampled PSF to native pixels (flux-exact):
             # shift by the sub-pixel offset at oversampled resolution, then sum
             # each k x k block. This keeps the PSF pixel-integrated at native
-            # scale rather than point-sampled.
+            # scale rather than point-sampled. (Effective PSF: the block-centre
+            # sample instead, see _native_from_canvas.)
             k = round(factor)
-            target_h = self.nativeH * k
-            target_w = self.nativeW * k
-            h, w = img.shape
-            margin = int(np.ceil(max(abs(dx * k), abs(dy * k)))) + 10
-            canvas_h = max(h, target_h) + 2 * margin
-            canvas_w = max(w, target_w) + 2 * margin
-            crop_x0 = (canvas_w - target_w) // 2
-            crop_y0 = (canvas_h - target_h) // 2
-            target_center_x = crop_x0 + (target_w - 1) / 2.0
-            target_center_y = crop_y0 + (target_h - 1) / 2.0
-            desired_x = target_center_x + dx * k
-            desired_y = target_center_y + dy * k
-            pw = round(desired_x - (w // 2))
-            ph = round(desired_y - (h // 2))
-            pw = max(0, min(canvas_w - w, pw))
-            ph = max(0, min(canvas_h - h, ph))
-            pad_img = np.zeros((canvas_h, canvas_w), dtype=img.dtype)
-            pad_img[ph:ph + h, pw:pw + w] = img
-            shift_x = desired_x - ((w // 2) + pw)
-            shift_y = desired_y - ((h // 2) + ph)
-            shifted = lanczos_shift_image(pad_img, shift_x, shift_y)
-            crop = shifted[crop_y0:crop_y0 + target_h, crop_x0:crop_x0 + target_w]
-            crop = crop.reshape(self.nativeH, k, self.nativeW, k)
-            img = crop.sum(axis=(1, 3)) / (k ** 2)   # * scale below -> block sum
+            img = self._native_from_canvas(img, dx, dy, k) / (k ** 2)   # * scale below
             xl = -(self.nativeW // 2)
             yl = -(self.nativeH // 2)
         else:
@@ -133,7 +155,15 @@ class OversampledPixelizedPSF(PixelizedPSF):
             return self.fftcache[key]
         dx = px - int(px)
         dy = py - int(py)
-        _, _, img = self._sampleImage(None, dx, dy)
+        factor = 1.0 / self.sampling
+        if self.pixel_integrated and abs(factor - round(factor)) < 1e-4:
+            # effective PSF: block-centre samples on the Lanczos canvas (the
+            # point-sampling _sampleImage below smooths a peaked 5x kernel by
+            # a few per cent at its centre)
+            k = round(factor)
+            img = self._native_from_canvas(self.getImage(px, py), dx, dy, k) / (k ** 2)
+        else:
+            _, _, img = self._sampleImage(None, dx, dy)
         img = img * (1.0 / self.sampling ** 2)   # the flux-normalization fix
         pad, cx, cy = self._padInImage(sz, sz, img=img)
         cx += dx
