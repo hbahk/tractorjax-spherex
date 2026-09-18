@@ -65,6 +65,11 @@ class Cutout:
     cwave_map: np.ndarray | None
     cband_map: np.ndarray | None
     sapm: np.ndarray | None
+    # "optical": the QR2 10x cube, integrate over native pixels when rendering;
+    # "effective": the R7 ePSF (5x, pixel response included), point-sample it.
+    # From the bundle's PSFKIND keyword; bundles written before it default to
+    # optical, which is what they hold.
+    psf_kind: str = "optical"
 
     def __getitem__(self, key: str):
         try:
@@ -185,7 +190,19 @@ def _read_cutout_astropy(path: str | Path) -> Cutout:
         psf_oversamp=psf_oversamp, detector=detector,
         cwave_center=cwave_center, cwave_map=cwave_map,
         cband_map=cband_map, sapm=sapm,
+        psf_kind=psf_kind_from_header(primary),
     )
+
+
+def psf_kind_from_header(primary) -> str:
+    """``"effective"`` for a bundle whose PRIMARY says ``PSFKIND = 'EPSF'``, else
+    ``"optical"`` (the QR2 cube; bundles written before the keyword existed)."""
+    kind = str(primary.get("PSFKIND", "OPTICAL") or "OPTICAL").strip().upper()
+    if kind in ("EPSF", "EFFECTIVE"):
+        return "effective"
+    if kind in ("OPTICAL", "PSF", ""):
+        return "optical"
+    raise ValueError(f"unknown PSFKIND {kind!r} in the cutout primary header")
 
 
 def sample_map_bilinear(arr, x, y) -> float:

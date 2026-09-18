@@ -10,7 +10,7 @@ campaign, so `PhotometryConfig()` with no arguments is the recommended setup:
 | catalog depth | `fit_zmag_max=21` | fit only sources brighter than z-band AB 21: at full Legacy Survey depth the solve is under-determined and the paired scatter on common sources is ~1.3× wider ({doc}`catalogs`) |
 | background | `bkg_model="cwave+photutils"` | removes the He I 1.083 µm airglow stripe before the 2-D fit ({doc}`backgrounds_systematics`) |
 | tiling | `tile_size=15`, `tile_halo=3`, a free constant per tile | the geometry every calibration was measured on ({doc}`how_it_works`) |
-| PSF | `psf_zone_interp=True`, `psf_core_shift=True` | zone-blended kernels re-registered on their measured cores; off costs 10–15 % on blends |
+| PSF | `psf_zone_interp=True`, `psf_core_shift="auto"` | zone-blended kernels, re-registered on their measured cores for the QR2 optical PSF (off costs 10–15 % on blends); the R7 effective PSF needs no shift |
 | execution | `precision="fp32"`, `pad_bucket=32`, `prefetch="thread"` | the error calibration was established at fp32; the rest is throughput only |
 
 Change `solver` (and read {doc}`solvers`) to select a different estimator, and
@@ -131,8 +131,13 @@ constant carried over from another field.
 |---|---|---|
 | `psf_sampling` | `0.2` | native-pixel size per PSF-stamp pixel (0.2 = 5× oversampled) |
 | `psf_zone_interp` | `True` | blend the delivered zone kernels bilinearly at each tile centre instead of rounding to one zone |
-| `psf_core_shift` | `True` | re-register each zone kernel's core onto its declared fiducial (`calib/psf_core_offsets.ecsv`, 726/726 cells) |
+| `psf_core_shift` | `"auto"` | re-register each zone kernel's core onto its declared fiducial (`calib/psf_core_offsets.ecsv`, 726/726 cells) on QR2 optical-PSF cutouts; skipped on R7 effective-PSF cutouts. `True` forces it (and raises on an R7 cutout), `False` never shifts |
 | `fixed_max_factor` | `5.0` | oversampled rendering factor |
+
+There is no switch for the PSF *kind*: a bundle says whether it carries the QR2
+optical cube or the R7 effective PSF (`PSFKIND`), and the pipeline renders each
+accordingly (see *Data model*). A run may mix both; each kind compiles its own
+solver once.
 
 `psf_core_shift` needs `psf_zone_interp=True` on `backend="jax"` (the shifts are
 applied as phase ramps on the zone basis); `backend="cpu-tractor"` shifts the

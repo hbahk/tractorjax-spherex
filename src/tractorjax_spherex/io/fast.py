@@ -66,6 +66,8 @@ from astropy.io import fits
 from astropy.table import Table
 from astropy.wcs import WCS
 
+from .cutouts import psf_kind_from_header
+
 FAST_HEADERS = True
 FAST_WCS = True
 FAST_PSF_CUBE = True
@@ -197,6 +199,7 @@ def _psf_cube_cached(hdu, primary, zones_rec) -> np.ndarray:
     plane = np.asarray(hdu[mid:mid + 1, :, :] if len(dims) == 3 else hdu.read(),
                        dtype=np.float64)
     key = (int(primary.get("DETECTOR", -1)), dims,
+           str(primary.get("PSFKIND", "OPTICAL")), str(primary.get("EPSFCAL", "")),
            tuple(int(z) for z in np.asarray(zones_rec["zone_id"])),
            tuple(int(p) for p in np.asarray(zones_rec["plane_idx"])),
            float(plane.sum()), float(plane.max()),
@@ -282,6 +285,7 @@ def read_cutout_fields(path) -> dict:
         "cwave_map": cwave_map,
         "cband_map": cband_map,
         "sapm": sapm,
+        "psf_kind": psf_kind_from_header(primary),
     }
 
 

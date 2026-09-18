@@ -41,15 +41,28 @@ MAX_CUBES = 64
 def cube_signature(cutout) -> tuple:
     """Cheap identity of a cutout's PSF cube.
 
-    Detector + cube shape + three plane sums + the zone table.  The sums are
-    what make this a fingerprint rather than a label: a changed product with the
-    same detector and zone layout will not collide.
+    Detector + PSF kind + cube shape + calibration source file + three plane
+    sums + a hash of the middle plane + the zone table.  The sums and the hash
+    are what make this a fingerprint rather than a label: a changed product
+    with the same detector and zone layout will not collide (R7 ePSF planes all
+    sum to 1.0, so the hash carries that case).
     """
+    import hashlib
     cube = np.asarray(cutout["psf_cube"])
     zones = cutout["psf_zones"]
-    return (int(cutout["detector"]), tuple(cube.shape),
-            float(cube[0].sum()), float(cube[-1].sum()),
-            float(cube[cube.shape[0] // 2].sum()),
+    try:
+        primary = cutout["primary_header"]
+        kind = cutout["psf_kind"]
+    except (KeyError, AttributeError, TypeError):
+        primary, kind = {}, "optical"
+    mid = np.ascontiguousarray(cube[cube.shape[0] // 2])
+    # Plane sums alone do not separate ePSF products (every R7 plane sums to
+    # 1.0), hence the kind, the calibration source file and a byte hash of the
+    # middle plane.
+    return (int(cutout["detector"]), str(kind), tuple(cube.shape),
+            str(primary.get("EPSFCAL", "")),
+            float(cube[0].sum()), float(cube[-1].sum()), float(mid.sum()),
+            hashlib.blake2b(mid.tobytes(), digest_size=16).hexdigest(),
             tuple(int(z) for z in np.asarray(zones["zone_id"])),
             tuple(int(p) for p in np.asarray(zones["plane_idx"])))
 

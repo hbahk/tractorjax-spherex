@@ -18,13 +18,13 @@ PRIMARY  IMAGE  FLAGS  VARIANCE  ZODI  PSF  PSF_ZONES  [CWAVE] [CBAND] [SAPM]
 
 | HDU | `Cutout` field | contents |
 |---|---|---|
-| `PRIMARY` | `primary_header` | `OBSID`, `DETECTOR`, `OVERSAMP`, `PSFSRC`, … |
+| `PRIMARY` | `primary_header` | `OBSID`, `DETECTOR`, `OVERSAMP`, `PSFSRC`, `PSFKIND`, … |
 | `IMAGE` | `image` | L2 surface brightness, **MJy/sr** |
 | `FLAGS` | `flags` | per-pixel L2 bitmask (see [FLAGS bits](#flags-bits)) |
 | `VARIANCE` | `variance` | per-pixel variance of `IMAGE`, (MJy/sr)² |
 | `ZODI` | `zodi` | zodiacal-light model (seeds the background fit) |
-| `PSF` | `psf_cube` | oversampled PSF cube, one plane per detector zone |
-| `PSF_ZONES` | `psf_zones` | table mapping detector `(x, y)` → PSF-cube `plane_idx` |
+| `PSF` | `psf_cube` | oversampled PSF planes, one per detector zone: the QR2 optical cube (10×, 101×101) or the R7 effective PSF (5×, 33×33) |
+| `PSF_ZONES` | `psf_zones` | table mapping detector `(x, y)` → PSF-cube `plane_idx` (R7 adds `xwidth`, `ywidth`, `nstar`, `neff`) |
 | `CWAVE` | `cwave_map` | per-pixel central wavelength (µm) — *optional* |
 | `CBAND` | `cband_map` | per-pixel bandwidth (µm) — *optional* |
 | `SAPM` | `sapm` | Solid Angle Pixel Map, arcsec² — *optional* |
@@ -44,6 +44,22 @@ itself (every retrieval with `psf_source="l2"`, and the sampled cutouts the
 default mode downloads in full to check the two against each other). The pixel
 values are the same either way and the zone table always comes from the L2 file.
 Bundles written before this keyword existed are read unchanged.
+
+`PSFKIND` says what kind of PSF the planes are, and the pipeline renders each
+kind the way it must be rendered. `'OPTICAL'` (QR2, pipeline 6.x; also the
+value assumed for bundles written before the keyword): the 10× plane with the
+detector pixel response deconvolved, which the engine 2×-downsamples to 5×,
+re-registers (`psf_core_shift`) and integrates over each native pixel.
+`'EPSF'` (QR3 and DR1, pipeline R7): the effective PSF of Anderson & King
+(2000), 5× and with the pixel response *included*, which the engine uses as
+delivered and samples at the native pixel centres (`pixel_integration="point"`
+in `tractor_jax`); integrating it again would apply the pixel window twice
+(+1/12 px² of variance, ~30 % in N_eff, a +4–13 % central residual on SPHEREx
+stars), and the QR2 core-shift table does not apply to it. `cutout.psf_kind`
+is `"optical"` or `"effective"`; `OVERSAMP` is 10 or 5; `EPSFCAL` names the
+ePSF calibration source file and `DETCOORD = 'sky'` records that the R7 arrays
+and zone centres are in the L2 image orientation for every detector. Both
+kinds are normalised to unit sum on their own oversampled grid (`PSFNORM`).
 
 The `IMAGE` header carries the celestial WCS plus `CRPIX1A`/`CRPIX2A` — the
 1-based detector positions of the cutout's `(0, 0)` pixel — used to map cutout

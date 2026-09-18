@@ -43,6 +43,61 @@ def select_zone_plane(psf_zones_tab, x_orig, y_orig):
     return int(psf_zones_tab["plane_idx"][np.argmin(dx * dx + dy * dy)])
 
 
+def _field(cutout, key, default):
+    """``cutout[key]`` with a default, for :class:`Cutout` and duck-typed
+    mapping cutouts alike (tests hand in dicts and thin wrappers)."""
+    try:
+        return cutout[key]
+    except (KeyError, AttributeError, TypeError):
+        return default
+
+
+def psf_stamp_5x(cutout: Cutout, plane) -> np.ndarray:
+    """The 5x-oversampled kernel of one PSF-cube plane, whatever the product.
+
+    QR2 (``psf_oversamp == 10``, optical): the 101x101 plane 2x-downsampled by
+    :func:`downsample_psf_oversample2`, as the production driver always did.
+    R7 (``psf_oversamp == 5``, effective): the 33x33 ePSF array as delivered
+    (already 5x and unit-sum on that grid); it must NOT be downsampled or
+    convolved, and the engine renders it with ``pixel_integration="point"``.
+    """
+    arr = cutout["psf_cube"][int(plane)]
+    k = int(_field(cutout, "psf_oversamp", 10))   # duck-typed dict cutouts: QR2
+    if k == 10:
+        return downsample_psf_oversample2(arr)
+    if k == 5:
+        return np.asarray(arr, dtype=np.float64)
+    raise ValueError(
+        f"unsupported PSF oversampling {k} (bundle OVERSAMP); expected 10 (QR2 "
+        f"optical cube) or 5 (R7 ePSF)")
+
+
+def pixel_integration_for(cutout: Cutout) -> str:
+    """The engine's ``pixel_integration`` for this cutout's PSF kind."""
+    return "point" if _field(cutout, "psf_kind", "optical") == "effective" else "window"
+
+
+def core_shift_applies(cfg, cutout: Cutout) -> bool:
+    """Whether the QR2 core re-registration applies to this cutout.
+
+    ``cfg.psf_core_shift``: ``"auto"`` applies it to optical (QR2) cutouts and
+    skips effective (R7) ones, whose ePSF is anchored to the R7 astrometry;
+    ``True`` forces it and raises on an effective cutout, because the measured
+    table and the 10x->5x grid term belong to the optical product; ``False``
+    never shifts.
+    """
+    mode = getattr(cfg, "psf_core_shift", False)
+    effective = _field(cutout, "psf_kind", "optical") == "effective"
+    if mode == "auto":
+        return not effective
+    if mode is True and effective:
+        raise ValueError(
+            "psf_core_shift=True cannot be applied to an effective-PSF (R7/EPSF) "
+            "cutout: the core-offset table was measured on the QR2 optical "
+            "product. Use psf_core_shift='auto' (the default) or False.")
+    return bool(mode)
+
+
 def downsample_psf_oversample2(psf):
     """Downsample 2x while preserving center and total sum (10x -> 5x oversample).
 
@@ -144,7 +199,7 @@ def select_psf_native(cutout: Cutout, x_ref, y_ref) -> np.ndarray:
                                     crpix1a=cutout["crpix1a"],
                                     crpix2a=cutout["crpix2a"])
     plane = select_zone_plane(cutout["psf_zones"], x_orig, y_orig)
-    return downsample_psf_oversample2(cutout["psf_cube"][plane])
+    return psf_stamp_5x(cutout, plane)
 
 
 def zone_bilinear_weights(psf_zones_tab, x_orig, y_orig) -> np.ndarray:
@@ -295,12 +350,11 @@ def zone_psf_basis(cutout: Cutout, cache=None):
     the zone pitch is a single plane and makes this a no-op.
     """
     zones = cutout["psf_zones"]
-    cube = cutout["psf_cube"]
     crpix1a = cutout["crpix1a"]
     crpix2a = cutout["crpix2a"]
 
     def _build():
-        return [downsample_psf_oversample2(cube[int(p)])
+        return [psf_stamp_5x(cutout, int(p))
                 for p in np.asarray(zones["plane_idx"])]
 
     if cache is not None:
@@ -326,7 +380,6 @@ def zone_psf_selector(cutout: Cutout):
     exactly the previous behaviour.
     """
     zones = cutout["psf_zones"]
-    cube = cutout["psf_cube"]
     crpix1a = cutout["crpix1a"]
     crpix2a = cutout["crpix2a"]
     cache: dict[int, np.ndarray] = {}
@@ -337,7 +390,7 @@ def zone_psf_selector(cutout: Cutout):
         plane = select_zone_plane(zones, x_orig, y_orig)
         stamp = cache.get(plane)
         if stamp is None:
-            stamp = downsample_psf_oversample2(cube[plane])
+            stamp = psf_stamp_5x(cutout, plane)
             cache[plane] = stamp
         return stamp
 

@@ -36,6 +36,26 @@ def gaussian_oversampled(size_over: int, oversamp: int, fwhm_native: float):
     return g / g.sum()
 
 
+def gaussian_effective(size_over: int, oversamp: int, fwhm_native: float):
+    """The EFFECTIVE PSF of the same Gaussian, in the R7 ePSF convention.
+
+    Sample ``i`` at offset ``(i - c) / oversamp`` native px from the source
+    holds the fraction of the flux that lands in a native pixel centred there
+    (the Gaussian integrated over the 1-px window, analytic through ``erf``),
+    stored with unit sum on the oversampled grid (``PSFNORM = 'hr-sum-1'``, so
+    the per-pixel fraction is the sample times ``oversamp**2``). Rendering it
+    means point-sampling at the pixel centres: integrating it again would
+    apply the pixel window twice.
+    """
+    from scipy.special import erf
+    sigma = fwhm_native / 2.3548200450309493
+    c = (size_over - 1) / 2.0
+    d = (np.arange(size_over) - c) / oversamp           # native px offsets
+    p1 = 0.5 * (erf((d + 0.5) / (np.sqrt(2) * sigma)) - erf((d - 0.5) / (np.sqrt(2) * sigma)))
+    g = np.outer(p1, p1)
+    return g / g.sum()
+
+
 def _pixel_integrated_gaussian(shape, x0, y0, fwhm_native, oversamp=10):
     """Pixel-integrated native Gaussian centered at (x0, y0), normalized to sum 1.
 
@@ -64,7 +84,7 @@ def make_synth_cutout(path, *, cutout_index=0, obsid="SYNTH0001", detector=1,
                       psf_size_over=101, fwhm_native=2.5,
                       sources=None, zodi_level=0.05, noise_mjy_sr=1e-4,
                       seed=0, empty_side_hdus=False, cwave_slope=0.02,
-                      cwave_base=2.0):
+                      cwave_base=2.0, psf_kind="optical", epsf_size_over=51):
     """Write one synthetic cutout MEF.
 
     ``sources`` is a list of dicts ``{x, y, flux_mjy, shape_r?}`` (pixel
@@ -72,8 +92,17 @@ def make_synth_cutout(path, *, cutout_index=0, obsid="SYNTH0001", detector=1,
     native-pixel Gaussian matching the PSF; galaxies are injected as a slightly
     broadened Gaussian (approximate — used only to exercise the galaxy path).
 
+    ``psf_kind`` selects the PSF product the bundle carries for the SAME
+    injected image: ``"optical"`` (QR2 style: the Gaussian on a 10x grid,
+    ``OVERSAMP = 10``) or ``"effective"`` (R7 style: its pixel-integrated
+    ePSF on a 5x grid, ``PSFKIND = 'EPSF'``, ``OVERSAMP = 5``, with the R7
+    provenance keywords and zone columns). Either way the photometry must
+    recover the injected fluxes.
+
     Returns the list of injected sources with their pixel positions/fluxes.
     """
+    if psf_kind not in ("optical", "effective"):
+        raise ValueError(f"psf_kind must be 'optical' or 'effective', got {psf_kind!r}")
     rng = np.random.default_rng(seed)
     sources = sources or []
 
@@ -101,10 +130,18 @@ def make_synth_cutout(path, *, cutout_index=0, obsid="SYNTH0001", detector=1,
     flags = np.zeros((ny, nx), dtype=np.int32)
     zodi = np.full((ny, nx), zodi_level, dtype=np.float64)
 
-    psf_plane = gaussian_oversampled(psf_size_over, oversamp, fwhm_native)
+    if psf_kind == "effective":
+        psf_oversamp = 5
+        psf_plane = gaussian_effective(epsf_size_over, psf_oversamp, fwhm_native)
+        psf_zones = Table({"zone_id": [1], "x": [nx / 2.0], "y": [ny / 2.0],
+                           "plane_idx": [0], "xwidth": [97.14], "ywidth": [97.14],
+                           "nstar": [500], "neff": [3.4]})
+    else:
+        psf_oversamp = oversamp
+        psf_plane = gaussian_oversampled(psf_size_over, oversamp, fwhm_native)
+        psf_zones = Table({"zone_id": [1], "x": [nx / 2.0], "y": [ny / 2.0],
+                           "plane_idx": [0]})
     psf_cube = psf_plane[None, :, :]
-    psf_zones = Table({"zone_id": [1], "x": [nx / 2.0], "y": [ny / 2.0],
-                       "plane_idx": [0]})
 
     cwave = cwave_base + cwave_slope * np.arange(nx)[None, :] * np.ones((ny, 1))
     cband = np.full((ny, nx), 0.01, dtype=np.float64)
@@ -118,7 +155,17 @@ def make_synth_cutout(path, *, cutout_index=0, obsid="SYNTH0001", detector=1,
     phdr = fits.Header()
     phdr["OBSID"] = obsid
     phdr["DETECTOR"] = detector
-    phdr["OVERSAMP"] = oversamp
+    phdr["OVERSAMP"] = psf_oversamp
+    phdr["PSFNORM"] = "hr-sum-1"
+    if psf_kind == "effective":
+        phdr["PSFKIND"] = "EPSF"
+        phdr["EPSFCAL"] = f"synth_epsf_{detector}_20260918.fits"
+        phdr["DETCOORD"] = "sky"
+        phdr["ZONENX"] = 1
+        phdr["ZONENY"] = 1
+        phdr["VERSION"] = "7.0.5"
+    else:
+        phdr["PSFKIND"] = "OPTICAL"
 
     hdus = [
         fits.PrimaryHDU(header=phdr),
@@ -126,7 +173,8 @@ def make_synth_cutout(path, *, cutout_index=0, obsid="SYNTH0001", detector=1,
         fits.ImageHDU(flags, name="FLAGS"),
         fits.ImageHDU(variance.astype(np.float32), name="VARIANCE"),
         fits.ImageHDU(zodi.astype(np.float32), name="ZODI"),
-        fits.ImageHDU(psf_cube.astype(np.float32), name="PSF"),
+        fits.ImageHDU(psf_cube.astype(np.float64 if psf_kind == "effective" else np.float32),
+                      name="PSF"),
         fits.BinTableHDU(psf_zones, name="PSF_ZONES"),
     ]
     if empty_side_hdus:
@@ -145,7 +193,8 @@ def make_synth_cutout(path, *, cutout_index=0, obsid="SYNTH0001", detector=1,
 
 
 def make_synth_field(dirpath, *, n_cutouts=2, nx=40, ny=40, ra0=150.0,
-                     dec0=2.0, sources=None, seed=0, noise_mjy_sr=1e-4):
+                     dec0=2.0, sources=None, seed=0, noise_mjy_sr=1e-4,
+                     psf_kind="optical"):
     """Write a small field of cutouts + a summary.ecsv; return injected sources.
 
     ``noise_mjy_sr`` is the white-noise sigma in image units (MJy/sr); the
@@ -168,7 +217,7 @@ def make_synth_field(dirpath, *, n_cutouts=2, nx=40, ny=40, ra0=150.0,
                           nx=nx, ny=ny, ra0=ra0, dec0=dec0,
                           sources=sources, seed=seed + k,
                           noise_mjy_sr=noise_mjy_sr,
-                          cwave_base=1.0 + 0.6 * k)
+                          cwave_base=1.0 + 0.6 * k, psf_kind=psf_kind)
         summary_rows.append((k, "ok"))
     summary = Table(rows=summary_rows, names=("cutout_index", "status"))
     summary.write(dirpath / "summary.ecsv", overwrite=True)
