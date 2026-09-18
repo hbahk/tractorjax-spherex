@@ -19,6 +19,8 @@ docs/api/generated/
 *.png
 *.ecsv
 !tests/**/*.ecsv
+# the measured QR2 PSF core-offset table is part of the package (psf_core_shift)
+!src/tractorjax_spherex/calib/psf_core_offsets.ecsv
 !docs/_static/*.png
 cutouts/
 data/
