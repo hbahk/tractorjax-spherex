@@ -48,6 +48,7 @@ catalogs
 backgrounds_systematics
 cpu_backend
 configuration
+paper_reproduction
 faq
 roadmap
 ```
