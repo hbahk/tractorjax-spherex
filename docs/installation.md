@@ -5,10 +5,14 @@
 them from source first, then this package.
 
 ```bash
-pip install git+https://github.com/hbahk/tractor-jax        # engine (CPU jax)
-pip install git+https://github.com/hbahk/spherex-retrieval  # L2 cutout downloader
-pip install git+https://github.com/hbahk/tractorjax-spherex # this package
+pip install git+https://github.com/hbahk/tractor-jax@v0.3.0         # engine (CPU jax)
+pip install git+https://github.com/hbahk/spherex-retrieval@v0.3.0   # L2 cutout downloader
+pip install git+https://github.com/hbahk/tractorjax-spherex@v0.3.1  # this package
 ```
+
+These are the releases this version is developed and tested against
+(`tractorjax-spherex` 0.3.x needs `tractor-jax` >= 0.3.0 and refuses to import
+an older engine). Drop the `@tag` to follow each repository's `main`.
 
 For local development use an editable install without re-resolving the siblings:
 

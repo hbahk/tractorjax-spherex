@@ -25,6 +25,29 @@ import numpy as np
 from tractor_jax.jax import batching as tjb
 from tractor_jax.jax.pipeline import prefetch_pipeline  # noqa: F401  (re-exported)
 
+#: Oldest engine this layer runs on: 0.3.0 added the static ``pixel_integration``
+#: solver option that R7 effective-PSF bundles need.
+TRACTOR_JAX_MIN = (0, 3, 0)
+
+
+def _check_engine_version() -> None:
+    import tractor_jax
+    ver = getattr(tractor_jax, "__version__", "0")
+    parts = []
+    for tok in str(ver).split("."):
+        digits = "".join(ch for ch in tok if ch.isdigit())
+        if not digits:
+            break
+        parts.append(int(digits))
+    if tuple(parts[:3]) < TRACTOR_JAX_MIN:
+        raise ImportError(
+            f"tractorjax-spherex needs tractor-jax >= {'.'.join(map(str, TRACTOR_JAX_MIN))} "
+            f"(found {ver}); install the release it is developed against:\n"
+            "    pip install git+https://github.com/hbahk/tractor-jax@v0.3.0")
+
+
+_check_engine_version()
+
 from ..config import CapExceededError, ConfigError
 from ..io.cutouts import sample_map_bilinear_vec
 from ..prepare import (
