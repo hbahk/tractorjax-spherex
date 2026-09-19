@@ -44,9 +44,16 @@ This package ships a corrected subclass,
 {class}`tractorjax_spherex.backends.cpu_psf.OversampledPixelizedPSF`, which ports
 the fix from the tractor-jax engine: it block-integrates the oversampled PSF to
 native pixels (keeping the convolution at oversampled resolution) and applies the
-correct flux scale, in both the point-source and Fourier (galaxy) paths. **Do not
-pass `sampling < 1` to the stock `tractor.psf.PixelizedPSF`** for SPHEREx — use
+correct flux scale, in both the point-source and Fourier (galaxy) paths (an R7
+effective PSF is block-centre-sampled instead on both). **Do not pass
+`sampling < 1` to the stock `tractor.psf.PixelizedPSF`** for SPHEREx — use
 `OversampledPixelizedPSF`, which the `cpu-tractor` backend does automatically.
+
+Before 0.3.1 the Fourier path point-sampled the optical stamp (with the flux
+scale, so totals were right), which dropped the pixel response from every
+galaxy model on this backend while point sources kept it: galaxy fluxes came
+out 2.5–2.8 % below the JAX backend's on the synthetic field, point sources
+identical. Since 0.3.1 both backends agree to 2e-4 on galaxies.
 
 ## Agreement with the JAX backend
 

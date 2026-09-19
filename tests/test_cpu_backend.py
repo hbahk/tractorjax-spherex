@@ -65,3 +65,29 @@ def test_cpu_handles_galaxy_and_nan_shape(tmp_path):
                                                solver="linear"), progress=False)
     assert set(res["id"]) == {1, 2, 3}          # cutout not dropped
     assert np.all(np.isfinite(res["flux"]))
+
+
+def test_cross_backend_agreement_for_galaxies(tmp_path):
+    """The CPU Fourier (galaxy) path block-integrates the optical PSF like the
+    point-source path does, so galaxy fluxes agree with the JAX backend. Until
+    0.3.1 that path point-sampled the stamp and every galaxy came out 2.5-2.8 %
+    low relative to JAX on this field while point sources matched exactly."""
+    from fixtures.synth import make_synth_catalog, make_synth_field
+    from tractorjax_spherex.io.cutouts import read_cutout
+
+    srcs = [{"x": 10.0, "y": 10.0, "flux_mjy": 5.0},
+            {"x": 30.0, "y": 12.0, "flux_mjy": 3.0, "shape_r": 0.8, "sersic": 1.0},
+            {"x": 12.0, "y": 30.0, "flux_mjy": 3.0, "shape_r": 1.5, "sersic": 4.0},
+            {"x": 30.0, "y": 30.0, "flux_mjy": 3.0, "shape_r": 3.0, "sersic": 1.0}]
+    d = tmp_path / "cut"
+    make_synth_field(d, n_cutouts=1, seed=3, sources=srcs)
+    c0 = read_cutout(min(d.glob("cutout_*.fits")))
+    cat = tmp_path / "cat.parquet"
+    make_synth_catalog(cat, srcs, c0.wcs)
+    jax = run_photometry(d, cat, PhotometryConfig(backend="jax", device="cpu", precision="fp64",
+                                                  prefetch="sync", solver="linear", pad_bucket=0,
+                                                  psf_core_shift=False), progress=False)
+    cpu = run_photometry(d, cat, PhotometryConfig(backend="cpu-tractor", solver="linear",
+                                                  psf_core_shift=False), progress=False)
+    for sid in range(1, 5):
+        assert _flux_by_id(cpu, sid) == pytest.approx(_flux_by_id(jax, sid), rel=1e-3)

@@ -8,10 +8,11 @@ factor (~25x at 5x oversampling). The tractor-jax engine fixed this; this class
 ports that fix to the CPU Tractor.
 
 :class:`OversampledPixelizedPSF` overrides only the two ``sampling != 1``
-methods: the point-source path integer-factor-block-integrates the oversampled
-PSF to native pixels (accurate low-resolution rendering — the PSF x source
-convolution stays at oversampled resolution, then bins) and applies the correct
-flux scale; the Fourier path (used for galaxies) gets the same scale.
+methods: both the point-source path and the Fourier path (used for galaxies)
+integer-factor-block-integrate the oversampled PSF to native pixels (accurate
+low-resolution rendering — the pixel response applied exactly once) and apply
+the correct flux scale; an effective PSF (``pixel_integrated=True``) is
+block-centre-sampled instead on both paths.
 
 Usage::
 
@@ -156,10 +157,15 @@ class OversampledPixelizedPSF(PixelizedPSF):
         dx = px - int(px)
         dy = py - int(py)
         factor = 1.0 / self.sampling
-        if self.pixel_integrated and abs(factor - round(factor)) < 1e-4:
-            # effective PSF: block-centre samples on the Lanczos canvas (the
-            # point-sampling _sampleImage below smooths a peaked 5x kernel by
-            # a few per cent at its centre)
+        if abs(factor - round(factor)) < 1e-4:
+            # Integer oversampling: the SAME native kernel as the point-source
+            # path -- the block sum of the Lanczos-shifted stamp for an optical
+            # PSF (the pixel response applied once), the block-centre samples
+            # for an effective one. Until 0.3.1 this path point-sampled the
+            # optical stamp (_sampleImage), which dropped the pixel response
+            # from every galaxy model on this backend while point sources kept
+            # it: galaxies came out too peaked (the tractor_jax comment on the
+            # same bug: ~5 %) and disagreed with the JAX backend.
             k = round(factor)
             img = self._native_from_canvas(self.getImage(px, py), dx, dy, k) / (k ** 2)
         else:
