@@ -39,6 +39,9 @@ def _check_engine_version() -> None:
         if not digits:
             break
         parts.append(int(digits))
+    if not parts:
+        # no parseable version (e.g. the engine mocked out by autodoc): do not judge
+        return
     if tuple(parts[:3]) < TRACTOR_JAX_MIN:
         raise ImportError(
             f"tractorjax-spherex needs tractor-jax >= {'.'.join(map(str, TRACTOR_JAX_MIN))} "
