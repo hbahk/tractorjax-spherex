@@ -53,7 +53,7 @@ catalog = ["astro-datalab"]
 plot = ["matplotlib"]
 docs = [
     "sphinx>=7",
-    "pydata-sphinx-theme",
+    "shibuya",
     # myst-nb (which bundles myst-parser) renders the executed example
     # notebooks; execution is off in conf.py, so no kernel is needed to build.
     "myst-nb",

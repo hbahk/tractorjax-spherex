@@ -178,14 +178,16 @@ neighbours, not just your targets.
 
 ### Retrieval is slow, or downloads far more than the cutouts hold
 
-Update `spherex-retrieval`. IRSA's cutout service passes the full PSF cube
-through with every cutout, which is 4.9 MB of a ~5 MB response for a small box,
-and older versions downloaded it every time. The current default
-(`psf_source="cal"`) takes the cube once per detector from the `average_psf`
-calibration product and stops each cutout download before the PSF data, which
-cuts the transfer by a factor of ten to forty depending on the box size. The
-bundles are identical apart from the `PSFSRC` keyword ({doc}`data_model`); pass
-`psf_source="l2"` to {func}`~tractorjax_spherex.retrieve` for the old behaviour.
+Update `spherex-retrieval`. IRSA's cutout service passes the full PSF product
+through with every cutout (the QR2 cube is 4.9 MB of a ~5 MB response for a
+small box, the R7 `EPSF` table 3.9 MB), and older versions downloaded it every
+time. The current default (`psf_source="epsf-cal"`) fetches one PSF product per
+detector, the R7 effective PSF, and stops each cutout download before the PSF
+data, which cuts the transfer by a factor of ten to forty depending on the box
+size; on QR2 images that library replaces the QR2 optical cube (`PSFKIND =
+'EPSF'`, {doc}`data_model`). `psf_source="cal"` keeps each image's own product,
+shared the same way (the deblending paper's QR2 configuration); `"l2"` downloads
+it with every cutout.
 What is left is IRSA's own latency, a second or two per cutout, and the
 occasional `503` under load, which is retried automatically.
 

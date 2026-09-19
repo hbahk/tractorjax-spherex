@@ -84,8 +84,8 @@ fetch_ls_dr10(150.0, 2.0, out="catalog.parquet")     # needs [catalog] extra
 
 # 3. Run forced photometry. The defaults are the configuration of record of
 #    the SPHEREx deblending campaign (eigfloor on the m_z < 21 catalog,
-#    CWAVE-aware background, zone-interpolated PSF with core shift): a first
-#    run should not change them.
+#    CWAVE-aware background, zone-interpolated PSF, core re-registration where
+#    the PSF product needs it): a first run should not change them.
 cfg = PhotometryConfig()
 phot = run_photometry("cutouts", "catalog.parquet", cfg, output="phot.parquet")
 

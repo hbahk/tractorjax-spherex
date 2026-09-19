@@ -45,8 +45,19 @@ napoleon_numpy_docstring = True
 # does so natively; MyST needs the extension or the dollars come out verbatim).
 myst_enable_extensions = ["colon_fence", "deflist", "dollarmath", "amsmath"]
 
-html_theme = "pydata_sphinx_theme"
+html_theme = "shibuya"
 html_title = f"tractorjax-spherex {version}"
+html_theme_options = {
+    "github_url": "https://github.com/hbahk/tractorjax-spherex",
+    "accent_color": "indigo",
+    "globaltoc_expand_depth": 1,
+    "toctree_collapse": False,
+    "nav_links": [
+        {"title": "Quickstart", "url": "quickstart"},
+        {"title": "Worked example", "url": "worked_example"},
+        {"title": "Engine docs", "url": "https://tractor-jax.readthedocs.io/", "external": True},
+    ],
+}
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
