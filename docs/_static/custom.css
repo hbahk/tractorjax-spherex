@@ -1,0 +1,84 @@
+/* Notebook cells (myst-nb) in the Shibuya theme.
+ *
+ * Shibuya styles notebook cells for jupyter-sphinx / nbsphinx markup
+ * (`.jupyter_container`, `.nbinput`), not for the `div.cell` containers that
+ * myst-nb emits, and myst-nb's own stylesheet picks its light/dark palette
+ * from `prefers-color-scheme` / `[data-theme]` instead of the theme's
+ * `html.light` / `html.dark` switch. The rules below give myst-nb cells the
+ * theme's own notebook look (the `.jupyter_container` rules of shibuya.css:
+ * a bordered, rounded cell; the input on the code-block background; outputs
+ * on the surface colour) with every colour taken from Shibuya's variables,
+ * so the accent colour and the theme switch carry through.
+ */
+
+/* myst-nb's light/dark space toggles follow the theme switch */
+html.light { --light: initial; --dark: ; }
+html.dark  { --light: ; --dark: initial; }
+
+/* the cell */
+.yue div.cell.container {
+  background-color: var(--sy-c-background);
+  border: 3px solid var(--sy-c-border);
+  border-radius: 6px;
+  box-shadow: none;
+  overflow: hidden;
+  padding: 0;
+}
+
+/* input: the code block, flush with the cell */
+.yue div.cell > div.cell_input {
+  background-color: var(--code-block-background);
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+}
+.yue div.cell div.cell_input div.highlight {
+  background-color: var(--code-block-background);
+}
+
+/* outputs: text on the surface colour in light mode, on the code-block
+   background in dark mode, with the theme's half-rem gutter */
+html.light .yue div.cell > div.cell_output {
+  --code-block-background: var(--color-surface-accent);
+  --code-block-caption-background: var(--accent-3);
+}
+.yue div.cell > div.cell_output {
+  padding: 0;
+  margin: 0;
+}
+.yue div.cell div.cell_output .output {
+  padding: .5rem;
+  margin: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.yue div.cell div.cell_output .output.text_plain:not(:has(.highlight)),
+.yue div.cell div.cell_output .output.stream:not(:has(.highlight)) {
+  background: transparent;
+  border: 0;
+}
+.yue div.cell div.cell_output div.highlight {
+  background-color: var(--code-block-background);
+}
+.yue div.cell div.cell_output > img,
+.yue div.cell div.cell_output > .output.text_html {
+  display: block;
+  margin: .5rem;
+  max-width: calc(100% - 1rem);
+}
+
+/* stderr and tracebacks, as the theme colours them */
+.yue div.cell div.cell_output .output.stderr,
+.yue div.cell div.cell_output .output.traceback {
+  color: var(--red-a11);
+  background-color: var(--red-a3);
+}
+.yue div.cell div.cell_output .output.stderr div.highlight,
+.yue div.cell div.cell_output .output.stderr pre,
+.yue div.cell div.cell_output .output.traceback div.highlight,
+.yue div.cell div.cell_output .output.traceback pre {
+  background-color: transparent;
+  color: inherit;
+}

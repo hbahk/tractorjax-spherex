@@ -57,7 +57,6 @@ docs = [
     # myst-nb (which bundles myst-parser) renders the executed example
     # notebooks; execution is off in conf.py, so no kernel is needed to build.
     "myst-nb",
-    "sphinx-copybutton",
 ]
 dev = [
     "pytest>=7",

@@ -24,7 +24,6 @@ extensions = [
     # myst_nb is a superset of myst_parser: it renders the stored outputs of
     # the example notebooks (docs/cluster_example.ipynb) as documentation.
     "myst_nb",
-    "sphinx_copybutton",
 ]
 
 # The notebooks need IRSA, Data Lab and a GPU; the docs build must never try
@@ -47,9 +46,13 @@ myst_enable_extensions = ["colon_fence", "deflist", "dollarmath", "amsmath"]
 
 html_theme = "shibuya"
 html_title = f"tractorjax-spherex {version}"
+html_static_path = ["_static"]
+# Shibuya styles jupyter-sphinx / nbsphinx cells, not myst-nb's; custom.css
+# gives the notebook pages the theme's own cell look.
+html_css_files = ["custom.css"]
 html_theme_options = {
     "github_url": "https://github.com/hbahk/tractorjax-spherex",
-    "accent_color": "indigo",
+    "accent_color": "lime",
     "globaltoc_expand_depth": 1,
     "toctree_collapse": False,
     "nav_links": [
