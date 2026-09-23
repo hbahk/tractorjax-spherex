@@ -363,6 +363,9 @@ class JaxBackend:
     # ---- build (CPU stage; prefetch-safe) --------------------------------
     def build(self, cutout, ctx: FieldContext):
         cfg = self.config
+        if self._psf_cache is not None:
+            # the one safe point to evict: nothing of this cutout is cached yet
+            self._psf_cache.begin_cutout()
         prepared = prepare_pixels(cutout, cfg)
         data, invvar = prepared.data, prepared.invvar
         H, W = data.shape
