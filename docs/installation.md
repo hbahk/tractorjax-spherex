@@ -7,11 +7,11 @@ them from source first, then this package.
 ```bash
 pip install git+https://github.com/hbahk/tractor-jax@v0.3.1         # engine (CPU jax)
 pip install git+https://github.com/hbahk/spherex-retrieval@v0.3.2   # L2 cutout downloader
-pip install git+https://github.com/hbahk/tractorjax-spherex@v0.3.2  # this package
+pip install git+https://github.com/hbahk/tractorjax-spherex@v0.3.3  # this package
 ```
 
 These are the releases this version is developed and tested against
-(`tractorjax-spherex` 0.3.2 needs `tractor-jax` >= 0.3.1, whose solvers return
+(`tractorjax-spherex` 0.3.2+ needs `tractor-jax` >= 0.3.1, whose solvers return
 the per-visit fit diagnostics, and refuses to import an older engine). Drop the
 `@tag` to follow each repository's `main`.
 
