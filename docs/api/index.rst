@@ -9,6 +9,7 @@ Top level
 
    tractorjax_spherex.PhotometryConfig
    tractorjax_spherex.run_photometry
+   tractorjax_spherex.run_photometry_catalog
    tractorjax_spherex.build_spectra
    tractorjax_spherex.bin_spectrum
    tractorjax_spherex.to_ab_mag
@@ -25,6 +26,7 @@ Modules
    tractorjax_spherex.config
    tractorjax_spherex.pipeline
    tractorjax_spherex.spectra
+   tractorjax_spherex.quality
    tractorjax_spherex.diagnostics
    tractorjax_spherex.simulate
    tractorjax_spherex.background
