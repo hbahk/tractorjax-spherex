@@ -16,7 +16,17 @@ alive for the cache's lifetime (id reuse after gc would alias)"*.  A kernel that
 is dropped while its transform stays cached is a latent wrong answer: a later
 array allocated at the same address would hit the stale entry.  Holding both
 here, and clearing both in :meth:`PSFCache.clear`, makes that impossible to get
-wrong by accident.
+wrong by accident — provided the clearing never happens in the middle of a
+cutout.  It used to: :meth:`PSFCache.stamp` evicted when full, *after*
+:meth:`PSFCache.zone_basis` had handed that cutout its basis, so the basis left
+the cache while the engine went on to cache its transforms; once the cutout
+was done the list was freed and its transforms stayed, keyed by a dead id.
+On QSO J0233+0653 (248 cutouts, the stamp cap crossed a few times per run) that
+gave a different answer on every run — up to 2 sigma on some sources, and now
+and then a build failure when the aliased stack had the wrong number of zones.
+Eviction therefore happens only in :meth:`PSFCache.begin_cutout`, before the
+cutout gets anything, so every object whose id can key an FFT is held until
+the eviction that drops the FFTs with it.
 
 Keying
 ------
@@ -74,6 +84,8 @@ class PSFCache:
     Everything it hands out is a **shared object**: two cutouts of the same
     detector get the identical list, the identical arrays. That identity is
     load-bearing — it is what makes the engine's transform cache hit.
+    Call :meth:`begin_cutout` before each cutout's build; nothing is evicted
+    anywhere else.
     """
 
     __slots__ = ("basis", "fft", "max_cubes", "shifts", "stamps")
@@ -100,6 +112,15 @@ class PSFCache:
         if len(self.basis) >= self.max_cubes or len(self.stamps) >= self.max_cubes * 16:
             self.clear()
 
+    def begin_cutout(self) -> None:
+        """Call before building each cutout: the only point where eviction happens.
+
+        Evicting later, once this cutout has been handed kernels, would drop
+        objects the engine is about to key transforms on (see the module
+        docstring). The caps may therefore be exceeded by one cutout's worth.
+        """
+        self._evict_if_full()
+
     def zone_basis(self, signature, build_fn) -> list:
         """The downsampled zone kernels for this cube — ONE list per cube.
 
@@ -109,7 +130,6 @@ class PSFCache:
         """
         got = self.basis.get(signature)
         if got is None:
-            self._evict_if_full()
             got = build_fn()
             self.basis[signature] = got
         return got
@@ -119,7 +139,6 @@ class PSFCache:
         key = (signature, int(plane))
         got = self.stamps.get(key)
         if got is None:
-            self._evict_if_full()
             got = build_fn()
             self.stamps[key] = got
         return got

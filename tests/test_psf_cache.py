@@ -86,8 +86,51 @@ def test_eviction_clears_everything(synth_field):
         def __getitem__(self, k):
             return self.psf_cube if k == "psf_cube" else self._b[k]
 
-    zone_psf_basis(_Other(c), cache=cache)  # forces the evict-then-store path
+    cache.begin_cutout()                     # the next cutout: evicts the full cache
+    zone_psf_basis(_Other(c), cache=cache)
     assert cache.stats()["ffts"] == 0, "FFTs survived an eviction of their kernels"
+
+
+def _held_ids(cache):
+    """Ids of every object the cache keeps alive (lists, their kernels, stamps, tables)."""
+    ids = set()
+    for lst in cache.basis.values():
+        ids.add(id(lst))
+        ids.update(id(k) for k in lst)
+    ids.update(id(v) for v in cache.stamps.values())
+    ids.update(id(v) for v in cache.shifts.values())
+    return ids
+
+
+def test_no_eviction_while_a_cutout_is_built(synth_field):
+    """Regression: a stamp miss past the cap used to clear the cache mid-cutout,
+    after the cutout had its basis; the engine then keyed transforms on a list
+    the cache no longer held, which aliased once the list was freed."""
+    cache = PSFCache(max_cubes=1)            # stamp cap 16
+    c = _cutouts(synth_field)[0]
+    sig = cube_signature(c)
+    cache.begin_cutout()
+    basis, _ = zone_psf_basis(c, cache=cache)
+    for plane in range(40):                  # far past the stamp cap
+        cache.stamp(sig, plane, lambda: np.zeros((3, 3)))
+    assert cache.basis.get(sig) is basis, "basis evicted while its cutout was being built"
+    # what the engine does next: key transforms on the objects it was given
+    cache.fft[("basis", id(basis))] = "stack"
+    for k in basis:
+        cache.fft[(id(k), k.shape)] = "fft"
+    assert {key[1] if key[0] == "basis" else key[0] for key in cache.fft} <= _held_ids(cache)
+    cache.begin_cutout()                     # next cutout: now it may evict, all together
+    assert cache.stats() == {"cubes": 0, "stamps": 0, "shift_tables": 0, "ffts": 0}
+
+
+def test_backend_marks_each_cutout(synth_field, monkeypatch):
+    monkeypatch.setattr(JB, "PSF_CACHE_ACROSS_CUTOUTS", True)
+    calls = []
+    monkeypatch.setattr(PSFCache, "begin_cutout", lambda self: calls.append(1))
+    cfg = PhotometryConfig(backend="jax", device="cpu", precision="fp64", solver="linear")
+    out = run_photometry(synth_field["cutouts_dir"], synth_field["catalog"], cfg, progress=False)
+    n = len(set(np.asarray(out["cutout_index"])))
+    assert len(calls) >= n > 0
 
 
 def _run(synth_field, monkeypatch, enabled):
