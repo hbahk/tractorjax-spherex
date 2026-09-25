@@ -15,7 +15,7 @@ The heavy engine (``tractor_jax``) and the cutout downloader
 from __future__ import annotations
 
 from .config import ConfigError, PhotometryConfig
-from .pipeline import run_photometry
+from .pipeline import run_photometry, run_photometry_catalog
 from .spectra import (
     bin_spectrum,
     bin_to_channels,
@@ -35,6 +35,7 @@ __all__ = [
     "fetch_ls_dr10",
     "retrieve",
     "run_photometry",
+    "run_photometry_catalog",
     "spherex_channels",
     "to_ab_mag",
 ]

@@ -156,10 +156,19 @@ SPHEREx visit / spectral channel)** — i.e. one row per `(source, visit)`.
 | `bandwidth` | `f8` | µm | `CBAND` sampled at the source pixel |
 | `flux` | `f8` | mJy | fitted forced-photometry flux |
 | `flux_err` | `f8` | mJy | forward-model 1σ from the solver Fisher information |
+| `fit_chi2` | `f4` | — | per-visit fit quality: template-weighted normalized squared residual over the source's unmasked pixels (about 1 for a good fit; NaN if none is unmasked) |
+| `mask_frac` | `f4` | — | fraction of the source's template on masked pixels |
+| `quality_flag` | `i2` | — | bitmask: `1` `BAD_FIT` (`fit_chi2` > `visit_chi2_rel_max` × the source's median over the run), `2` `NO_DATA` (no unmasked pixel under the source) |
+
+The last three columns are written when the per-visit diagnostics are on — the
+default on the jax backend (`visit_diagnostics`, {doc}`configuration`).
+`quality_flag` is recomputed over the whole product when a `--resume` run
+appends to it, since its median is per source.
 
 Collecting the rows for one `id` across all its visits, ordered by
 `central_wavelength`, gives that source's spectrum — what
-{func}`tractorjax_spherex.spectra.build_spectra` assembles.
+{func}`tractorjax_spherex.spectra.build_spectra` assembles (leaving out rows
+with a non-zero `quality_flag`).
 
 ### Reproducibility metadata
 

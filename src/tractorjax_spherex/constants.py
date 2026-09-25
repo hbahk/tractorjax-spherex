@@ -37,6 +37,18 @@ MASKBITS = 0
 for _name in MASK_FLAGS:
     MASKBITS |= (1 << FLAG_BITS[_name])
 
+# Per-visit quality bits of the output column ``quality_flag`` (see
+# tractorjax_spherex.quality): a row with any bit set is left out of spectra.
+QUALITY_BITS = {
+    # fit_chi2 above visit_chi2_rel_max x the source's median fit_chi2 in the run:
+    # an unflagged bad pixel, a cosmic ray or unmodelled structure under the source
+    "BAD_FIT": 0,
+    # no unmasked pixel under the source's template (fit_chi2 undefined)
+    "NO_DATA": 1,
+}
+QUALITY_BAD_FIT = 1 << QUALITY_BITS["BAD_FIT"]
+QUALITY_NO_DATA = 1 << QUALITY_BITS["NO_DATA"]
+
 # Pixels flagged as belonging to a detected source (used only to mask the
 # background fit, never the photometry).
 SOURCE_BIT = 1 << FLAG_BITS["SOURCE"]

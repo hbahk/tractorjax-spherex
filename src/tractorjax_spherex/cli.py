@@ -53,6 +53,12 @@ def _add_run_args(p):
     p.add_argument("--strict", action="store_true", default=None,
                    help="abort on the first failing cutout instead of skipping "
                         "it (never write a partial product)")
+    p.add_argument("--no-visit-diagnostics", dest="visit_diagnostics",
+                   action="store_const", const=False, default=None,
+                   help="skip the per-visit fit_chi2 / mask_frac / quality_flag columns")
+    p.add_argument("--visit-chi2-rel-max", type=float, default=None,
+                   help="flag a visit as BAD_FIT above this multiple of its "
+                        "source's median fit_chi2 (default 10)")
 
 
 def _cap(value):
@@ -70,7 +76,8 @@ _CONFIG_FLAGS = ("solver", "eig_floor", "lasso_alpha", "protect_zmag_max",
                  "fit_zmag_max", "tile_size", "tile_halo", "pad_bucket",
                  "tile_chunk", "bkg_model", "backend", "device", "precision",
                  "prefetch", "gpu_mem_fraction", "gpu_preallocate",
-                 "max_ps_cap", "max_gal_cap", "strict")
+                 "max_ps_cap", "max_gal_cap", "strict", "visit_diagnostics",
+                 "visit_chi2_rel_max")
 
 
 def _config_from_args(args) -> PhotometryConfig:
@@ -125,7 +132,8 @@ def _cmd_spectra(args):
     from .spectra import bin_spectrum, bin_to_channels, build_spectra
     phot = Table.read(args.photometry)
     ids = None if args.all else ([args.id] if args.id is not None else None)
-    spectra = build_spectra(phot, ids=ids, min_snr=args.min_snr)
+    spectra = build_spectra(phot, ids=ids, min_snr=args.min_snr,
+                            drop_flagged=not args.keep_flagged)
 
     def _binned(spec):
         if args.channels:
@@ -183,6 +191,8 @@ def build_parser():
     ps.add_argument("--all", action="store_true")
     ps.add_argument("--min-snr", type=float, default=None)
     ps.add_argument("--bin", type=float, default=None, help="bin width (micron)")
+    ps.add_argument("--keep-flagged", action="store_true",
+                    help="keep visits with a non-zero quality_flag")
     ps.add_argument("--channels", action="store_true",
                     help="bin onto the 102 SPHEREx channels instead (also writes "
                          "<out>_<id>_channels.ecsv with --out)")

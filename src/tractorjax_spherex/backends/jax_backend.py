@@ -26,8 +26,9 @@ from tractor_jax.jax import batching as tjb
 from tractor_jax.jax.pipeline import prefetch_pipeline  # noqa: F401  (re-exported)
 
 #: Oldest engine this layer runs on: 0.3.0 added the static ``pixel_integration``
-#: solver option that R7 effective-PSF bundles need.
-TRACTOR_JAX_MIN = (0, 3, 0)
+#: solver option that R7 effective-PSF bundles need; 0.3.1 the solvers'
+#: ``return_diagnostics`` behind the default per-visit quality flags.
+TRACTOR_JAX_MIN = (0, 3, 1)
 
 
 def _check_engine_version() -> None:
@@ -46,7 +47,7 @@ def _check_engine_version() -> None:
         raise ImportError(
             f"tractorjax-spherex needs tractor-jax >= {'.'.join(map(str, TRACTOR_JAX_MIN))} "
             f"(found {ver}); install the release it is developed against:\n"
-            "    pip install git+https://github.com/hbahk/tractor-jax@v0.3.0")
+            "    pip install git+https://github.com/hbahk/tractor-jax@v0.3.1")
 
 
 _check_engine_version()
@@ -311,16 +312,29 @@ def build_extract_index(tile_records, src_slot, sx_all, sy_all, W, H):
                 sx=sx_all[keep_ci], sy=sy_all[keep_ci])
 
 
+def engine_has_diagnostics() -> bool:
+    """Whether the installed engine's solvers can return fit diagnostics."""
+    import inspect
+    return "return_diagnostics" in inspect.signature(tjb.make_batched_solver).parameters
+
+
 def make_tiled_solver(spec, batches_in_axes, penalty_weights=None,
-                      prior_arrays=None, pixel_integration="window"):
+                      prior_arrays=None, pixel_integration="window",
+                      return_diagnostics=False):
     """Build the vmapped per-tile solver for ``spec`` (thin engine wrapper).
 
     ``pixel_integration`` is the engine's static rendering option: ``"window"``
     for the QR2 optical PSF, ``"point"`` for the R7 effective PSF (see
     :func:`tractorjax_spherex.prepare.pixel_integration_for`).
+    ``return_diagnostics`` makes the solver also return the per-slot fit
+    diagnostics ``{"chi2", "mask_frac"}`` (not for lasso).
     """
     kind = spec["kind"]
     static = dict(pixel_integration=pixel_integration)
+    if return_diagnostics:
+        if kind == "lasso":
+            raise ConfigError("visit_diagnostics is not available with solver='lasso'")
+        static["return_diagnostics"] = True
     if kind == "linear":
         return tjb.make_batched_solver(
             "linear", in_axes=batches_in_axes, rcond=spec.get("rcond", 1e-12), **static)
@@ -354,6 +368,10 @@ class JaxBackend:
 
     def __init__(self, config):
         self.config = config
+        if config.diagnostics_on() and not engine_has_diagnostics():
+            raise ImportError(
+                "visit_diagnostics needs a tractor-jax whose make_batched_solver takes "
+                "return_diagnostics (the feat/solve-diagnostics engine or later)")
         self._solve_fn_cache: dict = {}
         # Lives for the whole run: the PSF cube is byte-identical across every
         # cutout of one detector, so its kernels and their engine transforms are
@@ -454,6 +472,18 @@ class JaxBackend:
 
     # ---- solve (GPU stage) -----------------------------------------------
     def solve(self, inputs):
+        """``(fluxes, variances)`` per (tile, slot); with ``visit_diagnostics``
+        the fit diagnostics are left in ``inputs["diagnostics"]`` for
+        :meth:`extract_diagnostics`."""
+        diag = self.config.diagnostics_on()
+        out = self._solve(inputs, diag)
+        if diag:
+            fluxes, variances, d = out
+            inputs["diagnostics"] = {k: np.asarray(v) for k, v in d.items()}
+            return fluxes, variances
+        return out
+
+    def _solve(self, inputs, diag):
         spec = self.config.solver_spec()
         protect_ci = inputs.get("protect_ci")
         batches = inputs["batches"]
@@ -470,7 +500,7 @@ class JaxBackend:
             pw = tjb.penalty_weights_from_slots(
                 inputs["src_slot"], n_tiles, n_flux, protect_ci or set())
             solve_fn = make_tiled_solver(spec, batches_in_axes, penalty_weights=pw,
-                                         pixel_integration=pix)
+                                         pixel_integration=pix, return_diagnostics=diag)
         elif spec["kind"] == "eigfloor_prior":
             if inputs.get("prior_flux") is None:
                 raise ValueError("eigfloor_prior requires prior_ctx (SED priors)")
@@ -482,28 +512,28 @@ class JaxBackend:
                 protected=sorted(protect_ci) if protect_ci else [])
             solve_fn = make_tiled_solver(spec, batches_in_axes,
                                          prior_arrays=(lam_d, f_pr),
-                                         pixel_integration=pix)
+                                         pixel_integration=pix, return_diagnostics=diag)
         else:
-            struct_key = (tuple(sorted(batches.keys())), pix)
+            struct_key = (tuple(sorted(batches.keys())), pix, diag)
             solve_fn = self._solve_fn_cache.get(struct_key)
             if solve_fn is None:
                 solve_fn = make_tiled_solver(spec, batches_in_axes,
-                                             pixel_integration=pix)
+                                             pixel_integration=pix, return_diagnostics=diag)
                 self._solve_fn_cache[struct_key] = solve_fn
 
         n_tiles_total = int(np.asarray(initial_fluxes).shape[0])
         if not tile_chunk or n_tiles_total <= tile_chunk:
-            fluxes, variances = solve_fn(
-                initial_fluxes, inputs["images_data"], batches)
-            return np.asarray(fluxes), np.asarray(variances)
+            out = solve_fn(initial_fluxes, inputs["images_data"], batches)
+            return tuple(np.asarray(o) if not isinstance(o, dict) else o for o in out)
 
         return self._solve_chunked(inputs, spec, solve_fn, batches,
                                    batches_in_axes, initial_fluxes,
-                                   n_tiles_total, tile_chunk, pw, lam_d, f_pr)
+                                   n_tiles_total, tile_chunk, pw, lam_d, f_pr, diag)
 
     @staticmethod
     def _solve_chunked(inputs, spec, solve_fn, batches, batches_in_axes,
-                       initial_fluxes, n_tiles_total, tile_chunk, pw, lam_d, f_pr):
+                       initial_fluxes, n_tiles_total, tile_chunk, pw, lam_d, f_pr,
+                       diag=False):
         def _cut(x, start, end, pad):
             if isinstance(x, dict):
                 return {k: _cut(v, start, end, pad) for k, v in x.items()}
@@ -521,7 +551,7 @@ class JaxBackend:
                 return _cut(tree, start, end, pad)
             return tree
 
-        outs_f, outs_v = [], []
+        outs_f, outs_v, outs_d = [], [], []
         for start in range(0, n_tiles_total, tile_chunk):
             end = min(start + tile_chunk, n_tiles_total)
             pad = tile_chunk - (end - start)
@@ -530,18 +560,30 @@ class JaxBackend:
                       for k, v in inputs["images_data"].items()}
             bat_c = _cut_tree(batches, batches_in_axes, start, end, pad)
             if spec["kind"] == "lasso":
-                f, v = solve_fn(init_c, imgd_c, bat_c, _cut(pw, start, end, pad))
+                out = solve_fn(init_c, imgd_c, bat_c, _cut(pw, start, end, pad))
             elif spec["kind"] == "eigfloor_prior":
-                f, v = solve_fn(init_c, imgd_c, bat_c,
-                                _cut(lam_d, start, end, pad),
-                                _cut(f_pr, start, end, pad))
+                out = solve_fn(init_c, imgd_c, bat_c,
+                               _cut(lam_d, start, end, pad),
+                               _cut(f_pr, start, end, pad))
             else:
-                f, v = solve_fn(init_c, imgd_c, bat_c)
-            outs_f.append(np.asarray(f)[:end - start])
-            outs_v.append(np.asarray(v)[:end - start])
-        return np.concatenate(outs_f, axis=0), np.concatenate(outs_v, axis=0)
+                out = solve_fn(init_c, imgd_c, bat_c)
+            outs_f.append(np.asarray(out[0])[:end - start])
+            outs_v.append(np.asarray(out[1])[:end - start])
+            if diag:
+                outs_d.append({k: np.asarray(v)[:end - start] for k, v in out[2].items()})
+        f, v = np.concatenate(outs_f, axis=0), np.concatenate(outs_v, axis=0)
+        if diag:
+            return f, v, {k: np.concatenate([d[k] for d in outs_d], axis=0) for k in outs_d[0]}
+        return f, v
 
     # ---- extract ---------------------------------------------------------
+    def extract_diagnostics(self, inputs):
+        """Per-row fit diagnostics, in the order of :meth:`extract`'s rows."""
+        ei = inputs["extract_index"]
+        d = inputs["diagnostics"]
+        return {"fit_chi2": np.asarray(d["chi2"], dtype=np.float64)[ei["ti"], ei["slot"]],
+                "mask_frac": np.asarray(d["mask_frac"], dtype=np.float64)[ei["ti"], ei["slot"]]}
+
     def extract(self, inputs, fluxes_np, var_np):
         cutout = inputs["cutout"]
         ei = inputs["extract_index"]

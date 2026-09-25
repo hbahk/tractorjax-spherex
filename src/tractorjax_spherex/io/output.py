@@ -30,6 +30,15 @@ COLUMNS = (
 )
 COLUMN_NAMES = tuple(name for name, _ in COLUMNS)
 
+# Appended after COLUMNS when the per-visit diagnostics are on (the default on
+# the jax backend; see tractorjax_spherex.quality).
+QUALITY_COLUMNS = (
+    ("fit_chi2", "f4"),       # template-weighted normalized squared residual
+    ("mask_frac", "f4"),      # fraction of the source's template on masked pixels
+    ("quality_flag", "i2"),   # bitmask, constants.QUALITY_BITS
+)
+QUALITY_COLUMN_NAMES = tuple(name for name, _ in QUALITY_COLUMNS)
+
 
 def empty_table() -> Table:
     """An empty output Table with the correct columns and dtypes."""
@@ -81,12 +90,19 @@ def existing_cutout_indices(path) -> set[int]:
 
 
 def append_or_merge(path, table: Table, config=None) -> Table:
-    """Append ``table`` to the existing parquet (for ``resume``), return merged."""
+    """Append ``table`` to the existing parquet (for ``resume``), return merged.
+
+    ``quality_flag`` is recomputed on the merged rows: its BAD_FIT bit compares
+    each visit with its source's median over the whole product."""
+    from ..quality import add_quality_flags
+
     path = Path(path)
     if path.exists():
         prev = Table.read(path)
         merged = vstack([prev, table]) if len(prev) else table
     else:
         merged = table
+    rel_max = getattr(config, "visit_chi2_rel_max", 10.0) if config is not None else 10.0
+    add_quality_flags(merged, rel_max)
     write_photometry(merged, path, config=config)
     return merged

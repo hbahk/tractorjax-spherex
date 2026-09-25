@@ -145,6 +145,27 @@ stamp directly and supports it standalone. Turning it off costs real flux
 accuracy on blends — measured on one blended QSO, p90 13–15% per visit on both
 backends — so leave it on unless you are reproducing a pre-0.2 product.
 
+### Outputs
+
+| field | default | meaning |
+|---|---|---|
+| `visit_diagnostics` | `"auto"` | per-visit fit quality: `"auto"` = on for `backend="jax"` with any solver but `lasso`; `True` insists (and raises elsewhere); `False` skips it |
+| `visit_chi2_rel_max` | `10.0` | a visit whose `fit_chi2` exceeds this multiple of its source's median over the run gets `quality_flag` bit `BAD_FIT`; `None` = never |
+
+With the diagnostics on every row also carries `fit_chi2`, `mask_frac` and
+`quality_flag` ({doc}`data_model`), and
+{func}`~tractorjax_spherex.spectra.build_spectra` leaves flagged visits out
+(`drop_flagged=False` keeps them). They come from the design matrix the solve
+already built (about 2% of the run time on a MIG 3g slice) and flag what a flux
+error cannot: an unflagged bad pixel, a cosmic ray or unmodelled structure under
+the source. The cut is relative to the source's own median because a bright
+source's residuals grow with its flux, and it looks at the fit, never at the
+spectrum's shape, so a real emission line is kept. On the 1,456 LSST DP1 QSOs
+(about 400k visits) the default flags 0.5% of the visits and removes a third of
+the >5σ channel spikes of the binned spectra. Switching the diagnostics on
+changes XLA's fusion of the solve, so fluxes agree with an off run to rounding
+(≤ 1e-4 σ), not to the bit; needs tractor-jax ≥ 0.3.1.
+
 ### Execution
 
 | field | default | meaning |

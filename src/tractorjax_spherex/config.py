@@ -172,6 +172,24 @@ class PhotometryConfig:
     psf_core_shift: bool | str = "auto"
     fixed_max_factor: float = 5.0
 
+    # --- outputs ----------------------------------------------------------
+    # Per-visit fit quality, on wherever it is available: "auto" = the jax
+    # backend with any solver but lasso; True insists (and raises elsewhere);
+    # False skips it. Each row then also carries ``fit_chi2`` (the
+    # template-weighted normalized squared residual over the source's unmasked
+    # pixels, about 1 for a good fit), ``mask_frac`` (fraction of the source's
+    # template on masked pixels) and ``quality_flag`` (tractorjax_spherex.quality:
+    # BAD_FIT when fit_chi2 exceeds ``visit_chi2_rel_max`` times the source's
+    # median over the run, NO_DATA when no unmasked pixel is left under it).
+    # build_spectra leaves flagged visits out. The cut is on fit quality, never
+    # on the spectrum's shape, so real lines are kept: on the 1,456 DP1 QSOs
+    # rel_max=10 flags 0.5% of the visits and removes a third of the >5 sigma
+    # channel spikes. The diagnostics come from the design matrix the solve
+    # already built (about 2% of the run time); they change XLA's fusion, so
+    # fluxes agree with an off run to rounding, not to the bit.
+    visit_diagnostics: bool | str = "auto"
+    visit_chi2_rel_max: float | None = 10.0
+
     # --- execution --------------------------------------------------------
     backend: str = "jax"
     device: str = "auto"
@@ -209,6 +227,17 @@ class PhotometryConfig:
             if isinstance(value, str) and value != "auto":
                 raise ConfigError(
                     f"{name} must be an int, None, or 'auto'; got {value!r}")
+        if not (self.visit_diagnostics is True or self.visit_diagnostics is False
+                or self.visit_diagnostics == "auto"):
+            raise ConfigError(
+                f"visit_diagnostics must be 'auto', True or False, got {self.visit_diagnostics!r}")
+        if self.visit_diagnostics is True and self.backend != "jax":
+            raise ConfigError("visit_diagnostics needs the jax backend")
+        if self.visit_diagnostics is True and self.solver == "lasso":
+            raise ConfigError("visit_diagnostics is not available with solver='lasso'")
+        if self.visit_chi2_rel_max is not None and not self.visit_chi2_rel_max > 1.0:
+            raise ConfigError(
+                f"visit_chi2_rel_max must be > 1 or None, got {self.visit_chi2_rel_max}")
         if self.cap_auto_margin < 1.0:
             raise ConfigError(
                 f"cap_auto_margin must be >= 1.0 (it is headroom on a measured "
@@ -245,6 +274,12 @@ class PhotometryConfig:
         # CpuTractorBackend logs once per run when cpu_tiling=False makes it
         # inert — a log line rather than the silent no-op this package has been
         # bitten by before.
+
+    def diagnostics_on(self) -> bool:
+        """Whether a run computes the per-visit fit diagnostics and quality flags."""
+        if self.visit_diagnostics == "auto":
+            return self.backend == "jax" and self.solver != "lasso"
+        return self.visit_diagnostics is True
 
     def wants_auto_caps(self) -> bool:
         """True if any cap is ``"auto"`` and the caps are actually in force."""
