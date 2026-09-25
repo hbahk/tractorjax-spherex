@@ -76,8 +76,10 @@ wavelength (which transparently handles the within-detector wavelength reversal)
 `bin_to_channels` combines repeat visits with inverse-variance weighting on the
 102 SPHEREx spectral channels (17 per detector band, constant resolving power;
 `spherex_channels()` lists them). `bin_spectrum(spec, dlam=...)` does the same
-on a uniform wavelength grid. On the CLI: `tractorjax-spherex spectra ...
---channels`.
+on a uniform wavelength grid. Visits with a non-zero `quality_flag` (a bad fit or
+no unmasked pixel under the source; {doc}`data_model`) are left out;
+`build_spectra(phot, drop_flagged=False)` keeps them. On the CLI:
+`tractorjax-spherex spectra ... --channels`.
 
 ## Next steps
 

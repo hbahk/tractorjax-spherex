@@ -4,7 +4,7 @@ from astropy.table import Table
 pytest.importorskip("tractor_jax")
 
 from tractorjax_spherex import PhotometryConfig, run_photometry
-from tractorjax_spherex.io.output import COLUMN_NAMES, read_photometry
+from tractorjax_spherex.io.output import COLUMN_NAMES, QUALITY_COLUMN_NAMES, read_photometry
 
 
 def _cfg(**kw):
@@ -16,7 +16,7 @@ def test_output_schema_and_metadata(synth_field, tmp_path):
     out = tmp_path / "phot.parquet"
     res = run_photometry(synth_field["cutouts_dir"], synth_field["catalog"],
                          _cfg(), output=out, progress=False)
-    assert tuple(res.colnames) == COLUMN_NAMES
+    assert tuple(res.colnames) == COLUMN_NAMES + QUALITY_COLUMN_NAMES
     tab, meta = read_photometry(out)
     assert meta["tractorjax_spherex.schema_version"] == 1
     assert "tractorjax_spherex.config" in meta

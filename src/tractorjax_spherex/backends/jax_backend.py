@@ -26,8 +26,9 @@ from tractor_jax.jax import batching as tjb
 from tractor_jax.jax.pipeline import prefetch_pipeline  # noqa: F401  (re-exported)
 
 #: Oldest engine this layer runs on: 0.3.0 added the static ``pixel_integration``
-#: solver option that R7 effective-PSF bundles need.
-TRACTOR_JAX_MIN = (0, 3, 0)
+#: solver option that R7 effective-PSF bundles need; 0.3.1 the solvers'
+#: ``return_diagnostics`` behind the default per-visit quality flags.
+TRACTOR_JAX_MIN = (0, 3, 1)
 
 
 def _check_engine_version() -> None:
@@ -46,7 +47,7 @@ def _check_engine_version() -> None:
         raise ImportError(
             f"tractorjax-spherex needs tractor-jax >= {'.'.join(map(str, TRACTOR_JAX_MIN))} "
             f"(found {ver}); install the release it is developed against:\n"
-            "    pip install git+https://github.com/hbahk/tractor-jax@v0.3.0")
+            "    pip install git+https://github.com/hbahk/tractor-jax@v0.3.1")
 
 
 _check_engine_version()
@@ -367,7 +368,7 @@ class JaxBackend:
 
     def __init__(self, config):
         self.config = config
-        if getattr(config, "visit_diagnostics", False) and not engine_has_diagnostics():
+        if config.diagnostics_on() and not engine_has_diagnostics():
             raise ImportError(
                 "visit_diagnostics needs a tractor-jax whose make_batched_solver takes "
                 "return_diagnostics (the feat/solve-diagnostics engine or later)")
@@ -474,7 +475,7 @@ class JaxBackend:
         """``(fluxes, variances)`` per (tile, slot); with ``visit_diagnostics``
         the fit diagnostics are left in ``inputs["diagnostics"]`` for
         :meth:`extract_diagnostics`."""
-        diag = bool(getattr(self.config, "visit_diagnostics", False))
+        diag = self.config.diagnostics_on()
         out = self._solve(inputs, diag)
         if diag:
             fluxes, variances, d = out

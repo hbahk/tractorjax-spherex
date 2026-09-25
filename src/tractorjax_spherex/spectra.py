@@ -67,7 +67,8 @@ def to_ab_mag(flux_mjy, flux_err_mjy=None):
     return mag, mag_err
 
 
-def build_spectra(photometry: Table, ids=None, min_snr=None) -> dict[int, Table]:
+def build_spectra(photometry: Table, ids=None, min_snr=None,
+                  drop_flagged: bool = True) -> dict[int, Table]:
     """Group a photometry table into per-source spectra sorted by wavelength.
 
     Parameters
@@ -79,6 +80,10 @@ def build_spectra(photometry: Table, ids=None, min_snr=None) -> dict[int, Table]
         Restrict to these source ids (default: all).
     min_snr : float, optional
         Drop points with ``flux / flux_err`` below this threshold.
+    drop_flagged : bool, optional
+        Leave out visits whose ``quality_flag`` is non-zero (bad fit or no
+        unmasked pixel under the source; see :mod:`tractorjax_spherex.quality`).
+        A table without that column is used as it is.
 
     Returns
     -------
@@ -96,6 +101,8 @@ def build_spectra(photometry: Table, ids=None, min_snr=None) -> dict[int, Table]
         sub = photometry[idcol == sid]
         wl = np.asarray(sub["central_wavelength"], dtype=np.float64)
         good = np.isfinite(wl) & np.isfinite(np.asarray(sub["flux"], dtype=float))
+        if drop_flagged and "quality_flag" in sub.colnames:
+            good &= np.asarray(sub["quality_flag"]) == 0
         if min_snr is not None:
             fe = np.asarray(sub["flux_err"], dtype=np.float64)
             with np.errstate(divide="ignore", invalid="ignore"):
