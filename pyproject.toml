@@ -31,6 +31,8 @@ dependencies = [
     "astropy>=6.0",
     "photutils",
     "pyarrow",
+    # astropy reads parquet (catalogs, outputs, --resume) through pandas
+    "pandas",
     "tqdm",
     "pyyaml",
 ]

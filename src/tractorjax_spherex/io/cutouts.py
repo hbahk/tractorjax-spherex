@@ -17,9 +17,8 @@ set ``fast=False`` (or the module flag :data:`FAST_IO`) to force astropy.
 
 from __future__ import annotations
 
-import os
-
 import math
+import os
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass

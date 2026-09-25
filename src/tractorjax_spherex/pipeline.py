@@ -253,8 +253,8 @@ def run_photometry(cutouts, catalog, config: PhotometryConfig | None = None,
         cols["flux"].append(flux)
         cols["flux_err"].append(ferr)
         if diag is not None:
-            for k in diag_cols:
-                diag_cols[k].append(diag[k])
+            for k, chunks in diag_cols.items():
+                chunks.append(diag[k])
         extra = item[2] if len(item) > 2 else None
         if extra_cols is None:
             extra_cols = {k: [] for k in (extra or {})}
@@ -333,8 +333,8 @@ def run_photometry_catalog(targets, neighbors, bundles, config: PhotometryConfig
     astropy.table.Table
         The per-target tables stacked, with a ``target`` column.
     """
-    from astropy.coordinates import SkyCoord
     import astropy.units as u
+    from astropy.coordinates import SkyCoord
     from astropy.table import vstack
 
     config = config or PhotometryConfig()

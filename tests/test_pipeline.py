@@ -4,7 +4,11 @@ from astropy.table import Table
 pytest.importorskip("tractor_jax")
 
 from tractorjax_spherex import PhotometryConfig, run_photometry
-from tractorjax_spherex.io.output import COLUMN_NAMES, QUALITY_COLUMN_NAMES, read_photometry
+from tractorjax_spherex.io.output import (
+    COLUMN_NAMES,
+    QUALITY_COLUMN_NAMES,
+    read_photometry,
+)
 
 
 def _cfg(**kw):
