@@ -88,6 +88,15 @@ def find_nearest_source(tab: Table, ra_deg: float, dec_deg: float):
     return int(np.argmin(sep)), sco
 
 
+def nearest_sources(tab: Table, ra_deg, dec_deg) -> np.ndarray:
+    """Row index of the catalog source nearest each ``(ra, dec)`` (vectorised
+    :func:`find_nearest_source`, for fields holding several targets)."""
+    sco = SkyCoord(ra=tab["ra"], dec=tab["dec"], unit="deg")
+    pts = SkyCoord(ra=np.atleast_1d(ra_deg) * u.deg, dec=np.atleast_1d(dec_deg) * u.deg)
+    idx, _, _ = pts.match_to_catalog_sky(sco)
+    return np.asarray(idx, dtype=int)
+
+
 def apply_depth_cut(tab: Table, fit_zmag_max, keep_indices=()):
     """Prune to sources with z-band AB mag brighter than ``fit_zmag_max``.
 

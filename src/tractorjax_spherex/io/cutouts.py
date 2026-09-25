@@ -17,6 +17,8 @@ set ``fast=False`` (or the module flag :data:`FAST_IO`) to force astropy.
 
 from __future__ import annotations
 
+import os
+
 import math
 import re
 from collections.abc import Mapping
@@ -110,6 +112,10 @@ def filter_ok(pairs: list[tuple[int, Path]],
 def read_cutout(path: str | Path, *, fast: bool | str | None = None) -> Cutout:
     """Open one cutout MEF and return a :class:`Cutout`.
 
+    ``path`` may also be the MEF's bytes or a binary file object (a bundle
+    handed on in memory); those are read with astropy, which returns the same
+    :class:`Cutout` as the fitsio reader.
+
     Present-but-empty CWAVE/CBAND/SAPM HDUs (shape ``(0,)``) are guarded: a
     missing wavelength map yields ``cwave_center=None`` / ``cwave_map=None`` (the
     source is still photometered, just labelled NaN wavelength), and a missing
@@ -123,6 +129,12 @@ def read_cutout(path: str | Path, *, fast: bool | str | None = None) -> Cutout:
         it; ``False`` forces astropy.  Both readers return the identical
         :class:`Cutout` (asserted in ``tests/test_io_fast.py``).
     """
+    if isinstance(path, (bytes, bytearray, memoryview)):
+        # a bundle handed on in memory (spherex_retrieval.bundle.bundle_bytes)
+        import io
+        return _read_cutout_astropy(io.BytesIO(bytes(path)))
+    if hasattr(path, "read"):
+        return _read_cutout_astropy(path)
     if _use_fast(FAST_IO if fast is None else fast):
         from .fast import read_cutout_fields
         return Cutout(**read_cutout_fields(path))
@@ -146,7 +158,8 @@ def _use_fast(fast: bool | str) -> bool:
 
 def _read_cutout_astropy(path: str | Path) -> Cutout:
     """Reference reader: astropy only. See :func:`read_cutout`."""
-    path = Path(path)
+    if isinstance(path, (str, os.PathLike)):
+        path = Path(path)
     with fits.open(path, memmap=False) as hdul:
         primary = hdul[0].header.copy()
         img = np.array(hdul["IMAGE"].data, dtype=np.float64, copy=True)
