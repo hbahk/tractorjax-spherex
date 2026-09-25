@@ -11,8 +11,9 @@ pip install git+https://github.com/hbahk/tractorjax-spherex@v0.3.2  # this packa
 ```
 
 These are the releases this version is developed and tested against
-(`tractorjax-spherex` 0.3.x needs `tractor-jax` >= 0.3.0 and refuses to import
-an older engine). Drop the `@tag` to follow each repository's `main`.
+(`tractorjax-spherex` 0.3.2 needs `tractor-jax` >= 0.3.1, whose solvers return
+the per-visit fit diagnostics, and refuses to import an older engine). Drop the
+`@tag` to follow each repository's `main`.
 
 For local development use an editable install without re-resolving the siblings:
 
