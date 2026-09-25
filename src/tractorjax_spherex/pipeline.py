@@ -200,6 +200,7 @@ def run_photometry(cutouts, catalog, config: PhotometryConfig | None = None,
                               "ra", "dec", "central_wavelength", "bandwidth",
                               "flux", "flux_err")}
     extra_cols: dict[str, list] | None = None
+    diag_cols: dict[str, list] = {"fit_chi2": [], "mask_frac": []}
     failed, nan_wave = [], []
     n_attempted = 0
 
@@ -225,6 +226,7 @@ def run_photometry(cutouts, catalog, config: PhotometryConfig | None = None,
             fluxes_np, var_np = backend.solve(inputs)
             (ci, flux, ferr, lam, band), cwave = backend.extract(
                 inputs, fluxes_np, var_np)
+            diag = backend.extract_diagnostics(inputs) if config.visit_diagnostics else None
         except Exception:
             if config.strict:
                 raise
@@ -247,6 +249,9 @@ def run_photometry(cutouts, catalog, config: PhotometryConfig | None = None,
         cols["bandwidth"].append(band)
         cols["flux"].append(flux)
         cols["flux_err"].append(ferr)
+        if diag is not None:
+            for k in diag_cols:
+                diag_cols[k].append(diag[k])
         extra = item[2] if len(item) > 2 else None
         if extra_cols is None:
             extra_cols = {k: [] for k in (extra or {})}
@@ -270,6 +275,9 @@ def run_photometry(cutouts, catalog, config: PhotometryConfig | None = None,
         return np.concatenate(chunks) if chunks else np.zeros(0)
 
     results = make_table({k: _cat(v) for k, v in cols.items()})
+    if config.visit_diagnostics:
+        for k, chunks in diag_cols.items():
+            results[k] = _cat(chunks).astype(np.float32)
     for k, chunks in (extra_cols or {}).items():
         results[k] = _cat(chunks)
     # Completeness travels WITH the product: a reader must be able to tell a

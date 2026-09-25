@@ -172,6 +172,19 @@ class PhotometryConfig:
     psf_core_shift: bool | str = "auto"
     fixed_max_factor: float = 5.0
 
+    # --- outputs ----------------------------------------------------------
+    # Per-row fit diagnostics (JAX backend; not lasso): ``fit_chi2``, the
+    # template-weighted normalized squared residual over the source's unmasked
+    # pixels (about 1 for a good fit; an unflagged bad pixel, a cosmic ray or
+    # unmodelled structure under the source raises it), and ``mask_frac``, the
+    # fraction of the source's template on masked pixels. They let a spectrum
+    # drop bad visits by fit quality instead of by spectral shape, which could
+    # remove a real narrow line. Computed from the design matrix the solve
+    # already built; switching them on changes XLA's fusion, so fluxes agree
+    # with an off run to rounding, not to the bit. Needs a tractor-jax whose
+    # make_batched_solver takes return_diagnostics.
+    visit_diagnostics: bool = False
+
     # --- execution --------------------------------------------------------
     backend: str = "jax"
     device: str = "auto"
@@ -209,6 +222,10 @@ class PhotometryConfig:
             if isinstance(value, str) and value != "auto":
                 raise ConfigError(
                     f"{name} must be an int, None, or 'auto'; got {value!r}")
+        if self.visit_diagnostics and self.backend != "jax":
+            raise ConfigError("visit_diagnostics needs the jax backend")
+        if self.visit_diagnostics and self.solver == "lasso":
+            raise ConfigError("visit_diagnostics is not available with solver='lasso'")
         if self.cap_auto_margin < 1.0:
             raise ConfigError(
                 f"cap_auto_margin must be >= 1.0 (it is headroom on a measured "
