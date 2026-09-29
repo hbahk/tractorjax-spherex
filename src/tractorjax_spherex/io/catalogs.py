@@ -89,7 +89,7 @@ def find_nearest_source(tab: Table, ra_deg: float, dec_deg: float):
 
 
 def nearest_sources(tab: Table, ra_deg, dec_deg) -> np.ndarray:
-    """Row index of the catalog source nearest each ``(ra, dec)`` (vectorised
+    """Row index of the catalog source nearest each ``(ra, dec)`` (vectorized
     :func:`find_nearest_source`, for fields holding several targets)."""
     sco = SkyCoord(ra=tab["ra"], dec=tab["dec"], unit="deg")
     pts = SkyCoord(ra=np.atleast_1d(ra_deg) * u.deg, dec=np.atleast_1d(dec_deg) * u.deg)

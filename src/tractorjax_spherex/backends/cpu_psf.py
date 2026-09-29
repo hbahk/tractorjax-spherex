@@ -12,7 +12,7 @@ methods: both the point-source path and the Fourier path (used for galaxies)
 integer-factor-block-integrate the oversampled PSF to native pixels (accurate
 low-resolution rendering — the pixel response applied exactly once) and apply
 the correct flux scale; an effective PSF (``pixel_integrated=True``) is
-block-centre-sampled instead on both paths.
+block-center-sampled instead on both paths.
 
 Usage::
 
@@ -37,7 +37,7 @@ class OversampledPixelizedPSF(PixelizedPSF):
         super().__init__(img, sampling=sampling, Lorder=Lorder)
         #: True for an EFFECTIVE PSF (the SPHEREx R7 ePSF): the stamp already
         #: contains the pixel response, so both rendering paths sample the
-        #: block centres (times k^2) instead of block-integrating.
+        #: block centers (times k^2) instead of block-integrating.
         self.pixel_integrated = bool(pixel_integrated)
         # The integer-factor block-integration path (the one forced photometry
         # uses) centers the binned PSF at native index (nativeW-1)/2, which only
@@ -67,9 +67,9 @@ class OversampledPixelizedPSF(PixelizedPSF):
     def _native_from_canvas(self, img, dx, dy, k):
         """Shift ``img`` by the sub-pixel offset at oversampled resolution and
         bring it to native pixels: the block sum for an optical PSF, the
-        block-centre sample times ``k^2`` for an effective one (the ePSF value
-        at the pixel centre is the fraction of the flux in that pixel).
-        Returned in the block-sum normalisation, i.e. to be divided by ``k^2``
+        block-center sample times ``k^2`` for an effective one (the ePSF value
+        at the pixel center is the fraction of the flux in that pixel).
+        Returned in the block-sum normalization, i.e. to be divided by ``k^2``
         and multiplied by ``scale`` like the block sum."""
         target_h = self.nativeH * k
         target_w = self.nativeW * k
@@ -125,7 +125,7 @@ class OversampledPixelizedPSF(PixelizedPSF):
             # Block-integrate the oversampled PSF to native pixels (flux-exact):
             # shift by the sub-pixel offset at oversampled resolution, then sum
             # each k x k block. This keeps the PSF pixel-integrated at native
-            # scale rather than point-sampled. (Effective PSF: the block-centre
+            # scale rather than point-sampled. (Effective PSF: the block-center
             # sample instead, see _native_from_canvas.)
             k = round(factor)
             img = self._native_from_canvas(img, dx, dy, k) / (k ** 2)   # * scale below
@@ -160,7 +160,7 @@ class OversampledPixelizedPSF(PixelizedPSF):
         if abs(factor - round(factor)) < 1e-4:
             # Integer oversampling: the SAME native kernel as the point-source
             # path -- the block sum of the Lanczos-shifted stamp for an optical
-            # PSF (the pixel response applied once), the block-centre samples
+            # PSF (the pixel response applied once), the block-center samples
             # for an effective one. Until 0.3.1 this path point-sampled the
             # optical stamp (_sampleImage), which dropped the pixel response
             # from every galaxy model on this backend while point sources kept

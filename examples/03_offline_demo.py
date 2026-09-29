@@ -51,7 +51,7 @@ make_synth_catalog(out / "catalog.parquet", truth, cutout0.wcs)
 # wavelength-profile fit has few enough background pixels that it absorbs some
 # source flux (measured: 1.5-3 points more bias here). On real L2 data the
 # default is the right choice -- see docs/backgrounds_systematics.
-# psf_core_shift is left at its default: the toy PSF is a centred Gaussian with
+# psf_core_shift is left at its default: the toy PSF is a centered Gaussian with
 # no core offset, so the correction is ~0.4% here rather than the 10%+ it is
 # worth on a real blend.
 cfg = PhotometryConfig(solver="eigfloor", device="cpu", prefetch="sync",

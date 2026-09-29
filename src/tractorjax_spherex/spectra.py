@@ -27,7 +27,7 @@ N_CHANNELS = CHANNELS_PER_BAND * len(SPHEREX_BANDS)   # 102
 def spherex_channels() -> Table:
     """The 102 fiducial SPHEREx channels: ``channel`` (1-based, ascending in
     wavelength), ``detector``, ``lambda_min``, ``lambda_max`` and the channel
-    centre ``central_wavelength`` [um]."""
+    center ``central_wavelength`` [um]."""
     det, lo, hi = [], [], []
     for band, lmin, lmax in SPHEREX_BANDS:
         edges = np.geomspace(lmin, lmax, CHANNELS_PER_BAND + 1)
@@ -193,7 +193,7 @@ def bin_to_channels(spectrum: Table) -> Table:
     -------
     Table
         One row per populated channel, sorted by wavelength: ``channel``,
-        ``detector``, ``central_wavelength`` (the channel centre),
+        ``detector``, ``central_wavelength`` (the channel center),
         ``lambda_min``, ``lambda_max``, ``lambda_mean`` (ivar-weighted mean of
         the visits' own wavelengths), ``flux``, ``flux_err``, ``n``.
     """

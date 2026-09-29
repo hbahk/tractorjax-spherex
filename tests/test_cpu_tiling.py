@@ -65,7 +65,7 @@ def _by_id(res):
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize("H,W", [(40, 40), (45, 45), (30, 47), (10, 10)])
 def test_cores_partition_the_cutout(H, W):
-    """Every in-cutout pixel centre belongs to exactly one tile CORE.
+    """Every in-cutout pixel center belongs to exactly one tile CORE.
 
     This is the invariant the whole read-back rule rests on: no double counts,
     no drops, whatever the cutout size does modulo the tile size.
@@ -208,10 +208,10 @@ def test_tiled_agrees_with_the_jax_backend(tile_field):
 
 
 # --------------------------------------------------------------------------- #
-# Per-tile PSF: one constant kernel per tile, resolved at the CORE centre
+# Per-tile PSF: one constant kernel per tile, resolved at the CORE center
 # --------------------------------------------------------------------------- #
 def _multizone_cutout(tmp_path, *, interp_stamps=True):
-    """A synth cutout re-labelled with a 2x2 PSF-zone lattice across its span.
+    """A synth cutout re-labeled with a 2x2 PSF-zone lattice across its span.
 
     The delivered synth cutout is single-zone (one plane, one row), where every
     zone question is a no-op. Give it four zones at a lattice pitch small enough
@@ -235,7 +235,7 @@ def _multizone_cutout(tmp_path, *, interp_stamps=True):
                      for f in (2.0, 2.4, 2.8, 3.2)]).astype(np.float32)
     # lattice pitch 60 px, so the whole 40 px cutout is strictly INSIDE it and
     # every position gets its own bilinear weights (outside, the simulator
-    # convention clamps and neighbouring positions collapse onto one kernel)
+    # convention clamps and neighboring positions collapse onto one kernel)
     zones = Table({"zone_id": [1, 2, 3, 4],
                    "x": [0.0, 60.0, 0.0, 60.0],
                    "y": [0.0, 0.0, 60.0, 60.0],
@@ -243,9 +243,9 @@ def _multizone_cutout(tmp_path, *, interp_stamps=True):
     return dataclasses.replace(c, psf_cube=cube, psf_zones=zones)
 
 
-def test_per_tile_psf_tracks_the_tile_core_centre(tmp_path):
+def test_per_tile_psf_tracks_the_tile_core_center(tmp_path):
     """Tiles in different zones must get different kernels, blended AT the
-    clipped core centre — the JAX backend's convention, not a quantized cell."""
+    clipped core center — the JAX backend's convention, not a quantized cell."""
     from tractorjax_spherex import prepare as _prepare
     from tractorjax_spherex.backends.zone_psf import build_cpu_psf_selector
 
@@ -254,11 +254,11 @@ def test_per_tile_psf_tracks_the_tile_core_centre(tmp_path):
                            psf_zone_interp=True)
     select = build_cpu_psf_selector(cutout, cfg, prepare=_prepare)
 
-    a = select(7.5, 7.5)        # core centre of tile (0,0)
-    b = select(35.0, 35.0)      # core centre of the CLIPPED tile (2,2): [30,40)
+    a = select(7.5, 7.5)        # core center of tile (0,0)
+    b = select(35.0, 35.0)      # core center of the CLIPPED tile (2,2): [30,40)
     assert not np.allclose(a.img, b.img), "every tile got the same kernel"
 
-    # the clipped tile's centre is 35.0, not the nominal cell centre 37.5
+    # the clipped tile's center is 35.0, not the nominal cell center 37.5
     assert np.allclose(select(35.0, 35.0).img, b.img)
     assert not np.allclose(select(37.5, 37.5).img, b.img)
 
@@ -310,7 +310,7 @@ def test_per_tile_blend_is_bilinear_and_matches_the_jax_weights(tmp_path):
 
 def test_nearest_zone_selection_is_per_tile_when_interp_is_off(tmp_path):
     """With psf_zone_interp=False the JAX backend still picks the nearest zone
-    PER TILE. Picking the cutout-centre zone for every tile is the bug."""
+    PER TILE. Picking the cutout-center zone for every tile is the bug."""
     from tractorjax_spherex import prepare as _prepare
     from tractorjax_spherex.backends.zone_psf import build_cpu_psf_selector
 
@@ -324,7 +324,7 @@ def test_nearest_zone_selection_is_per_tile_when_interp_is_off(tmp_path):
     for i in range(4):
         for j in range(i + 1, 4):
             assert not np.allclose(corners[i].img, corners[j].img)
-    # ...and the same tile centre returns the SAME cached object
+    # ...and the same tile center returns the SAME cached object
     assert select(7.5, 7.5) is corners[0]
 
 

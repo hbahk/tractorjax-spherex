@@ -2,7 +2,7 @@
 
 A stream of cutouts (paths, bundle bytes, Cutout objects) must photometer
 exactly like the directory the cutouts came from; per-cutout extras become
-columns; several targets are all kept through the depth cut; and the catalogue
+columns; several targets are all kept through the depth cut; and the catalog
 driver gives each target the rows its own single-field run gives.
 """
 import numpy as np

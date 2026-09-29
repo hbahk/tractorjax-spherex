@@ -22,7 +22,7 @@ def test_single_zone_is_one_hot():
     assert w[0] == pytest.approx(1.0)
 
 
-def test_on_a_zone_centre_is_one_hot():
+def test_on_a_zone_center_is_one_hot():
     z = _zones(3, 3)
     w = zone_bilinear_weights(z, z["x"][4], z["y"][4])
     assert w[4] == pytest.approx(1.0)
@@ -48,7 +48,7 @@ def test_outside_the_lattice_clamps_not_extrapolates():
 
 def test_zone_psf_basis_shares_one_object_and_normalizes():
     """The engine keys its transform cache on identity, so the basis must be
-    one object; weights must sum to 1 at every tile centre."""
+    one object; weights must sum to 1 at every tile center."""
     n = 3
     zones = _zones(n, n, x0=0.0, y0=0.0)
     rng = np.random.default_rng(0)

@@ -71,7 +71,7 @@ is ORCHESTRATION around upstream Tractor: each tile is a pure
 `optimize_forced_photometry` on a small `tractor.Tractor`, and the upstream
 engine is untouched.
 
-Measured on real full-depth SPHEREx cutouts (a2537 `zm1`, ~4400 modelled
+Measured on real full-depth SPHEREx cutouts (a2537 `zm1`, ~4400 modeled
 sources, 49 tiles): **5–10× faster** end-to-end (29 s → 5.5 s), with an
 identical reported source set and, on S/N > 5 sources, identical fluxes to a
 median 0.01–0.09 %. The whole-cutout path is retained (`cpu_tiling=False`) as the
@@ -87,7 +87,7 @@ Still open, deliberately:
 
 - **Error bars remain a Fisher diagonal.** Upstream's `IV` is not the diagonal of
   the inverted normal matrix, so CPU `flux_err` is not marginalized over co-fit
-  neighbours the way the JAX backend's is — nor over the per-tile background.
+  neighbors the way the JAX backend's is — nor over the per-tile background.
   Tiling does not change that; it is an estimator difference and would need work
   upstream or a local normal-matrix inversion per tile.
 - **The residual ~1–2 % CPU-vs-JAX difference** on well-measured sources is now

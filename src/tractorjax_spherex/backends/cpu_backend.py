@@ -51,8 +51,8 @@ from .base import FieldContext
 
 logger = logging.getLogger(__name__)
 
-# Whole-cutout neighbour margin (native px): sources within this of the cutout
-# still enter the model (their PSF wings matter) but only in-cutout centres are
+# Whole-cutout neighbor margin (native px): sources within this of the cutout
+# still enter the model (their PSF wings matter) but only in-cutout centers are
 # reported. The tiled path uses ``tile_halo`` instead, because that is the
 # margin the JAX backend uses and same-geometry is the point of tiling.
 MODEL_MARGIN = 5.0
@@ -231,7 +231,7 @@ class CpuTractorBackend:
         H, W = data.shape
 
         # PSF per the config's PSF-fix flags: zone-blended and/or
-        # core-registered when asked, the plain centre-zone stamp otherwise.
+        # core-registered when asked, the plain center-zone stamp otherwise.
         psf = build_cpu_psf(cutout, self.config, prepare=_prepare)
 
         in_model = ((sx_all > -MODEL_MARGIN) & (sx_all < W + MODEL_MARGIN)
@@ -267,7 +267,7 @@ class CpuTractorBackend:
         tile_size, halo = cfg.tile_size, cfg.tile_halo
         fit_sky = bool(getattr(cfg, "cpu_tile_background", False))
 
-        # One constant kernel per tile, blended at the tile's core centre —
+        # One constant kernel per tile, blended at the tile's core center —
         # exactly what build_cutout_tiles hands the JAX engine.
         psf_select = build_cpu_psf_selector(cutout, cfg, prepare=_prepare)
 
@@ -283,7 +283,7 @@ class CpuTractorBackend:
         make_source = _SourceMaker(cutout, ctx.catalog, model_ci)
 
         # Which tile OWNS each source, i.e. whose core box contains it (-1 for
-        # the out-of-cutout ones, which are modelled but never reported). Cores
+        # the out-of-cutout ones, which are modeled but never reported). Cores
         # partition [0,W)x[0,H) exactly, so this single-valued lookup is what
         # makes halo overlaps impossible to double-count or drop.
         metas = list(iter_tiles(H, W, tile_size, halo))

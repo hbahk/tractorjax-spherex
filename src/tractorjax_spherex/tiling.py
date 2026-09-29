@@ -14,8 +14,8 @@ The conventions, in one place, because every consumer depends on them:
   double-count and in-cutout sources impossible to drop.
 * Halo boxes are *not* clipped: they run from ``-halo`` to ``W + halo`` at the
   edges and are zero-padded by :func:`extract_tile_region`. A tile's model
-  therefore includes the neighbours whose PSF wings reach into it.
-* A source enters a tile's model when its centre lies in the **halo box**
+  therefore includes the neighbors whose PSF wings reach into it.
+* A source enters a tile's model when its center lies in the **halo box**
   (``x_start <= x < x_end``); it is *reported* from the tile whose **core box**
   contains it (``core_x0 <= x < core_x1``).
 """
@@ -110,7 +110,7 @@ def tile_core_index(tile_metas, sx, sy):
 
     ``tile_metas`` is the list of dicts from :func:`iter_tiles`, in any order.
     Returns ``-1`` where the position falls in no core (i.e. outside the
-    cutout). Vectorised over the position arrays.
+    cutout). Vectorized over the position arrays.
     """
     cx0 = np.array([m["core_x0"] for m in tile_metas])
     cy0 = np.array([m["core_y0"] for m in tile_metas])

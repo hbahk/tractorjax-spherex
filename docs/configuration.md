@@ -96,7 +96,7 @@ PhotometryConfig(pad_bucket=0, max_ps_cap="auto", max_gal_cap="auto")
 
 :::{warning}
 The defaults (`MAX_PS_CAP = 112`, `MAX_GAL_CAP = 352`) were sized on one
-sparse field (A2537) and do not generalise. Measured densest-tile occupancies
+sparse field (A2537) and do not generalize. Measured densest-tile occupancies
 across eight real SPHEREx fields at `tile_size=15`, `tile_halo=3`:
 
 | field | max point sources | max galaxies |
@@ -130,7 +130,7 @@ constant carried over from another field.
 | field | default | meaning |
 |---|---|---|
 | `psf_sampling` | `0.2` | native-pixel size per PSF-stamp pixel (0.2 = 5× oversampled) |
-| `psf_zone_interp` | `True` | blend the delivered zone kernels bilinearly at each tile centre instead of rounding to one zone |
+| `psf_zone_interp` | `True` | blend the delivered zone kernels bilinearly at each tile center instead of rounding to one zone |
 | `psf_core_shift` | `"auto"` | re-register each zone kernel's core onto its declared fiducial (`calib/psf_core_offsets.ecsv`, 726/726 cells) on QR2 optical-PSF cutouts; skipped on R7 effective-PSF cutouts. `True` forces it (and raises on an R7 cutout), `False` never shifts |
 | `fixed_max_factor` | `5.0` | oversampled rendering factor |
 
@@ -157,7 +157,7 @@ With the diagnostics on every row also carries `fit_chi2`, `mask_frac` and
 {func}`~tractorjax_spherex.spectra.build_spectra` leaves flagged visits out
 (`drop_flagged=False` keeps them). They come from the design matrix the solve
 already built (about 2% of the run time on a MIG 3g slice) and flag what a flux
-error cannot: an unflagged bad pixel, a cosmic ray or unmodelled structure under
+error cannot: an unflagged bad pixel, a cosmic ray or unmodeled structure under
 the source. The cut is relative to the source's own median because a bright
 source's residuals grow with its flux, and it looks at the fit, never at the
 spectrum's shape, so a real emission line is kept. On the 1,456 LSST DP1 QSOs

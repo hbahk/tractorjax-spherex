@@ -32,7 +32,7 @@ PRIMARY  IMAGE  FLAGS  VARIANCE  ZODI  PSF  PSF_ZONES  [CWAVE] [CBAND] [SAPM]
 The last three extensions are optional and are also guarded against being
 present-but-empty (shape `(0,)`): a missing/empty `CWAVE` yields
 `cwave_center=None` and `cwave_map=None` (the source is still photometered, just
-labelled NaN wavelength), a missing `SAPM` falls back to the WCS pixel area, and
+labeled NaN wavelength), a missing `SAPM` falls back to the WCS pixel area, and
 a missing `CBAND` leaves the bandwidth NaN.
 
 `PSFSRC` records where the PSF cube came from. The 121-plane cube inside an L2
@@ -52,14 +52,14 @@ detector pixel response deconvolved, which the engine 2×-downsamples to 5×,
 re-registers (`psf_core_shift`) and integrates over each native pixel.
 `'EPSF'` (QR3 and DR1, pipeline R7): the effective PSF of Anderson & King
 (2000), 5× and with the pixel response *included*, which the engine uses as
-delivered and samples at the native pixel centres (`pixel_integration="point"`
+delivered and samples at the native pixel centers (`pixel_integration="point"`
 in `tractor_jax`); integrating it again would apply the pixel window twice
 (+1/12 px² of variance, ~30 % in N_eff, a +4–13 % central residual on SPHEREx
 stars), and the QR2 core-shift table does not apply to it. `cutout.psf_kind`
 is `"optical"` or `"effective"`; `OVERSAMP` is 10 or 5; `EPSFCAL` names the
 ePSF calibration source file and `DETCOORD = 'sky'` records that the R7 arrays
-and zone centres are in the L2 image orientation for every detector. Both
-kinds are normalised to unit sum on their own oversampled grid (`PSFNORM`).
+and zone centers are in the L2 image orientation for every detector. Both
+kinds are normalized to unit sum on their own oversampled grid (`PSFNORM`).
 
 The `IMAGE` header carries the celestial WCS plus `CRPIX1A`/`CRPIX2A` — the
 1-based detector positions of the cutout's `(0, 0)` pixel — used to map cutout
@@ -121,15 +121,15 @@ Two derived masks matter:
 - **`SOURCE_BIT`** (`SOURCE`, bit 21) — marks detected-source pixels. Used only
   to mask the **background fit**, never the photometry itself.
 
-## Per-source wavelength labelling
+## Per-source wavelength labeling
 
 SPHEREx's linear variable filter makes the central wavelength a function of
 **detector position**, so `CWAVE` is a full per-pixel map, not a scalar. Across a
 cutout it varies by roughly 0.2 nm/pixel — about 22 nm over a 100-pixel cutout —
-which is far larger than the photometric precision. Labelling every source with a
+which is far larger than the photometric precision. Labeling every source with a
 single cutout wavelength would therefore be wrong.
 
-Instead, each source is labelled at **its own pixel**: the backend bilinearly
+Instead, each source is labeled at **its own pixel**: the backend bilinearly
 samples `cwave_map` and `cband_map` at the source's projected position with
 {func}`~tractorjax_spherex.io.cutouts.sample_map_bilinear_vec`, giving that
 source's `central_wavelength` and `bandwidth` (both µm). `cwave_center` (the

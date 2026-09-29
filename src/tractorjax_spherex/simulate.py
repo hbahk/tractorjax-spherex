@@ -40,11 +40,11 @@ def gaussian_effective(size_over: int, oversamp: int, fwhm_native: float):
     """The EFFECTIVE PSF of the same Gaussian, in the R7 ePSF convention.
 
     Sample ``i`` at offset ``(i - c) / oversamp`` native px from the source
-    holds the fraction of the flux that lands in a native pixel centred there
+    holds the fraction of the flux that lands in a native pixel centered there
     (the Gaussian integrated over the 1-px window, analytic through ``erf``),
     stored with unit sum on the oversampled grid (``PSFNORM = 'hr-sum-1'``, so
     the per-pixel fraction is the sample times ``oversamp**2``). Rendering it
-    means point-sampling at the pixel centres: integrating it again would
+    means point-sampling at the pixel centers: integrating it again would
     apply the pixel window twice.
     """
     from scipy.special import erf

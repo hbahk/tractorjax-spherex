@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 def _field_center(catalog: Table, target):
-    """Return ``(ra, dec)`` for the always-kept/labelled main source."""
+    """Return ``(ra, dec)`` for the always-kept/labeled main source."""
     if target is not None:
         return float(target[0]), float(target[1])
     return (float(np.median(np.asarray(catalog["ra"], dtype=float))),
@@ -64,7 +64,7 @@ def run_photometry(cutouts, catalog, config: PhotometryConfig | None = None,
         All options; defaults to the configuration of record (``eigfloor`` on
         the catalog truncated at z-band AB 21).
     target : (ra, dec), optional
-        The always-kept / labelled main source. Defaults to the catalog centroid.
+        The always-kept / labeled main source. Defaults to the catalog centroid.
     targets : sequence of (ra, dec), optional
         Several always-kept sources (a field holding more than one target); the
         first labels the log. Mutually exclusive with ``target``.

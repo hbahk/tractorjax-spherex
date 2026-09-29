@@ -60,7 +60,7 @@ fig.savefig("fit_comparison.png", dpi=150)
 Read it left to right: the background-subtracted **data**, the **fitted model**
 (every catalog source rendered at its measured flux through the same
 5×-oversampled PSF the solver used), and **chi** = (data − model)/σ. A good fit
-leaves chi as structureless noise, as here. A red/blue blob centred on a source
+leaves chi as structureless noise, as here. A red/blue blob centered on a source
 means its flux, shape, or position is off; coherent large-scale chi structure
 suggests trying a different `bkg_model` ({doc}`backgrounds_systematics`).
 

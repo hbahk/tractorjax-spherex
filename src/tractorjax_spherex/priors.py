@@ -53,7 +53,7 @@ def predict_flux_ujy(band_flux_ujy, lam_um, slope_max=SLOPE_MAX):
 
     Within coverage: linear interpolation of ln F vs ln lambda between the
     bracketing usable bands. Outside coverage: the end-segment slope, clipped to
-    ``|slope| <= slope_max`` so a noisy W1-W2 colour cannot explode the
+    ``|slope| <= slope_max`` so a noisy W1-W2 color cannot explode the
     extrapolation.
     """
     F = np.asarray(band_flux_ujy, dtype=np.float64)

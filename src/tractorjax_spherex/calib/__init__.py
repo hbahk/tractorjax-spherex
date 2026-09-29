@@ -2,7 +2,7 @@
 
 ``psf_core_offsets`` — the measured L2 PSF core-registration offsets (726/726
 detector-zone cells), vendored from the ``spherex_gpupipe`` project where they
-were derived (research note 2026-07-30-psf-centring-audit). The loader module
+were derived (research note 2026-07-30-psf-centering-audit). The loader module
 carries the full sign-convention documentation; read it before using either
 direction of the pair.
 """

@@ -5,7 +5,7 @@ the SPHEREx deblending campaign's **configuration of record** as defaults:
 solver ``eigfloor`` on the catalog truncated at z-band AB 21
 (``fit_zmag_max=21``), tile 15 / halo 3 / pad-bucket 32 / prefetch thread /
 fp32, ``cwave+photutils`` background, PSF zone interpolation and core
-re-registration on. It serialises to/from YAML and TOML so a run is fully
+re-registration on. It serializes to/from YAML and TOML so a run is fully
 reproducible from a single file. See the *Choosing a solver* and
 *Configuration* pages in the docs for the trade-offs behind each field.
 """
@@ -144,7 +144,7 @@ class PhotometryConfig:
     # is 5x oversampled). fixed_max_factor is the oversampled rendering factor.
     psf_sampling: float = 0.2
     # Spatially-varying PSF: blend the delivered zone kernels bilinearly at
-    # each tile's core centre (SPHEREx Sky Simulator convention, clamped at the
+    # each tile's core center (SPHEREx Sky Simulator convention, clamped at the
     # lattice edge) instead of rounding the tile to one zone. Blended in the
     # Fourier domain on the JAX backend, per grid cell on the CPU backend
     # (measured +15% pipelined wall clock at 9-12 zones on the JAX backend

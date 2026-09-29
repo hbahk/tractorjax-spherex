@@ -44,7 +44,7 @@ def _flux_by_id(res, sid):
 
 # The optical synthetic path carries a ~2 % bias of its own (the toy image is
 # integrated on a 10x sub-grid, the QR2-style kernel goes through the
-# centre-preserving 10x->5x downsample; the existing pipeline tests allow 5 %).
+# center-preserving 10x->5x downsample; the existing pipeline tests allow 5 %).
 # The ePSF path is exact for the same Gaussian, so it is held to 1 %.
 TOL = {"optical": 0.03, "effective": 0.01}
 

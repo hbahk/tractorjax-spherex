@@ -82,7 +82,7 @@ from .base import FieldContext
 #: cutout).  Set True to restore the per-tile WCS when bisecting a difference.
 PER_TILE_WCS = False
 
-#: Do the PSF-zone lookup for every tile in ONE vectorised call
+#: Do the PSF-zone lookup for every tile in ONE vectorized call
 #: (:func:`~tractorjax_spherex.prepare.zone_planes_and_weights`) instead of two
 #: Python scans of the zone table per tile -- ~15 ms per cutout in the driver's
 #: host profile, and it grows with the tile count.  Bit-identical by
@@ -153,10 +153,10 @@ def build_cutout_tiles(cutout, *, sx_all, sy_all, tile_size, halo,
 
     ``psf_select(x, y) -> stamp`` (from
     :func:`~tractorjax_spherex.prepare.zone_psf_selector`) gives each tile the
-    PSF of the zone containing its own core centre — the SPHEREx PSF varies
+    PSF of the zone containing its own core center — the SPHEREx PSF varies
     across the focal plane and the zone pitch (~185 detector px) is smaller
     than a typical cutout, so one kernel per cutout mis-renders the tiles that
-    fall in a neighbouring zone. ``psf_native`` is the legacy single-kernel
+    fall in a neighboring zone. ``psf_native`` is the legacy single-kernel
     form, kept for callers that already resolved the PSF themselves.
     """
     if psf_select is None:
@@ -177,7 +177,7 @@ def build_cutout_tiles(cutout, *, sx_all, sy_all, tile_size, halo,
 
     metas = list(iter_tiles(H, W, tile_size, halo))
 
-    # One vectorised zone lookup for every tile core centre instead of two
+    # One vectorized zone lookup for every tile core center instead of two
     # Python scans of the zone table per tile (see VECTOR_ZONES). The plane
     # selection is skipped when the caller supplied a fixed psf_native.
     v_planes = v_weights = None

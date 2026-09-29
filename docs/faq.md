@@ -26,7 +26,7 @@ propagated through the same unit scaling as the flux (mJy). For `eigfloor` at
 use its errors for population statistics.
 
 `flux_err` covers photon/read noise and the deblending covariance with
-neighbours. It does *not* include absolute calibration, PSF-model error, or
+neighbors. It does *not* include absolute calibration, PSF-model error, or
 background systematics ({doc}`backgrounds_systematics`).
 
 ### My spectra are noisy and scattered — what is the recommended setup?
@@ -51,10 +51,10 @@ Check in this order:
 2. **Wavelength, not noise.** Different visits sample different wavelengths, so a
    source with a strong SED feature *should* move. Plot against
    `central_wavelength` before concluding anything.
-3. **A neighbour is missing from your catalog.** Unmodelled flux lands on
+3. **A neighbor is missing from your catalog.** Unmodeled flux lands on
    whichever fitted source is closest, and how much it lands depends on the
    dither. Run {func}`~tractorjax_spherex.diagnostics.plot_fit` on a couple of
-   cutouts — an unmodelled neighbour shows up as a bright blob in `chi`.
+   cutouts — an unmodeled neighbor shows up as a bright blob in `chi`.
 4. **Background model.** `bkg_model="cwave+photutils"` is the default and takes
    the airglow stripes out; compare against `bkg_model="photutils"` (or
    `"plane"` on a sparse cutout) to see how much of the wiggle is background.
@@ -173,8 +173,8 @@ for cross-checks and for the solvers `cpu-tractor` lacks ({doc}`cpu_backend`).
 ### Can I use my own catalog instead of Legacy Survey?
 
 Yes — you need `id`, `ra`, `dec`, and optionally shape columns; see
-{doc}`catalogs`. Anything not in your catalog is not modelled, so include the
-neighbours, not just your targets.
+{doc}`catalogs`. Anything not in your catalog is not modeled, so include the
+neighbors, not just your targets.
 
 ### Retrieval is slow, or downloads far more than the cutouts hold
 

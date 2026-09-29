@@ -1,10 +1,10 @@
-"""The vectorised PSF-zone lookup must reproduce the scalar helpers exactly.
+"""The vectorized PSF-zone lookup must reproduce the scalar helpers exactly.
 
 ``zone_planes_and_weights`` replaces one ``select_zone_plane`` and one
 ``zone_bilinear_weights`` call per tile with a single call for all tiles.  It is
 a pure re-expression — same comparisons, same tie-breaks — so these tests assert
 element-by-element equality against the scalar helpers, including on the cases
-where a tie-break decides: exact zone centres, lattice edges (clamped, not
+where a tie-break decides: exact zone centers, lattice edges (clamped, not
 extrapolated), points far outside the lattice, and a zone subset with a corner
 missing.
 """
@@ -79,7 +79,7 @@ def test_matches_scalar_helpers(nx, ny, drop):
 
     assert np.array_equal(planes, ref_planes)
     assert np.array_equal(weights, ref_weights)          # bit-for-bit
-    # normalised the same way the scalar helper does (w / w.sum()), so equal to
+    # normalized the same way the scalar helper does (w / w.sum()), so equal to
     # float round-off, not exactly
     assert np.allclose(weights.sum(axis=1), 1.0, rtol=1e-12, atol=1e-12)
     assert (weights >= 0).all()

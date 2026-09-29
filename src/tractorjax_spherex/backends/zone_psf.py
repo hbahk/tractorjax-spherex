@@ -5,7 +5,7 @@ Brings the two PSF fixes of the JAX backend to `backend="cpu-tractor"`:
 **Zone interpolation** (``psf_zone_interp``). The SPHEREx PSF varies across the
 focal plane; the L2 cube ships one plane per PSF zone (~185 detector px pitch).
 A single whole-cutout kernel mis-renders every source that sits in a
-neighbouring zone. :class:`ZoneBlendedPSF` blends the delivered zone kernels
+neighboring zone. :class:`ZoneBlendedPSF` blends the delivered zone kernels
 bilinearly at each evaluation position (the SPHEREx Sky Simulator convention,
 clamped at the lattice edge), matching
 :func:`tractorjax_spherex.prepare.zone_bilinear_weights`.
@@ -117,7 +117,7 @@ class ZoneBlendedPSF:
         d = self._delegates.get(key)
         if d is None:
             g = self._grid
-            cx, cy = (key[0] + 0.5) * g, (key[1] + 0.5) * g   # cell centre
+            cx, cy = (key[0] + 0.5) * g, (key[1] + 0.5) * g   # cell center
             x_orig, y_orig = self._pix_to_det(cx, cy)
             w = np.asarray(self._weights_fn(self._zones, x_orig, y_orig),
                            dtype=np.float64)
@@ -202,7 +202,7 @@ def zone_stamp_provider(cutout, cfg, *, prepare):
 
 
 def nearest_zone_row(zones, x_orig, y_orig) -> int:
-    """Row of ``psf_zones`` whose centre is nearest detector ``(x_orig, y_orig)``.
+    """Row of ``psf_zones`` whose center is nearest detector ``(x_orig, y_orig)``.
 
     The row index rather than ``plane_idx`` (which
     :func:`tractorjax_spherex.prepare.select_zone_plane` returns), because the
@@ -218,8 +218,8 @@ def resolve_zone_stamps(cutout, cfg, *, prepare):
 
     ``stamps`` are unit-flux 5x-oversampled native stamps with the config's core
     shifts already applied. ``interp`` says whether they form a blend basis
-    (aligned with ``cutout.psf_zones``) or are the single centre-zone kernel of
-    the pre-fix behaviour.
+    (aligned with ``cutout.psf_zones``) or are the single center-zone kernel of
+    the pre-fix behavior.
     """
     zones = cutout.psf_zones
     interp = bool(getattr(cfg, "psf_zone_interp", True)) and len(zones) > 1
@@ -228,7 +228,7 @@ def resolve_zone_stamps(cutout, cfg, *, prepare):
     if interp:
         return [get(r) for r in range(len(zones))], True
 
-    # centre-zone kernel, the pre-fix behaviour
+    # center-zone kernel, the pre-fix behavior
     H, W = cutout.image.shape
     xo, yo = prepare.cutout_to_orig(W / 2.0, H / 2.0,
                                     crpix1a=cutout.crpix1a,
@@ -275,14 +275,14 @@ def build_cpu_psf_selector(cutout, cfg, *, prepare):
     PSF does not have to vary inside it — and must not, since the tile image
     carries tile-local pixel coordinates that a position-dependent
     :class:`ZoneBlendedPSF` would misread. This mirrors the JAX backend, which
-    resolves the kernel once at each tile's CORE CENTRE and renders the whole
-    tile (halo neighbours included) with it, in both branches:
+    resolves the kernel once at each tile's CORE CENTER and renders the whole
+    tile (halo neighbors included) with it, in both branches:
 
     * ``psf_zone_interp=True`` -> the bilinear zone blend at that position;
     * ``psf_zone_interp=False`` -> the nearest zone's kernel at that position
       (:func:`tractorjax_spherex.prepare.zone_psf_selector` on the JAX side) —
-      NOT the whole-cutout centre zone, which is what the untiled CPU path uses
-      and which would put every off-centre tile on the wrong kernel.
+      NOT the whole-cutout center zone, which is what the untiled CPU path uses
+      and which would put every off-center tile on the wrong kernel.
 
     Results are cached, so a whole cutout costs at most one blend per tile (and
     one kernel per zone when interpolation is off).

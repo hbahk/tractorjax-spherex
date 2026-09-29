@@ -4,9 +4,9 @@ The problem this solves
 -----------------------
 A delivered L2 PSF plane is 101x101 at ``OVERSAMP = 10`` with
 ``CRPIX1 = CRPIX2 = 51.0``, so its *declared* fiducial is the 0-based array
-index ``(50.0, 50.0)`` -- the exact geometric centre of the odd-sized array.
-The renderer puts that array centre on the source's projected catalog position.
-But the PSF **core** is not at the array centre: it sits about ``-0.05`` native
+index ``(50.0, 50.0)`` -- the exact geometric center of the odd-sized array.
+The renderer puts that array center on the source's projected catalog position.
+But the PSF **core** is not at the array center: it sits about ``-0.05`` native
 px away on *both* axes.  Every rendered source therefore lands ~0.05 native px
 (~0.3 arcsec) off unless the kernel is shifted first.
 
@@ -68,7 +68,7 @@ bundles reach.  Lookups never raise for an in-range key: the chain is
 or count fallbacks instead of silently assuming full coverage.
 
 As shipped, the table covers all 6 x 121 = 726 pairs, so the fallbacks are
-insurance, not routine behaviour.
+insurance, not routine behavior.
 
 Do not "improve" the fallback into a nearest-zone interpolation.  It was tested
 and it is *worse*: leave-one-out over the 726 measured zones gives dy rms
@@ -350,7 +350,7 @@ def psf_core_shift_for_kernel(plane, path=None) -> CoreShift:
 
 
 def psf_core_shift_batch(detectors, zone_ids, path=None):
-    """Vectorised :func:`psf_core_shift` for a driver looping over many tiles.
+    """Vectorized :func:`psf_core_shift` for a driver looping over many tiles.
 
     Returns ``(dy_apply, dx_apply, source)`` as three arrays of shape
     ``(n,)``, same units and sign convention as :func:`psf_core_shift`.

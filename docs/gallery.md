@@ -1,9 +1,9 @@
 # Real-data gallery
 
 Six bright galaxies in the A2537 field, measured on real SPHEREx L2 cutouts with
-the three full-catalog estimators. Left: the Legacy Survey DR10 colour thumbnail
+the three full-catalog estimators. Left: the Legacy Survey DR10 color thumbnail
 with the catalog entries drawn on it (cyan = the target, white = other fitted
-sources, grey dotted = catalog-only) and a 6.15″ SPHEREx-pixel scale bar. Right:
+sources, gray dotted = catalog-only) and a 6.15″ SPHEREx-pixel scale bar. Right:
 the resulting spectrophotometry, binned to the 102 fiducial channels, with the
 LS/WISE broadband fluxes as an independent anchor.
 
@@ -49,7 +49,7 @@ are its shredded substructure, each fitted as if it were a separate source:
   LS/WISE anchors (~2.2–2.8 mJy). The galaxy's light has been distributed over
   the artifact components, and because their positions and shapes are not
   descriptions of real sources, that division carries no physical meaning.
-- **(e)** — this target is a *real* compact source near the galaxy's centre:
+- **(e)** — this target is a *real* compact source near the galaxy's center:
   the entry itself is legitimate and correctly placed. But it is fitted jointly
   with the surrounding artifact components, so its flux is not safe either — it
   can absorb host-galaxy light the fragments fail to model, or lose flux to
@@ -89,7 +89,7 @@ flux regularizer can turn a wrong model into a right one.
 
 4. **Look at the fit.** {func}`~tractorjax_spherex.diagnostics.plot_fit` — a
    shredded model often reproduces the *image* tolerably while dividing the
-   flux arbitrarily; structured residuals centred on the galaxy mean even the
+   flux arbitrarily; structured residuals centered on the galaxy mean even the
    image is not reproduced.
 
 Large nearby galaxies are the common case; distant compact sources are rarely

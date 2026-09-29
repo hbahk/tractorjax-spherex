@@ -26,7 +26,7 @@ deblending / photo-z work as a self-serve tool.
 - **Accurate low-resolution rendering.** Every source is rendered on a 5×
   oversampled grid and brought to native pixels the way its PSF product
   demands: integrated over each pixel for the QR2 optical PSF, sampled at the
-  pixel centres for the R7 effective PSF (QR3 and DR1 files, `PSFKIND =
+  pixel centers for the R7 effective PSF (QR3 and DR1 files, `PSFKIND =
   'EPSF'`), so the PSF × source-shape convolution is done at oversampled
   resolution either way and the pixel response is applied exactly once. The
   kind is read from the bundle; no flag needed, releases may be mixed.

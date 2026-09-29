@@ -41,7 +41,7 @@ for _name in MASK_FLAGS:
 # tractorjax_spherex.quality): a row with any bit set is left out of spectra.
 QUALITY_BITS = {
     # fit_chi2 above visit_chi2_rel_max x the source's median fit_chi2 in the run:
-    # an unflagged bad pixel, a cosmic ray or unmodelled structure under the source
+    # an unflagged bad pixel, a cosmic ray or unmodeled structure under the source
     "BAD_FIT": 0,
     # no unmasked pixel under the source's template (fit_chi2 undefined)
     "NO_DATA": 1,

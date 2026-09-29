@@ -49,7 +49,7 @@ class _Zones:
 
 
 def test_one_hot_blend_matches_plain_path():
-    """A blend that lands exactly on a zone centre must reproduce the plain
+    """A blend that lands exactly on a zone center must reproduce the plain
     OversampledPixelizedPSF for that zone's stamp, patch for patch."""
     from tractorjax_spherex.prepare import zone_bilinear_weights
 
@@ -60,9 +60,9 @@ def test_one_hot_blend_matches_plain_path():
                              weights_fn=zone_bilinear_weights, grid=15)
     plain = OversampledPixelizedPSF(np.asarray(stamps[0], np.float32),
                                     sampling=0.2)
-    # cell (0,0) centre (7.5, 7.5) lies OUTSIDE the lattice (leftmost zone at
+    # cell (0,0) center (7.5, 7.5) lies OUTSIDE the lattice (leftmost zone at
     # x=100), where the weight convention CLAMPS -> exact one-hot on zone 0.
-    # (Between zone centres it interpolates; one-hot holds only off-lattice.)
+    # (Between zone centers it interpolates; one-hot holds only off-lattice.)
     pb = blended.getPointSourcePatch(5.0, 5.0)
     pp = plain.getPointSourcePatch(5.0, 5.0)
     assert pb.x0 == pp.x0 and pb.y0 == pp.y0
@@ -80,7 +80,7 @@ def test_midpoint_blend_is_the_average_kernel():
                              weights_fn=zone_bilinear_weights, grid=15)
     mean = OversampledPixelizedPSF(
         (0.5 * stamps[0] + 0.5 * stamps[1]).astype(np.float32), sampling=0.2)
-    # cell centre 7.5 = the midpoint of the two zone centres
+    # cell center 7.5 = the midpoint of the two zone centers
     pb = blended.getPointSourcePatch(7.0, 7.0)
     pm = mean.getPointSourcePatch(7.0, 7.0)
     np.testing.assert_allclose(pb.patch, pm.patch, rtol=0, atol=1e-6)

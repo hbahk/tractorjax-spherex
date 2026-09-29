@@ -3,7 +3,7 @@
 A tile that needs more flux slots than a fixed cap takes its whole cutout out
 of the product, so these tests pin the three guards against that: the caps can
 be sized from a measured occupancy, an overflow raises something actionable
-rather than a bare ValueError, and a partial product is labelled as one.
+rather than a bare ValueError, and a partial product is labeled as one.
 """
 
 import numpy as np
@@ -159,7 +159,7 @@ def test_strict_turns_a_skipped_cutout_into_an_error(synth_field, tmp_path,
 
 
 def test_tiles_take_their_own_zone_psf(one_cutout):
-    """Each tile must resolve the PSF at its own centre, not the cutout's."""
+    """Each tile must resolve the PSF at its own center, not the cutout's."""
     from tractorjax_spherex.prepare import zone_psf_selector
 
     cutout = read_cutout(one_cutout["path"])

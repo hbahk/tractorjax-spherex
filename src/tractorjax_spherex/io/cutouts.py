@@ -117,7 +117,7 @@ def read_cutout(path: str | Path, *, fast: bool | str | None = None) -> Cutout:
 
     Present-but-empty CWAVE/CBAND/SAPM HDUs (shape ``(0,)``) are guarded: a
     missing wavelength map yields ``cwave_center=None`` / ``cwave_map=None`` (the
-    source is still photometered, just labelled NaN wavelength), and a missing
+    source is still photometered, just labeled NaN wavelength), and a missing
     SAPM falls back to the WCS pixel area in :func:`cutout_pixel_area_sr`.
 
     Parameters

@@ -207,7 +207,7 @@ def zone_bilinear_weights(psf_zones_tab, x_orig, y_orig) -> np.ndarray:
 
     Follows the SPHEREx Sky Simulator's own convention
     (``SPHEREx_InstrumentSimulator.psf.get_dist_weight``): plain bilinear
-    between the four bracketing zone centres, CLAMPED at the lattice edge
+    between the four bracketing zone centers, CLAMPED at the lattice edge
     rather than extrapolated. Returns weights summing to 1, aligned with the
     rows of ``psf_zones_tab``, and degenerates to one-hot — hence identical to
     :func:`select_zone_plane` — on a single-zone cutout.
@@ -240,7 +240,7 @@ def zone_bilinear_weights(psf_zones_tab, x_orig, y_orig) -> np.ndarray:
 
 
 def zone_planes_and_weights(psf_zones_tab, x_orig, y_orig):
-    """Vectorised :func:`select_zone_plane` + :func:`zone_bilinear_weights`.
+    """Vectorized :func:`select_zone_plane` + :func:`zone_bilinear_weights`.
 
     A tiled cutout calls both of those once per tile, and each call scans the
     whole zone table in Python; a 2040x2040 frame at tile 15 has 18,496 tiles.
@@ -316,7 +316,7 @@ def zone_lookup_vectorized(cutout: Cutout, x_cut, y_cut):
     """:func:`zone_planes_and_weights` at cutout pixel coordinates.
 
     Convenience wrapper that applies this cutout's ``CRPIX*A`` offset, so a
-    caller with an array of tile centres gets planes and weights in one call.
+    caller with an array of tile centers gets planes and weights in one call.
     """
     x_orig, y_orig = cutout_to_orig(np.asarray(x_cut, dtype=np.float64),
                                     np.asarray(y_cut, dtype=np.float64),
@@ -377,7 +377,7 @@ def zone_psf_selector(cutout: Cutout):
     Each distinct zone plane is downsampled at most once, so a 40-tile cutout
     spanning 4 zones pays 4 downsamples rather than 40. Single-zone cutouts
     (the PSF cube has one plane) return the same array for every tile, which is
-    exactly the previous behaviour.
+    exactly the previous behavior.
     """
     zones = cutout["psf_zones"]
     crpix1a = cutout["crpix1a"]

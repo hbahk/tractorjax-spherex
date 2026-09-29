@@ -5,7 +5,7 @@ user *see* the fit on any cutout: :func:`render_model_image` rebuilds the scene
 (every fitted source at its measured flux, rendered through the same
 5x-oversampled PSF machinery as the solver) and :func:`plot_fit` shows the
 standard data / model / chi triptych. Large residuals localized on a source
-usually mean a bad shape or a missing neighbour; structured background residuals
+usually mean a bad shape or a missing neighbor; structured background residuals
 suggest trying another ``bkg_model``.
 
 All fluxes are in the pipeline's internal mJy/pixel scale, so the panels are
