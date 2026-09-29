@@ -35,16 +35,28 @@ logger = logging.getLogger(__name__)
 
 
 def _field_center(catalog: Table, target):
-    """Return ``(ra, dec)`` for the always-kept/labelled main source."""
+    """Return ``(ra, dec)`` for the always-kept/labeled main source."""
     if target is not None:
         return float(target[0]), float(target[1])
-    return (float(np.median(np.asarray(catalog["ra"], dtype=float))),
-            float(np.median(np.asarray(catalog["dec"], dtype=float))))
+    return (
+        float(np.median(np.asarray(catalog["ra"], dtype=float))),
+        float(np.median(np.asarray(catalog["dec"], dtype=float))),
+    )
 
 
-def run_photometry(cutouts, catalog, config: PhotometryConfig | None = None,
-                   *, target=None, targets=None, output=None, resume=False,
-                   max_cutouts=None, progress=True, backend=None) -> Table:
+def run_photometry(
+    cutouts,
+    catalog,
+    config: PhotometryConfig | None = None,
+    *,
+    target=None,
+    targets=None,
+    output=None,
+    resume=False,
+    max_cutouts=None,
+    progress=True,
+    backend=None,
+) -> Table:
     """Run forced photometry over a field of SPHEREx cutouts.
 
     Parameters
@@ -64,7 +76,7 @@ def run_photometry(cutouts, catalog, config: PhotometryConfig | None = None,
         All options; defaults to the configuration of record (``eigfloor`` on
         the catalog truncated at z-band AB 21).
     target : (ra, dec), optional
-        The always-kept / labelled main source. Defaults to the catalog centroid.
+        The always-kept / labeled main source. Defaults to the catalog centroid.
     targets : sequence of (ra, dec), optional
         Several always-kept sources (a field holding more than one target); the
         first labels the log. Mutually exclusive with ``target``.
@@ -95,9 +107,12 @@ def run_photometry(cutouts, catalog, config: PhotometryConfig | None = None,
 
     config = config or PhotometryConfig()
     config.validate()
-    setup_device(device=config.device, precision=config.precision,
-                 mem_fraction=config.gpu_mem_fraction,
-                 preallocate=config.gpu_preallocate)
+    setup_device(
+        device=config.device,
+        precision=config.precision,
+        mem_fraction=config.gpu_mem_fraction,
+        preallocate=config.gpu_preallocate,
+    )
     backend = backend or get_backend(config)
     if target is not None and targets is not None:
         raise ValueError("pass target or targets, not both")
@@ -114,8 +129,12 @@ def run_photometry(cutouts, catalog, config: PhotometryConfig | None = None,
         if max_cutouts:
             pairs = pairs[:max_cutouts]
         items = pairs
-        logger.info("Processing %d cutouts (backend=%s, solver=%s)",
-                    len(pairs), backend.name, config.solver)
+        logger.info(
+            "Processing %d cutouts (backend=%s, solver=%s)",
+            len(pairs),
+            backend.name,
+            config.solver,
+        )
     else:
         items = iter(cutouts)
         if resume and output is not None:
@@ -123,8 +142,11 @@ def run_photometry(cutouts, catalog, config: PhotometryConfig | None = None,
             items = (it for it in items if it[0] not in done)
         if max_cutouts:
             items = itertools.islice(items, max_cutouts)
-        logger.info("Processing a cutout stream (backend=%s, solver=%s)",
-                    backend.name, config.solver)
+        logger.info(
+            "Processing a cutout stream (backend=%s, solver=%s)",
+            backend.name,
+            config.solver,
+        )
 
     tab = normalize_catalog(load_catalog(catalog))
     if targets is None:
@@ -139,24 +161,33 @@ def run_photometry(cutouts, catalog, config: PhotometryConfig | None = None,
     n_catalog = len(tab)
     tab, _kept = apply_depth_cut(tab, config.fit_zmag_max, keep_indices=keep)
     main_idx, sco_all = find_nearest_source(tab, ra0, dec0)
-    kept_after = (main_idx,) if targets is None else tuple(
-        nearest_sources(tab, centers[:, 0], centers[:, 1]))
+    kept_after = (
+        (main_idx,)
+        if targets is None
+        else tuple(nearest_sources(tab, centers[:, 0], centers[:, 1]))
+    )
     # The depth cut is the setting a user most needs to see applied: say what
     # it did, in the same breath as the main source it kept.
-    logger.info("Catalog: %d sources, %d fitted (fit_zmag_max=%s); main source "
-                "id=%d at ra=%.5f dec=%.5f", n_catalog, len(tab),
-                config.fit_zmag_max, int(tab["id"][main_idx]),
-                float(tab["ra"][main_idx]), float(tab["dec"][main_idx]))
+    logger.info(
+        "Catalog: %d sources, %d fitted (fit_zmag_max=%s); main source "
+        "id=%d at ra=%.5f dec=%.5f",
+        n_catalog,
+        len(tab),
+        config.fit_zmag_max,
+        int(tab["id"][main_idx]),
+        float(tab["ra"][main_idx]),
+        float(tab["dec"][main_idx]),
+    )
 
     protect_ci = None
     if config.solver in ("lasso", "eigfloor_prior"):
-        protect_ci = protected_indices(tab, config.protect_zmag_max,
-                                       always=kept_after)
+        protect_ci = protected_indices(tab, config.protect_zmag_max, always=kept_after)
     prior_ctx = make_prior_context(tab, config)
 
     profile_lookup_fn = None
     if backend.name == "jax":
         from .models import get_profile_cached
+
         profile_lookup_fn = get_profile_cached
 
     # "auto" caps: measure the field's real densest-tile occupancy before the
@@ -167,19 +198,37 @@ def run_photometry(cutouts, catalog, config: PhotometryConfig | None = None,
     if config.wants_auto_caps():
         if not from_dir:
             from .config import ConfigError
-            raise ConfigError("max_*_cap='auto' measures the field from a cutout "
-                              "directory; give explicit caps or pad_bucket for a stream")
-        from .occupancy import measure_occupancy
-        occupancy = measure_occupancy(pairs, tab, tile_size=config.tile_size,
-                                      halo=config.tile_halo, progress=progress)
-        logger.info("Occupancy scan over %d cutouts: densest tile holds "
-                    "%d point sources / %d galaxies",
-                    occupancy.n_cutouts, occupancy.max_ps, occupancy.max_gal)
 
-    ctx = FieldContext(catalog=tab, sco_all=sco_all, main_idx=main_idx,
-                       protect_ci=protect_ci, prior_ctx=prior_ctx,
-                       profile_lookup_fn=profile_lookup_fn,
-                       occupancy=occupancy)
+            raise ConfigError(
+                "max_*_cap='auto' measures the field from a cutout "
+                "directory; give explicit caps or pad_bucket for a stream"
+            )
+        from .occupancy import measure_occupancy
+
+        occupancy = measure_occupancy(
+            pairs,
+            tab,
+            tile_size=config.tile_size,
+            halo=config.tile_halo,
+            progress=progress,
+        )
+        logger.info(
+            "Occupancy scan over %d cutouts: densest tile holds "
+            "%d point sources / %d galaxies",
+            occupancy.n_cutouts,
+            occupancy.max_ps,
+            occupancy.max_gal,
+        )
+
+    ctx = FieldContext(
+        catalog=tab,
+        sco_all=sco_all,
+        main_idx=main_idx,
+        protect_ci=protect_ci,
+        prior_ctx=prior_ctx,
+        profile_lookup_fn=profile_lookup_fn,
+        occupancy=occupancy,
+    )
 
     # Warn up front about cutouts the configured caps would drop, so the loss
     # is visible before a long run rather than in a line at the end of it.
@@ -191,17 +240,34 @@ def run_photometry(cutouts, catalog, config: PhotometryConfig | None = None,
                 "%d of %d cutouts exceed the configured caps (max_ps_cap=%s, "
                 "max_gal_cap=%s) and WILL BE SKIPPED: %s. Field needs %d/%d; "
                 "use max_ps_cap='auto' or pad_bucket=32.",
-                len(doomed), occupancy.n_cutouts, ps_cap, gal_cap, doomed,
-                occupancy.max_ps, occupancy.max_gal)
+                len(doomed),
+                occupancy.n_cutouts,
+                ps_cap,
+                gal_cap,
+                doomed,
+                occupancy.max_ps,
+                occupancy.max_gal,
+            )
 
     cat_id = np.asarray(tab["id"], dtype=np.int64)
     cat_ra = np.asarray(tab["ra"], dtype=np.float64)
     cat_dec = np.asarray(tab["dec"], dtype=np.float64)
 
-    cols: dict[str, list] = {k: [] for k in
-                             ("cutout_index", "obs_id", "detector", "id",
-                              "ra", "dec", "central_wavelength", "bandwidth",
-                              "flux", "flux_err")}
+    cols: dict[str, list] = {
+        k: []
+        for k in (
+            "cutout_index",
+            "obs_id",
+            "detector",
+            "id",
+            "ra",
+            "dec",
+            "central_wavelength",
+            "bandwidth",
+            "flux",
+            "flux_err",
+        )
+    }
     extra_cols: dict[str, list] | None = None
     diag_cols: dict[str, list] = {"fit_chi2": [], "mask_frac": []}
     failed, nan_wave = [], []
@@ -219,7 +285,9 @@ def run_photometry(cutouts, catalog, config: PhotometryConfig | None = None,
             return item, None
 
     total = len(pairs) if from_dir else None
-    for item, inputs in _iterate(items, build_fn, backend, config, progress, total=total):
+    for item, inputs in _iterate(
+        items, build_fn, backend, config, progress, total=total
+    ):
         cutout_index = item[0]
         n_attempted += 1
         if inputs is None:
@@ -228,8 +296,11 @@ def run_photometry(cutouts, catalog, config: PhotometryConfig | None = None,
         try:
             fluxes_np, var_np = backend.solve(inputs)
             (ci, flux, ferr, lam, band), cwave = backend.extract(
-                inputs, fluxes_np, var_np)
-            diag = backend.extract_diagnostics(inputs) if config.diagnostics_on() else None
+                inputs, fluxes_np, var_np
+            )
+            diag = (
+                backend.extract_diagnostics(inputs) if config.diagnostics_on() else None
+            )
         except Exception:
             if config.strict:
                 raise
@@ -259,8 +330,10 @@ def run_photometry(cutouts, catalog, config: PhotometryConfig | None = None,
         if extra_cols is None:
             extra_cols = {k: [] for k in (extra or {})}
         if set(extra or {}) != set(extra_cols):
-            raise ValueError(f"cutout {cutout_index}: extra keys {sorted(extra or {})} "
-                             f"differ from {sorted(extra_cols)}")
+            raise ValueError(
+                f"cutout {cutout_index}: extra keys {sorted(extra or {})} "
+                f"differ from {sorted(extra_cols)}"
+            )
         for k, v in (extra or {}).items():
             extra_cols[k].append(np.full(n, v))
 
@@ -269,10 +342,16 @@ def run_photometry(cutouts, catalog, config: PhotometryConfig | None = None,
             "INCOMPLETE PRODUCT: %d of %d cutouts failed and were skipped: %s. "
             "The output parquet carries complete=False; re-run with "
             "strict=True to make this an error.",
-            len(failed), n_attempted, failed)
+            len(failed),
+            n_attempted,
+            failed,
+        )
     if nan_wave:
-        logger.warning("%d cutouts had no CWAVE (wavelength=NaN, still "
-                       "photometered): %s", len(nan_wave), nan_wave)
+        logger.warning(
+            "%d cutouts had no CWAVE (wavelength=NaN, still " "photometered): %s",
+            len(nan_wave),
+            nan_wave,
+        )
 
     def _cat(chunks):
         return np.concatenate(chunks) if chunks else np.zeros(0)
@@ -296,18 +375,29 @@ def run_photometry(cutouts, catalog, config: PhotometryConfig | None = None,
 
     if resume and output is not None and Path(output).exists():
         from .io.output import append_or_merge
+
         results = append_or_merge(output, results, config=config)
     elif output is not None:
-        write_photometry(results, output, config=config,
-                         extra_meta=completeness)
-    logger.info("Photometered %d rows across %d cutouts",
-                len(results), n_attempted - len(failed))
+        write_photometry(results, output, config=config, extra_meta=completeness)
+    logger.info(
+        "Photometered %d rows across %d cutouts",
+        len(results),
+        n_attempted - len(failed),
+    )
     return results
 
 
-def run_photometry_catalog(targets, neighbors, bundles, config: PhotometryConfig | None = None,
-                           *, radius_arcsec: float = 300.0, output=None, progress=False,
-                           backend=None) -> Table:
+def run_photometry_catalog(
+    targets,
+    neighbors,
+    bundles,
+    config: PhotometryConfig | None = None,
+    *,
+    radius_arcsec: float = 300.0,
+    output=None,
+    progress=False,
+    backend=None,
+) -> Table:
     """Photometer many targets, each as its own field, with one set of compiled solvers.
 
     Parameters
@@ -341,9 +431,12 @@ def run_photometry_catalog(targets, neighbors, bundles, config: PhotometryConfig
     config.validate()
     if backend is None:
         # one backend for every target: its compiled solvers are reused
-        setup_device(device=config.device, precision=config.precision,
-                     mem_fraction=config.gpu_mem_fraction,
-                     preallocate=config.gpu_preallocate)
+        setup_device(
+            device=config.device,
+            precision=config.precision,
+            mem_fraction=config.gpu_mem_fraction,
+            preallocate=config.gpu_preallocate,
+        )
         backend = get_backend(config)
     if isinstance(targets, Table):
         t_ra = np.asarray(targets["ra"], dtype=np.float64)
@@ -360,18 +453,47 @@ def run_photometry_catalog(targets, neighbors, bundles, config: PhotometryConfig
         center = SkyCoord(t_ra[t], t_dec[t], unit="deg")
         sub = nb[nb_sc.separation(center) < radius_arcsec * u.arcsec]
         items = ((item[0], item[1], {"target": t}) for item in sources)
-        parts.append(run_photometry(items, sub, config, target=(t_ra[t], t_dec[t]),
-                                    progress=progress, backend=backend))
+        parts.append(
+            run_photometry(
+                items,
+                sub,
+                config,
+                target=(t_ra[t], t_dec[t]),
+                progress=progress,
+                backend=backend,
+            )
+        )
         n_targets += 1
-    results = vstack(parts, metadata_conflicts="silent") if parts else make_table(
-        {k: np.zeros(0) for k in ("cutout_index", "obs_id", "detector", "id", "ra", "dec",
-                                  "central_wavelength", "bandwidth", "flux", "flux_err")})
-    failed = [i for p in parts for i in p.meta.get("tractorjax_spherex.failed_cutouts", [])]
+    results = (
+        vstack(parts, metadata_conflicts="silent")
+        if parts
+        else make_table(
+            {
+                k: np.zeros(0)
+                for k in (
+                    "cutout_index",
+                    "obs_id",
+                    "detector",
+                    "id",
+                    "ra",
+                    "dec",
+                    "central_wavelength",
+                    "bandwidth",
+                    "flux",
+                    "flux_err",
+                )
+            }
+        )
+    )
+    failed = [
+        i for p in parts for i in p.meta.get("tractorjax_spherex.failed_cutouts", [])
+    ]
     completeness = {
         "tractorjax_spherex.complete": not failed,
         "tractorjax_spherex.n_targets": n_targets,
-        "tractorjax_spherex.n_cutouts_attempted": int(sum(
-            p.meta.get("tractorjax_spherex.n_cutouts_attempted", 0) for p in parts)),
+        "tractorjax_spherex.n_cutouts_attempted": int(
+            sum(p.meta.get("tractorjax_spherex.n_cutouts_attempted", 0) for p in parts)
+        ),
         "tractorjax_spherex.n_cutouts_failed": len(failed),
         "tractorjax_spherex.failed_cutouts": failed,
     }
@@ -385,12 +507,14 @@ def _iterate(items, build_fn, backend, config, progress, total=None):
     """Yield ``(item, inputs)``, prefetching builds for the JAX backend."""
     if backend.name == "jax" and config.prefetch == "thread":
         from tractor_jax.jax.pipeline import prefetch_pipeline
+
         it = prefetch_pipeline(items, build_fn, depth=2, executor="thread")
     else:
         it = (build_fn(item) for item in items)
     if progress:
         try:
             from tqdm import tqdm
+
             it = tqdm(it, total=total, desc="Cutouts")
         except ImportError:
             pass

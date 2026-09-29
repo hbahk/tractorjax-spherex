@@ -32,7 +32,7 @@ def gaussian_oversampled(size_over: int, oversamp: int, fwhm_native: float):
     sigma_over = (fwhm_native / 2.3548200450309493) * oversamp
     c = (size_over - 1) / 2.0
     yy, xx = np.mgrid[0:size_over, 0:size_over]
-    g = np.exp(-((xx - c) ** 2 + (yy - c) ** 2) / (2.0 * sigma_over ** 2))
+    g = np.exp(-((xx - c) ** 2 + (yy - c) ** 2) / (2.0 * sigma_over**2))
     return g / g.sum()
 
 
@@ -40,18 +40,21 @@ def gaussian_effective(size_over: int, oversamp: int, fwhm_native: float):
     """The EFFECTIVE PSF of the same Gaussian, in the R7 ePSF convention.
 
     Sample ``i`` at offset ``(i - c) / oversamp`` native px from the source
-    holds the fraction of the flux that lands in a native pixel centred there
+    holds the fraction of the flux that lands in a native pixel centered there
     (the Gaussian integrated over the 1-px window, analytic through ``erf``),
     stored with unit sum on the oversampled grid (``PSFNORM = 'hr-sum-1'``, so
     the per-pixel fraction is the sample times ``oversamp**2``). Rendering it
-    means point-sampling at the pixel centres: integrating it again would
+    means point-sampling at the pixel centers: integrating it again would
     apply the pixel window twice.
     """
     from scipy.special import erf
+
     sigma = fwhm_native / 2.3548200450309493
     c = (size_over - 1) / 2.0
-    d = (np.arange(size_over) - c) / oversamp           # native px offsets
-    p1 = 0.5 * (erf((d + 0.5) / (np.sqrt(2) * sigma)) - erf((d - 0.5) / (np.sqrt(2) * sigma)))
+    d = (np.arange(size_over) - c) / oversamp  # native px offsets
+    p1 = 0.5 * (
+        erf((d + 0.5) / (np.sqrt(2) * sigma)) - erf((d - 0.5) / (np.sqrt(2) * sigma))
+    )
     g = np.outer(p1, p1)
     return g / g.sum()
 
@@ -68,10 +71,10 @@ def _pixel_integrated_gaussian(shape, x0, y0, fwhm_native, oversamp=10):
     ny, nx = shape
     # Sub-cell centers in native coordinates: pixel i spans [i-0.5, i+0.5].
     off = (np.arange(oversamp) + 0.5) / oversamp - 0.5
-    xs = (np.arange(nx)[:, None] + off[None, :]).ravel()   # (nx*os,)
-    ys = (np.arange(ny)[:, None] + off[None, :]).ravel()   # (ny*os,)
-    gx = np.exp(-((xs - x0) ** 2) / (2.0 * sigma ** 2))
-    gy = np.exp(-((ys - y0) ** 2) / (2.0 * sigma ** 2))
+    xs = (np.arange(nx)[:, None] + off[None, :]).ravel()  # (nx*os,)
+    ys = (np.arange(ny)[:, None] + off[None, :]).ravel()  # (ny*os,)
+    gx = np.exp(-((xs - x0) ** 2) / (2.0 * sigma**2))
+    gy = np.exp(-((ys - y0) ** 2) / (2.0 * sigma**2))
     gx = gx.reshape(nx, oversamp).sum(axis=1)
     gy = gy.reshape(ny, oversamp).sum(axis=1)
     g = np.outer(gy, gx)
@@ -79,12 +82,29 @@ def _pixel_integrated_gaussian(shape, x0, y0, fwhm_native, oversamp=10):
     return g / s if s > 0 else g
 
 
-def make_synth_cutout(path, *, cutout_index=0, obsid="SYNTH0001", detector=1,
-                      nx=40, ny=40, ra0=150.0, dec0=2.0, oversamp=10,
-                      psf_size_over=101, fwhm_native=2.5,
-                      sources=None, zodi_level=0.05, noise_mjy_sr=1e-4,
-                      seed=0, empty_side_hdus=False, cwave_slope=0.02,
-                      cwave_base=2.0, psf_kind="optical", epsf_size_over=51):
+def make_synth_cutout(
+    path,
+    *,
+    cutout_index=0,
+    obsid="SYNTH0001",
+    detector=1,
+    nx=40,
+    ny=40,
+    ra0=150.0,
+    dec0=2.0,
+    oversamp=10,
+    psf_size_over=101,
+    fwhm_native=2.5,
+    sources=None,
+    zodi_level=0.05,
+    noise_mjy_sr=1e-4,
+    seed=0,
+    empty_side_hdus=False,
+    cwave_slope=0.02,
+    cwave_base=2.0,
+    psf_kind="optical",
+    epsf_size_over=51,
+):
     """Write one synthetic cutout MEF.
 
     ``sources`` is a list of dicts ``{x, y, flux_mjy, shape_r?}`` (pixel
@@ -122,33 +142,43 @@ def make_synth_cutout(path, *, cutout_index=0, obsid="SYNTH0001", detector=1,
             fwhm = np.hypot(fwhm_native, 2.0 * s["shape_r"] / PIXSCALE)
         model += f * _pixel_integrated_gaussian((ny, nx), x, y, fwhm, oversamp)
 
-    image = model / (OMEGA_SR * IMG_SCALE)               # mJy/pixel -> MJy/sr
-    image += zodi_level                                  # flat zodi pedestal
+    image = model / (OMEGA_SR * IMG_SCALE)  # mJy/pixel -> MJy/sr
+    image += zodi_level  # flat zodi pedestal
     image += rng.normal(0.0, noise_mjy_sr, size=image.shape)
 
-    variance = np.full((ny, nx), noise_mjy_sr ** 2, dtype=np.float64)
+    variance = np.full((ny, nx), noise_mjy_sr**2, dtype=np.float64)
     flags = np.zeros((ny, nx), dtype=np.int32)
     zodi = np.full((ny, nx), zodi_level, dtype=np.float64)
 
     if psf_kind == "effective":
         psf_oversamp = 5
         psf_plane = gaussian_effective(epsf_size_over, psf_oversamp, fwhm_native)
-        psf_zones = Table({"zone_id": [1], "x": [nx / 2.0], "y": [ny / 2.0],
-                           "plane_idx": [0], "xwidth": [97.14], "ywidth": [97.14],
-                           "nstar": [500], "neff": [3.4]})
+        psf_zones = Table(
+            {
+                "zone_id": [1],
+                "x": [nx / 2.0],
+                "y": [ny / 2.0],
+                "plane_idx": [0],
+                "xwidth": [97.14],
+                "ywidth": [97.14],
+                "nstar": [500],
+                "neff": [3.4],
+            }
+        )
     else:
         psf_oversamp = oversamp
         psf_plane = gaussian_oversampled(psf_size_over, oversamp, fwhm_native)
-        psf_zones = Table({"zone_id": [1], "x": [nx / 2.0], "y": [ny / 2.0],
-                           "plane_idx": [0]})
+        psf_zones = Table(
+            {"zone_id": [1], "x": [nx / 2.0], "y": [ny / 2.0], "plane_idx": [0]}
+        )
     psf_cube = psf_plane[None, :, :]
 
     cwave = cwave_base + cwave_slope * np.arange(nx)[None, :] * np.ones((ny, 1))
     cband = np.full((ny, nx), 0.01, dtype=np.float64)
-    sapm = np.full((ny, nx), PIXSCALE ** 2, dtype=np.float64)  # arcsec^2
+    sapm = np.full((ny, nx), PIXSCALE**2, dtype=np.float64)  # arcsec^2
 
     ihdr = w.to_header()
-    ihdr["CRPIX1A"] = 1.0   # detector origin of cutout (0,0)
+    ihdr["CRPIX1A"] = 1.0  # detector origin of cutout (0,0)
     ihdr["CRPIX2A"] = 1.0
     ihdr["DETECTOR"] = detector
 
@@ -173,18 +203,24 @@ def make_synth_cutout(path, *, cutout_index=0, obsid="SYNTH0001", detector=1,
         fits.ImageHDU(flags, name="FLAGS"),
         fits.ImageHDU(variance.astype(np.float32), name="VARIANCE"),
         fits.ImageHDU(zodi.astype(np.float32), name="ZODI"),
-        fits.ImageHDU(psf_cube.astype(np.float64 if psf_kind == "effective" else np.float32),
-                      name="PSF"),
+        fits.ImageHDU(
+            psf_cube.astype(np.float64 if psf_kind == "effective" else np.float32),
+            name="PSF",
+        ),
         fits.BinTableHDU(psf_zones, name="PSF_ZONES"),
     ]
     if empty_side_hdus:
-        hdus += [fits.ImageHDU(np.zeros((0,), np.float32), name="CWAVE"),
-                 fits.ImageHDU(np.zeros((0,), np.float32), name="CBAND"),
-                 fits.ImageHDU(np.zeros((0,), np.float32), name="SAPM")]
+        hdus += [
+            fits.ImageHDU(np.zeros((0,), np.float32), name="CWAVE"),
+            fits.ImageHDU(np.zeros((0,), np.float32), name="CBAND"),
+            fits.ImageHDU(np.zeros((0,), np.float32), name="SAPM"),
+        ]
     else:
-        hdus += [fits.ImageHDU(cwave.astype(np.float32), name="CWAVE"),
-                 fits.ImageHDU(cband.astype(np.float32), name="CBAND"),
-                 fits.ImageHDU(sapm.astype(np.float32), name="SAPM")]
+        hdus += [
+            fits.ImageHDU(cwave.astype(np.float32), name="CWAVE"),
+            fits.ImageHDU(cband.astype(np.float32), name="CBAND"),
+            fits.ImageHDU(sapm.astype(np.float32), name="SAPM"),
+        ]
 
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -192,9 +228,19 @@ def make_synth_cutout(path, *, cutout_index=0, obsid="SYNTH0001", detector=1,
     return sources, w
 
 
-def make_synth_field(dirpath, *, n_cutouts=2, nx=40, ny=40, ra0=150.0,
-                     dec0=2.0, sources=None, seed=0, noise_mjy_sr=1e-4,
-                     psf_kind="optical"):
+def make_synth_field(
+    dirpath,
+    *,
+    n_cutouts=2,
+    nx=40,
+    ny=40,
+    ra0=150.0,
+    dec0=2.0,
+    sources=None,
+    seed=0,
+    noise_mjy_sr=1e-4,
+    psf_kind="optical",
+):
     """Write a small field of cutouts + a summary.ecsv; return injected sources.
 
     ``noise_mjy_sr`` is the white-noise sigma in image units (MJy/sr); the
@@ -213,11 +259,20 @@ def make_synth_field(dirpath, *, n_cutouts=2, nx=40, ny=40, ra0=150.0,
     for k in range(n_cutouts):
         p = dirpath / f"cutout_{k:04d}_SYNTH{k:04d}_D1.fits"
         # each visit samples a different wavelength band, like real SPHEREx visits
-        make_synth_cutout(p, cutout_index=k, obsid=f"SYNTH{k:04d}",
-                          nx=nx, ny=ny, ra0=ra0, dec0=dec0,
-                          sources=sources, seed=seed + k,
-                          noise_mjy_sr=noise_mjy_sr,
-                          cwave_base=1.0 + 0.6 * k, psf_kind=psf_kind)
+        make_synth_cutout(
+            p,
+            cutout_index=k,
+            obsid=f"SYNTH{k:04d}",
+            nx=nx,
+            ny=ny,
+            ra0=ra0,
+            dec0=dec0,
+            sources=sources,
+            seed=seed + k,
+            noise_mjy_sr=noise_mjy_sr,
+            cwave_base=1.0 + 0.6 * k,
+            psf_kind=psf_kind,
+        )
         summary_rows.append((k, "ok"))
     summary = Table(rows=summary_rows, names=("cutout_index", "status"))
     summary.write(dirpath / "summary.ecsv", overwrite=True)

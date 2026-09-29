@@ -25,8 +25,9 @@ def test_read_cutout_basic(one_cutout):
 
 def test_empty_side_hdus_guarded(tmp_path):
     p = tmp_path / "cutout_0000_X_D1.fits"
-    make_synth_cutout(p, sources=[{"x": 20, "y": 20, "flux_mjy": 1.0}],
-                      empty_side_hdus=True)
+    make_synth_cutout(
+        p, sources=[{"x": 20, "y": 20, "flux_mjy": 1.0}], empty_side_hdus=True
+    )
     c = read_cutout(p)
     assert c.cwave_map is None and c.cwave_center is None and c.sapm is None
     # falls back to WCS pixel area, finite and positive
@@ -44,6 +45,7 @@ def test_sapm_gives_pixel_area(one_cutout):
 
 def test_discover_and_filter(tmp_path):
     from fixtures.synth import make_synth_field
+
     d = tmp_path / "cut"
     make_synth_field(d, n_cutouts=3)
     pairs = discover_cutouts(d)

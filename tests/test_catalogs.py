@@ -12,16 +12,18 @@ from tractorjax_spherex.io.catalogs import (
 
 
 def _cat():
-    return Table({
-        "ls_id": [10, 20, 30],
-        "ra": [150.0, 150.01, 149.99],
-        "dec": [2.0, 2.01, 1.99],
-        "flux_z": [1000.0, 10.0, -1.0],   # bright, faint, undefined
-        "shape_r": [0.0, 1.5, 0.0],
-        "sersic": [1.0, 2.0, 1.0],
-        "shape_e1": [0.0, 0.2, 0.0],
-        "shape_e2": [0.0, 0.1, 0.0],
-    })
+    return Table(
+        {
+            "ls_id": [10, 20, 30],
+            "ra": [150.0, 150.01, 149.99],
+            "dec": [2.0, 2.01, 1.99],
+            "flux_z": [1000.0, 10.0, -1.0],  # bright, faint, undefined
+            "shape_r": [0.0, 1.5, 0.0],
+            "sersic": [1.0, 2.0, 1.0],
+            "shape_e1": [0.0, 0.2, 0.0],
+            "shape_e2": [0.0, 0.1, 0.0],
+        }
+    )
 
 
 def test_normalize_fills_and_derives():
@@ -61,8 +63,9 @@ def test_depth_cut_skips_catalog_without_flux_z(caplog):
     """The cut is on by default (fit_zmag_max=21). A bring-your-own catalog
     with no z-band flux must NOT collapse to the single kept target: it is
     fitted at its own depth, with a warning that says why."""
-    t = normalize_catalog(Table({"id": [1, 2, 3], "ra": [1.0, 1.01, 1.02],
-                                 "dec": [1.0, 1.0, 1.0]}))
+    t = normalize_catalog(
+        Table({"id": [1, 2, 3], "ra": [1.0, 1.01, 1.02], "dec": [1.0, 1.0, 1.0]})
+    )
     with caplog.at_level("WARNING", logger="tractorjax_spherex.io.catalogs"):
         cut, kept = apply_depth_cut(t, fit_zmag_max=21.0, keep_indices=(0,))
     assert len(cut) == 3 and list(kept) == [0, 1, 2]

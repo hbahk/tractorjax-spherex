@@ -38,8 +38,11 @@ class _Zones:
     """Duck-typed stand-in for the psf_zones Table used by the weight fn."""
 
     def __init__(self, xs, ys):
-        self._d = {"x": np.asarray(xs, float), "y": np.asarray(ys, float),
-                   "plane_idx": np.arange(len(xs))}
+        self._d = {
+            "x": np.asarray(xs, float),
+            "y": np.asarray(ys, float),
+            "plane_idx": np.arange(len(xs)),
+        }
 
     def __getitem__(self, k):
         return self._d[k]
@@ -49,20 +52,24 @@ class _Zones:
 
 
 def test_one_hot_blend_matches_plain_path():
-    """A blend that lands exactly on a zone centre must reproduce the plain
+    """A blend that lands exactly on a zone center must reproduce the plain
     OversampledPixelizedPSF for that zone's stamp, patch for patch."""
     from tractorjax_spherex.prepare import zone_bilinear_weights
 
     stamps = [_gauss(3.5), _gauss(4.5)]
     zones = _Zones([100.0, 300.0], [0.0, 0.0])
-    blended = ZoneBlendedPSF(stamps, zones, pix_to_det=lambda x, y: (x, y),
-                             sampling=0.2,
-                             weights_fn=zone_bilinear_weights, grid=15)
-    plain = OversampledPixelizedPSF(np.asarray(stamps[0], np.float32),
-                                    sampling=0.2)
-    # cell (0,0) centre (7.5, 7.5) lies OUTSIDE the lattice (leftmost zone at
+    blended = ZoneBlendedPSF(
+        stamps,
+        zones,
+        pix_to_det=lambda x, y: (x, y),
+        sampling=0.2,
+        weights_fn=zone_bilinear_weights,
+        grid=15,
+    )
+    plain = OversampledPixelizedPSF(np.asarray(stamps[0], np.float32), sampling=0.2)
+    # cell (0,0) center (7.5, 7.5) lies OUTSIDE the lattice (leftmost zone at
     # x=100), where the weight convention CLAMPS -> exact one-hot on zone 0.
-    # (Between zone centres it interpolates; one-hot holds only off-lattice.)
+    # (Between zone centers it interpolates; one-hot holds only off-lattice.)
     pb = blended.getPointSourcePatch(5.0, 5.0)
     pp = plain.getPointSourcePatch(5.0, 5.0)
     assert pb.x0 == pp.x0 and pb.y0 == pp.y0
@@ -74,13 +81,19 @@ def test_midpoint_blend_is_the_average_kernel():
     from tractorjax_spherex.prepare import zone_bilinear_weights
 
     stamps = [_gauss(3.5), _gauss(4.5)]
-    zones = _Zones([0.0, 15.0], [0.0, 0.0])   # pitch = one grid cell
-    blended = ZoneBlendedPSF(stamps, zones, pix_to_det=lambda x, y: (x, y),
-                             sampling=0.2,
-                             weights_fn=zone_bilinear_weights, grid=15)
+    zones = _Zones([0.0, 15.0], [0.0, 0.0])  # pitch = one grid cell
+    blended = ZoneBlendedPSF(
+        stamps,
+        zones,
+        pix_to_det=lambda x, y: (x, y),
+        sampling=0.2,
+        weights_fn=zone_bilinear_weights,
+        grid=15,
+    )
     mean = OversampledPixelizedPSF(
-        (0.5 * stamps[0] + 0.5 * stamps[1]).astype(np.float32), sampling=0.2)
-    # cell centre 7.5 = the midpoint of the two zone centres
+        (0.5 * stamps[0] + 0.5 * stamps[1]).astype(np.float32), sampling=0.2
+    )
+    # cell center 7.5 = the midpoint of the two zone centers
     pb = blended.getPointSourcePatch(7.0, 7.0)
     pm = mean.getPointSourcePatch(7.0, 7.0)
     np.testing.assert_allclose(pb.patch, pm.patch, rtol=0, atol=1e-6)
@@ -91,9 +104,15 @@ def test_delegates_are_cached_per_cell():
 
     stamps = [_gauss(3.5), _gauss(4.5)]
     zones = _Zones([0.0, 40.0], [0.0, 0.0])
-    b = ZoneBlendedPSF(stamps, zones, pix_to_det=lambda x, y: (x, y),
-                       sampling=0.2, weights_fn=zone_bilinear_weights, grid=15)
-    for x in (1.0, 5.0, 14.0):        # same cell
+    b = ZoneBlendedPSF(
+        stamps,
+        zones,
+        pix_to_det=lambda x, y: (x, y),
+        sampling=0.2,
+        weights_fn=zone_bilinear_weights,
+        grid=15,
+    )
+    for x in (1.0, 5.0, 14.0):  # same cell
         b.getPointSourcePatch(x, 3.0)
     n_same = len(b._delegates)
     b.getPointSourcePatch(20.0, 3.0)  # next cell
@@ -104,7 +123,7 @@ def test_shift_stamp_moves_centroid_by_the_applied_amount():
     """+dy native must move the stamp centroid by +dy/sampling stamp px, the
     engine phase-ramp direction (test_spherex_core_offset_correction_sign)."""
     stamp = _gauss(4.0)
-    dy, dx = 0.05, 0.03               # native px, the realistic magnitude
+    dy, dx = 0.05, 0.03  # native px, the realistic magnitude
     out = shift_stamp_native(stamp, dy, dx, sampling=0.2)
     cy0, cx0 = _centroid(stamp)
     cy1, cx1 = _centroid(out)
@@ -119,6 +138,7 @@ def test_calib_table_ships_and_loads():
         DOWNSAMPLE_GRID_SHIFT_NATIVE,
         psf_core_shift,
     )
+
     s = psf_core_shift(1, 60)
     assert s.source == "zone"
     # measured offsets are ~ +0.05 native px applied, both axes
@@ -140,16 +160,31 @@ def test_cross_backend_agreement_with_fixes(synth_field):
 
     pytest.importorskip("tractor_jax")
     jax_res = run_photometry(
-        synth_field["cutouts_dir"], synth_field["catalog"],
-        PhotometryConfig(backend="jax", device="cpu", precision="fp64",
-                         prefetch="sync", solver="linear", pad_bucket=0,
-                         psf_zone_interp=True, psf_core_shift=True),
-        progress=False)
+        synth_field["cutouts_dir"],
+        synth_field["catalog"],
+        PhotometryConfig(
+            backend="jax",
+            device="cpu",
+            precision="fp64",
+            prefetch="sync",
+            solver="linear",
+            pad_bucket=0,
+            psf_zone_interp=True,
+            psf_core_shift=True,
+        ),
+        progress=False,
+    )
     cpu_res = run_photometry(
-        synth_field["cutouts_dir"], synth_field["catalog"],
-        PhotometryConfig(backend="cpu-tractor", solver="linear",
-                         psf_zone_interp=True, psf_core_shift=True),
-        progress=False)
+        synth_field["cutouts_dir"],
+        synth_field["catalog"],
+        PhotometryConfig(
+            backend="cpu-tractor",
+            solver="linear",
+            psf_zone_interp=True,
+            psf_core_shift=True,
+        ),
+        progress=False,
+    )
 
     def flux(res, sid):
         return float(np.mean(res["flux"][res["id"] == sid]))
@@ -174,18 +209,27 @@ def test_core_shift_is_applied_on_single_zone_cutouts(synth_field):
     pytest.importorskip("tractor_jax")
 
     def run(core_shift):
-        cfg = PhotometryConfig(backend="jax", device="cpu", precision="fp64",
-                               prefetch="sync", solver="linear", pad_bucket=0,
-                               psf_zone_interp=True, psf_core_shift=core_shift)
-        r = run_photometry(synth_field["cutouts_dir"], synth_field["catalog"],
-                           cfg, progress=False)
+        cfg = PhotometryConfig(
+            backend="jax",
+            device="cpu",
+            precision="fp64",
+            prefetch="sync",
+            solver="linear",
+            pad_bucket=0,
+            psf_zone_interp=True,
+            psf_core_shift=core_shift,
+        )
+        r = run_photometry(
+            synth_field["cutouts_dir"], synth_field["catalog"], cfg, progress=False
+        )
         return np.asarray(r["flux"], dtype=float)
 
     off, on = run(False), run(True)
     assert off.shape == on.shape
     assert np.any(np.abs(on - off) > 0), (
         "psf_core_shift changed nothing on a single-zone cutout — the basis "
-        "pass-through in build_cutout_tiles has regressed")
+        "pass-through in build_cutout_tiles has regressed"
+    )
 
 
 def test_oversampled_radius_is_native_units():

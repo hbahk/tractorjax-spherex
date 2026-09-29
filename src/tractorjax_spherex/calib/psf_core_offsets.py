@@ -4,9 +4,9 @@ The problem this solves
 -----------------------
 A delivered L2 PSF plane is 101x101 at ``OVERSAMP = 10`` with
 ``CRPIX1 = CRPIX2 = 51.0``, so its *declared* fiducial is the 0-based array
-index ``(50.0, 50.0)`` -- the exact geometric centre of the odd-sized array.
-The renderer puts that array centre on the source's projected catalog position.
-But the PSF **core** is not at the array centre: it sits about ``-0.05`` native
+index ``(50.0, 50.0)`` -- the exact geometric center of the odd-sized array.
+The renderer puts that array center on the source's projected catalog position.
+But the PSF **core** is not at the array center: it sits about ``-0.05`` native
 px away on *both* axes.  Every rendered source therefore lands ~0.05 native px
 (~0.3 arcsec) off unless the kernel is shifted first.
 
@@ -68,7 +68,7 @@ bundles reach.  Lookups never raise for an in-range key: the chain is
 or count fallbacks instead of silently assuming full coverage.
 
 As shipped, the table covers all 6 x 121 = 726 pairs, so the fallbacks are
-insurance, not routine behaviour.
+insurance, not routine behavior.
 
 Do not "improve" the fallback into a nearest-zone interpolation.  It was tested
 and it is *worse*: leave-one-out over the 726 measured zones gives dy rms
@@ -114,10 +114,11 @@ __all__ = [
     "psf_core_shift_oversampled",
 ]
 
-TABLE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                          "psf_core_offsets.ecsv")
+TABLE_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "psf_core_offsets.ecsv"
+)
 
-OVERSAMP = 10          # oversampled px per native px
+OVERSAMP = 10  # oversampled px per native px
 
 # Pair-aligned 2x2 binning (10x cube -> 5x working stamp, the package's
 # ``downsample_psf_oversample2``) puts the 5x grid's origin half an INPUT pixel
@@ -184,8 +185,10 @@ class CoreOffset(_Pair):
         return self._dx
 
     def __repr__(self):
-        return (f"CoreOffset(dy_core={self._dy:+.6f}, dx_core={self._dx:+.6f}, "
-                f"source={self.source!r})  # MEASURED position, not a shift")
+        return (
+            f"CoreOffset(dy_core={self._dy:+.6f}, dx_core={self._dx:+.6f}, "
+            f"source={self.source!r})  # MEASURED position, not a shift"
+        )
 
 
 class CoreShift(_Pair):
@@ -206,8 +209,10 @@ class CoreShift(_Pair):
         return self._dx
 
     def __repr__(self):
-        return (f"CoreShift(dy_apply={self._dy:+.6f}, dx_apply={self._dx:+.6f}, "
-                f"source={self.source!r})  # APPLY this; already -offset")
+        return (
+            f"CoreShift(dy_apply={self._dy:+.6f}, dx_apply={self._dx:+.6f}, "
+            f"source={self.source!r})  # APPLY this; already -offset"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -319,8 +324,9 @@ def psf_core_shift(detector, zone_id, table=None, path=None) -> CoreShift:
 def psf_core_shift_arcsec(detector, zone_id, path=None) -> CoreShift:
     """:func:`psf_core_shift` converted to arcsec (1 native px = 6.15")."""
     s = psf_core_shift(detector, zone_id, path=path)
-    return CoreShift(s.dy_apply * NATIVE_PX_ARCSEC,
-                     s.dx_apply * NATIVE_PX_ARCSEC, s.source)
+    return CoreShift(
+        s.dy_apply * NATIVE_PX_ARCSEC, s.dx_apply * NATIVE_PX_ARCSEC, s.source
+    )
 
 
 def psf_core_shift_oversampled(detector, zone_id, path=None) -> CoreShift:
@@ -350,7 +356,7 @@ def psf_core_shift_for_kernel(plane, path=None) -> CoreShift:
 
 
 def psf_core_shift_batch(detectors, zone_ids, path=None):
-    """Vectorised :func:`psf_core_shift` for a driver looping over many tiles.
+    """Vectorized :func:`psf_core_shift` for a driver looping over many tiles.
 
     Returns ``(dy_apply, dx_apply, source)`` as three arrays of shape
     ``(n,)``, same units and sign convention as :func:`psf_core_shift`.

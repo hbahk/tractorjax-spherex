@@ -5,7 +5,7 @@ Brings the two PSF fixes of the JAX backend to `backend="cpu-tractor"`:
 **Zone interpolation** (``psf_zone_interp``). The SPHEREx PSF varies across the
 focal plane; the L2 cube ships one plane per PSF zone (~185 detector px pitch).
 A single whole-cutout kernel mis-renders every source that sits in a
-neighbouring zone. :class:`ZoneBlendedPSF` blends the delivered zone kernels
+neighboring zone. :class:`ZoneBlendedPSF` blends the delivered zone kernels
 bilinearly at each evaluation position (the SPHEREx Sky Simulator convention,
 clamped at the lattice edge), matching
 :func:`tractorjax_spherex.prepare.zone_bilinear_weights`.
@@ -57,7 +57,7 @@ def shift_stamp_native(stamp, dy_native, dx_native, sampling):
         h, w = out.shape
         ys0, ys1 = max(0, iy), min(h, h + iy)
         xs0, xs1 = max(0, ix), min(w, w + ix)
-        rolled[ys0:ys1, xs0:xs1] = out[ys0 - iy:ys1 - iy, xs0 - ix:xs1 - ix]
+        rolled[ys0:ys1, xs0:xs1] = out[ys0 - iy : ys1 - iy, xs0 - ix : xs1 - ix]
         out = rolled
     fx, fy = dx - ix, dy - iy
     if abs(fx) > 1e-12 or abs(fy) > 1e-12:
@@ -91,8 +91,16 @@ class ZoneBlendedPSF:
         so the piecewise-constant PSF field is identical across backends.
     """
 
-    def __init__(self, stamps, zones_tab, pix_to_det, sampling, weights_fn,
-                 grid=15, pixel_integrated=False):
+    def __init__(
+        self,
+        stamps,
+        zones_tab,
+        pix_to_det,
+        sampling,
+        weights_fn,
+        grid=15,
+        pixel_integrated=False,
+    ):
         if len(stamps) == 0:
             raise ValueError("ZoneBlendedPSF needs at least one zone stamp")
         self._pixel_integrated = bool(pixel_integrated)
@@ -117,16 +125,19 @@ class ZoneBlendedPSF:
         d = self._delegates.get(key)
         if d is None:
             g = self._grid
-            cx, cy = (key[0] + 0.5) * g, (key[1] + 0.5) * g   # cell centre
+            cx, cy = (key[0] + 0.5) * g, (key[1] + 0.5) * g  # cell center
             x_orig, y_orig = self._pix_to_det(cx, cy)
-            w = np.asarray(self._weights_fn(self._zones, x_orig, y_orig),
-                           dtype=np.float64)
+            w = np.asarray(
+                self._weights_fn(self._zones, x_orig, y_orig), dtype=np.float64
+            )
             if w.shape[0] != len(self._stamps):
                 raise ValueError("weights length does not match the zone basis")
             blended = np.tensordot(w, np.stack(self._stamps), axes=(0, 0))
-            d = OversampledPixelizedPSF(blended.astype(np.float32),
-                                        sampling=self._sampling,
-                                        pixel_integrated=self._pixel_integrated)
+            d = OversampledPixelizedPSF(
+                blended.astype(np.float32),
+                sampling=self._sampling,
+                pixel_integrated=self._pixel_integrated,
+            )
             self._delegates[key] = d
         return d
 
@@ -151,8 +162,10 @@ class ZoneBlendedPSF:
         return getattr(self._nominal, name)
 
     def __str__(self):
-        return (f"ZoneBlendedPSF(K={len(self._stamps)}, grid={self._grid}, "
-                f"{len(self._delegates)} cells built)")
+        return (
+            f"ZoneBlendedPSF(K={len(self._stamps)}, grid={self._grid}, "
+            f"{len(self._delegates)} cells built)"
+        )
 
 
 def zone_stamp_provider(cutout, cfg, *, prepare):
@@ -180,21 +193,24 @@ def zone_stamp_provider(cutout, cfg, *, prepare):
             stamp = prepare.psf_stamp_5x(cutout, int(zones["plane_idx"][row]))
             total = stamp.sum()
             if total > 0:
-                stamp = stamp / total          # unit flux before any shift
+                stamp = stamp / total  # unit flux before any shift
             if core_shift:
                 from ..calib import DOWNSAMPLE_GRID_SHIFT_NATIVE, psf_core_shift
+
                 z = int(zones["zone_id"][row])
                 s = psf_core_shift(det, z)
                 if s.source != "zone":
                     raise ValueError(
                         f"psf_core_shift(det={det}, zone={z}) fell back to "
                         f"{s.source!r}; coverage is 726/726, so a fallback "
-                        "means the detector or zone_id is wrong")
+                        "means the detector or zone_id is wrong"
+                    )
                 stamp = shift_stamp_native(
                     stamp,
                     s.dy_apply + DOWNSAMPLE_GRID_SHIFT_NATIVE,
                     s.dx_apply + DOWNSAMPLE_GRID_SHIFT_NATIVE,
-                    sampling)
+                    sampling,
+                )
             cache[row] = stamp
         return stamp
 
@@ -202,7 +218,7 @@ def zone_stamp_provider(cutout, cfg, *, prepare):
 
 
 def nearest_zone_row(zones, x_orig, y_orig) -> int:
-    """Row of ``psf_zones`` whose centre is nearest detector ``(x_orig, y_orig)``.
+    """Row of ``psf_zones`` whose center is nearest detector ``(x_orig, y_orig)``.
 
     The row index rather than ``plane_idx`` (which
     :func:`tractorjax_spherex.prepare.select_zone_plane` returns), because the
@@ -218,8 +234,8 @@ def resolve_zone_stamps(cutout, cfg, *, prepare):
 
     ``stamps`` are unit-flux 5x-oversampled native stamps with the config's core
     shifts already applied. ``interp`` says whether they form a blend basis
-    (aligned with ``cutout.psf_zones``) or are the single centre-zone kernel of
-    the pre-fix behaviour.
+    (aligned with ``cutout.psf_zones``) or are the single center-zone kernel of
+    the pre-fix behavior.
     """
     zones = cutout.psf_zones
     interp = bool(getattr(cfg, "psf_zone_interp", True)) and len(zones) > 1
@@ -228,11 +244,11 @@ def resolve_zone_stamps(cutout, cfg, *, prepare):
     if interp:
         return [get(r) for r in range(len(zones))], True
 
-    # centre-zone kernel, the pre-fix behaviour
+    # center-zone kernel, the pre-fix behavior
     H, W = cutout.image.shape
-    xo, yo = prepare.cutout_to_orig(W / 2.0, H / 2.0,
-                                    crpix1a=cutout.crpix1a,
-                                    crpix2a=cutout.crpix2a)
+    xo, yo = prepare.cutout_to_orig(
+        W / 2.0, H / 2.0, crpix1a=cutout.crpix1a, crpix2a=cutout.crpix2a
+    )
     return [get(nearest_zone_row(zones, xo, yo))], False
 
 
@@ -252,20 +268,26 @@ def build_cpu_psf(cutout, cfg, *, prepare):
     effective = cutout.psf_kind == "effective"
 
     if not interp:
-        return OversampledPixelizedPSF(stamps[0].astype(np.float32),
-                                       sampling=cfg.psf_sampling,
-                                       pixel_integrated=effective)
+        return OversampledPixelizedPSF(
+            stamps[0].astype(np.float32),
+            sampling=cfg.psf_sampling,
+            pixel_integrated=effective,
+        )
 
     crpix1a, crpix2a = cutout.crpix1a, cutout.crpix2a
 
     def pix_to_det(x_cut, y_cut):
-        return prepare.cutout_to_orig(x_cut, y_cut,
-                                      crpix1a=crpix1a, crpix2a=crpix2a)
+        return prepare.cutout_to_orig(x_cut, y_cut, crpix1a=crpix1a, crpix2a=crpix2a)
 
-    return ZoneBlendedPSF(stamps, cutout.psf_zones, pix_to_det, cfg.psf_sampling,
-                          prepare.zone_bilinear_weights,
-                          grid=getattr(cfg, "tile_size", 15),
-                          pixel_integrated=effective)
+    return ZoneBlendedPSF(
+        stamps,
+        cutout.psf_zones,
+        pix_to_det,
+        cfg.psf_sampling,
+        prepare.zone_bilinear_weights,
+        grid=getattr(cfg, "tile_size", 15),
+        pixel_integrated=effective,
+    )
 
 
 def build_cpu_psf_selector(cutout, cfg, *, prepare):
@@ -275,14 +297,14 @@ def build_cpu_psf_selector(cutout, cfg, *, prepare):
     PSF does not have to vary inside it — and must not, since the tile image
     carries tile-local pixel coordinates that a position-dependent
     :class:`ZoneBlendedPSF` would misread. This mirrors the JAX backend, which
-    resolves the kernel once at each tile's CORE CENTRE and renders the whole
-    tile (halo neighbours included) with it, in both branches:
+    resolves the kernel once at each tile's CORE CENTER and renders the whole
+    tile (halo neighbors included) with it, in both branches:
 
     * ``psf_zone_interp=True`` -> the bilinear zone blend at that position;
     * ``psf_zone_interp=False`` -> the nearest zone's kernel at that position
       (:func:`tractorjax_spherex.prepare.zone_psf_selector` on the JAX side) —
-      NOT the whole-cutout centre zone, which is what the untiled CPU path uses
-      and which would put every off-centre tile on the wrong kernel.
+      NOT the whole-cutout center zone, which is what the untiled CPU path uses
+      and which would put every off-center tile on the wrong kernel.
 
     Results are cached, so a whole cutout costs at most one blend per tile (and
     one kernel per zone when interpolation is off).
@@ -300,14 +322,17 @@ def build_cpu_psf_selector(cutout, cfg, *, prepare):
         psf = cache.get(key)
         if psf is None:
             psf = OversampledPixelizedPSF(
-                np.asarray(make_stamp(), dtype=np.float32), sampling=sampling,
-                pixel_integrated=effective)
+                np.asarray(make_stamp(), dtype=np.float32),
+                sampling=sampling,
+                pixel_integrated=effective,
+            )
             cache[key] = psf
         return psf
 
     def select(x_cut, y_cut):
         x_orig, y_orig = prepare.cutout_to_orig(
-            x_cut, y_cut, crpix1a=crpix1a, crpix2a=crpix2a)
+            x_cut, y_cut, crpix1a=crpix1a, crpix2a=crpix2a
+        )
         if not interp:
             # keyed on the zone row: single-zone cutouts build exactly one PSF
             row = nearest_zone_row(zones, x_orig, y_orig)
@@ -317,8 +342,9 @@ def build_cpu_psf_selector(cutout, cfg, *, prepare):
             nonlocal basis
             if basis is None:
                 basis = np.stack([get_stamp(r) for r in range(len(zones))])
-            w = np.asarray(prepare.zone_bilinear_weights(zones, x_orig, y_orig),
-                           dtype=np.float64)
+            w = np.asarray(
+                prepare.zone_bilinear_weights(zones, x_orig, y_orig), dtype=np.float64
+            )
             return np.tensordot(w, basis, axes=(0, 0))
 
         return _psf((round(float(x_cut), 6), round(float(y_cut), 6)), blend)

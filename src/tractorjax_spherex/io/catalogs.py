@@ -52,7 +52,8 @@ def normalize_catalog(tab: Table) -> Table:
             tab["id"] = np.asarray(tab["ls_id"]).astype(np.int64)
         else:
             raise ValueError(
-                "catalog must have an 'id' or 'ls_id' column (unique source id)")
+                "catalog must have an 'id' or 'ls_id' column (unique source id)"
+            )
     if "ls_id" not in tab.colnames:
         tab["ls_id"] = np.asarray(tab["id"]).astype(np.int64)
 
@@ -62,13 +63,18 @@ def normalize_catalog(tab: Table) -> Table:
 
     if "flux_z" not in tab.colnames:
         tab["flux_z"] = np.full(n, np.nan)
-    for col, fill in (("shape_r", 0.0), ("sersic", 1.0),
-                      ("shape_e1", 0.0), ("shape_e2", 0.0)):
+    for col, fill in (
+        ("shape_r", 0.0),
+        ("sersic", 1.0),
+        ("shape_e1", 0.0),
+        ("shape_e2", 0.0),
+    ):
         if col not in tab.colnames:
             tab[col] = np.full(n, fill)
 
     tab["shape_ab"], tab["shape_phi"] = ls_shapes_to_ab_phi(
-        tab["shape_e1"], tab["shape_e2"])
+        tab["shape_e1"], tab["shape_e2"]
+    )
     return tab
 
 
@@ -89,7 +95,7 @@ def find_nearest_source(tab: Table, ra_deg: float, dec_deg: float):
 
 
 def nearest_sources(tab: Table, ra_deg, dec_deg) -> np.ndarray:
-    """Row index of the catalog source nearest each ``(ra, dec)`` (vectorised
+    """Row index of the catalog source nearest each ``(ra, dec)`` (vectorized
     :func:`find_nearest_source`, for fields holding several targets)."""
     sco = SkyCoord(ra=tab["ra"], dec=tab["dec"], unit="deg")
     pts = SkyCoord(ra=np.atleast_1d(ra_deg) * u.deg, dec=np.atleast_1d(dec_deg) * u.deg)
@@ -119,7 +125,9 @@ def apply_depth_cut(tab: Table, fit_zmag_max, keep_indices=()):
             "(missing, NaN or <= 0 everywhere): fitting all %d sources at the "
             "catalog's own depth. Add a z-band flux in nanomaggies to enable "
             "the depth cut, or set fit_zmag_max=None to silence this.",
-            fit_zmag_max, len(tab))
+            fit_zmag_max,
+            len(tab),
+        )
         return tab, np.arange(len(tab))
     keep = np.isfinite(zmag) & (zmag < fit_zmag_max)
     for idx in keep_indices:

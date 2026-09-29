@@ -18,16 +18,22 @@ from astropy.table import Table
 # between its band edges [um] (Crill et al. 2020, the SPHEREx public band
 # parameters). Adjacent bands overlap by a few nm, so a visit is assigned to a
 # channel by its DETECTOR and wavelength together, never by wavelength alone.
-SPHEREX_BANDS = ((1, 0.75, 1.12), (2, 1.10, 1.65), (3, 1.63, 2.44),
-                 (4, 2.40, 3.85), (5, 3.81, 4.41), (6, 4.41, 5.01))
+SPHEREX_BANDS = (
+    (1, 0.75, 1.12),
+    (2, 1.10, 1.65),
+    (3, 1.63, 2.44),
+    (4, 2.40, 3.85),
+    (5, 3.81, 4.41),
+    (6, 4.41, 5.01),
+)
 CHANNELS_PER_BAND = 17
-N_CHANNELS = CHANNELS_PER_BAND * len(SPHEREX_BANDS)   # 102
+N_CHANNELS = CHANNELS_PER_BAND * len(SPHEREX_BANDS)  # 102
 
 
 def spherex_channels() -> Table:
     """The 102 fiducial SPHEREx channels: ``channel`` (1-based, ascending in
     wavelength), ``detector``, ``lambda_min``, ``lambda_max`` and the channel
-    centre ``central_wavelength`` [um]."""
+    center ``central_wavelength`` [um]."""
     det, lo, hi = [], [], []
     for band, lmin, lmax in SPHEREX_BANDS:
         edges = np.geomspace(lmin, lmax, CHANNELS_PER_BAND + 1)
@@ -35,9 +41,15 @@ def spherex_channels() -> Table:
         lo.append(edges[:-1])
         hi.append(edges[1:])
     det, lo, hi = np.concatenate(det), np.concatenate(lo), np.concatenate(hi)
-    return Table({"channel": np.arange(1, N_CHANNELS + 1, dtype=np.int64),
-                  "detector": det, "lambda_min": lo, "lambda_max": hi,
-                  "central_wavelength": 0.5 * (lo + hi)})
+    return Table(
+        {
+            "channel": np.arange(1, N_CHANNELS + 1, dtype=np.int64),
+            "detector": det,
+            "lambda_min": lo,
+            "lambda_max": hi,
+            "central_wavelength": 0.5 * (lo + hi),
+        }
+    )
 
 
 def channel_index(central_wavelength, detector) -> np.ndarray:
@@ -48,8 +60,11 @@ def channel_index(central_wavelength, detector) -> np.ndarray:
     ch = spherex_channels()
     out = np.full(wl.shape, -1, dtype=np.int64)
     for k in range(N_CHANNELS):
-        m = ((det == ch["detector"][k]) & (wl >= ch["lambda_min"][k])
-             & (wl < ch["lambda_max"][k]))
+        m = (
+            (det == ch["detector"][k])
+            & (wl >= ch["lambda_min"][k])
+            & (wl < ch["lambda_max"][k])
+        )
         out[m] = k
     return out
 
@@ -67,8 +82,9 @@ def to_ab_mag(flux_mjy, flux_err_mjy=None):
     return mag, mag_err
 
 
-def build_spectra(photometry: Table, ids=None, min_snr=None,
-                  drop_flagged: bool = True) -> dict[int, Table]:
+def build_spectra(
+    photometry: Table, ids=None, min_snr=None, drop_flagged: bool = True
+) -> dict[int, Table]:
     """Group a photometry table into per-source spectra sorted by wavelength.
 
     Parameters
@@ -116,8 +132,7 @@ def build_spectra(photometry: Table, ids=None, min_snr=None,
     return out
 
 
-def bin_spectrum(spectrum: Table, dlam: float | None = None,
-                 edges=None) -> Table:
+def bin_spectrum(spectrum: Table, dlam: float | None = None, edges=None) -> Table:
     """Inverse-variance-weighted binning of a per-source spectrum.
 
     Parameters
@@ -140,15 +155,21 @@ def bin_spectrum(spectrum: Table, dlam: float | None = None,
     fl = np.asarray(spectrum["flux"], dtype=np.float64)
     fe = np.asarray(spectrum["flux_err"], dtype=np.float64)
     if edges is None and dlam is None:
-        return Table({"central_wavelength": wl, "flux": fl, "flux_err": fe,
-                      "n": np.ones(len(wl), dtype=np.int64)})
+        return Table(
+            {
+                "central_wavelength": wl,
+                "flux": fl,
+                "flux_err": fe,
+                "n": np.ones(len(wl), dtype=np.int64),
+            }
+        )
     if edges is None:
         lo, hi = float(np.nanmin(wl)), float(np.nanmax(wl))
         edges = np.arange(lo, hi + dlam, dlam)
         if len(edges) < 2:  # all points within one bin width
             edges = np.array([lo - dlam / 2.0, hi + dlam / 2.0])
     with np.errstate(divide="ignore", invalid="ignore"):
-        ivar = 1.0 / fe ** 2
+        ivar = 1.0 / fe**2
     ok = np.isfinite(wl) & np.isfinite(fl) & np.isfinite(ivar) & (ivar > 0)
     wl, fl, ivar = wl[ok], fl[ok], ivar[ok]
     idx = np.digitize(wl, edges) - 1
@@ -168,11 +189,19 @@ def bin_spectrum(spectrum: Table, dlam: float | None = None,
         lbar = np.sum(w * wl[sel]) / wsum
         rows.append((lbar, fbar, 1.0 / np.sqrt(wsum), int(sel.sum())))
     if not rows:
-        return Table(names=("central_wavelength", "flux", "flux_err", "n"),
-                     dtype=("f8", "f8", "f8", "i8"))
+        return Table(
+            names=("central_wavelength", "flux", "flux_err", "n"),
+            dtype=("f8", "f8", "f8", "i8"),
+        )
     arr = np.array(rows)
-    return Table({"central_wavelength": arr[:, 0], "flux": arr[:, 1],
-                  "flux_err": arr[:, 2], "n": arr[:, 3].astype(np.int64)})
+    return Table(
+        {
+            "central_wavelength": arr[:, 0],
+            "flux": arr[:, 1],
+            "flux_err": arr[:, 2],
+            "n": arr[:, 3].astype(np.int64),
+        }
+    )
 
 
 def bin_to_channels(spectrum: Table) -> Table:
@@ -193,7 +222,7 @@ def bin_to_channels(spectrum: Table) -> Table:
     -------
     Table
         One row per populated channel, sorted by wavelength: ``channel``,
-        ``detector``, ``central_wavelength`` (the channel centre),
+        ``detector``, ``central_wavelength`` (the channel center),
         ``lambda_min``, ``lambda_max``, ``lambda_mean`` (ivar-weighted mean of
         the visits' own wavelengths), ``flux``, ``flux_err``, ``n``.
     """
@@ -203,40 +232,73 @@ def bin_to_channels(spectrum: Table) -> Table:
     fe = np.asarray(spectrum["flux_err"], dtype=np.float64)
     idx = channel_index(wl, spectrum["detector"])
     with np.errstate(divide="ignore", invalid="ignore"):
-        ivar = 1.0 / fe ** 2
+        ivar = 1.0 / fe**2
     ok = (idx >= 0) & np.isfinite(fl) & np.isfinite(ivar) & (ivar > 0)
     rows = []
     for k in np.unique(idx[ok]):
         sel = ok & (idx == k)
         w = ivar[sel]
         wsum = w.sum()
-        rows.append((int(ch["channel"][k]), int(ch["detector"][k]),
-                     float(ch["central_wavelength"][k]),
-                     float(ch["lambda_min"][k]), float(ch["lambda_max"][k]),
-                     float(np.sum(w * wl[sel]) / wsum),
-                     float(np.sum(w * fl[sel]) / wsum), float(1.0 / np.sqrt(wsum)),
-                     int(sel.sum())))
-    names = ("channel", "detector", "central_wavelength", "lambda_min",
-             "lambda_max", "lambda_mean", "flux", "flux_err", "n")
+        rows.append(
+            (
+                int(ch["channel"][k]),
+                int(ch["detector"][k]),
+                float(ch["central_wavelength"][k]),
+                float(ch["lambda_min"][k]),
+                float(ch["lambda_max"][k]),
+                float(np.sum(w * wl[sel]) / wsum),
+                float(np.sum(w * fl[sel]) / wsum),
+                float(1.0 / np.sqrt(wsum)),
+                int(sel.sum()),
+            )
+        )
+    names = (
+        "channel",
+        "detector",
+        "central_wavelength",
+        "lambda_min",
+        "lambda_max",
+        "lambda_mean",
+        "flux",
+        "flux_err",
+        "n",
+    )
     dtype = ("i8", "i8", "f8", "f8", "f8", "f8", "f8", "f8", "i8")
-    out = Table(rows=rows, names=names, dtype=dtype) if rows else \
-        Table(names=names, dtype=dtype)
+    out = (
+        Table(rows=rows, names=names, dtype=dtype)
+        if rows
+        else Table(names=names, dtype=dtype)
+    )
     out.sort("central_wavelength")
     return out
 
 
-def plot_spectrum(spectrum: Table, ax=None, binned: Table | None = None,
-                  label=None, **kw):
+def plot_spectrum(
+    spectrum: Table, ax=None, binned: Table | None = None, label=None, **kw
+):
     """Plot one source's spectrum (points + optional binned overlay)."""
     import matplotlib.pyplot as plt
+
     if ax is None:
         _, ax = plt.subplots(figsize=(9, 4))
-    ax.errorbar(spectrum["central_wavelength"], spectrum["flux"],
-                yerr=spectrum["flux_err"], fmt=".", alpha=0.5,
-                label=label or "per-visit", **kw)
+    ax.errorbar(
+        spectrum["central_wavelength"],
+        spectrum["flux"],
+        yerr=spectrum["flux_err"],
+        fmt=".",
+        alpha=0.5,
+        label=label or "per-visit",
+        **kw,
+    )
     if binned is not None and len(binned):
-        ax.errorbar(binned["central_wavelength"], binned["flux"],
-                    yerr=binned["flux_err"], fmt="o-", color="k", label="binned")
+        ax.errorbar(
+            binned["central_wavelength"],
+            binned["flux"],
+            yerr=binned["flux_err"],
+            fmt="o-",
+            color="k",
+            label="binned",
+        )
     ax.set_xlabel("Central wavelength (μm)")
     ax.set_ylabel("Flux (mJy)")
     ax.legend()

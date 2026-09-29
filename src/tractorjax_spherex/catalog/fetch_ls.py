@@ -22,26 +22,50 @@ logger = logging.getLogger(__name__)
 SPHEREX_PIXSCALE = 6.15
 
 DEFAULT_COLUMNS = [
-    "ls_id", "type", "ra", "dec",
-    "flux_g", "flux_ivar_g", "flux_r", "flux_ivar_r",
-    "flux_i", "flux_ivar_i", "flux_z", "flux_ivar_z",
-    "flux_w1", "flux_ivar_w1", "flux_w2", "flux_ivar_w2",
-    "mag_g", "mag_r", "mag_i", "mag_z",
-    "sersic", "shape_r", "shape_e1", "shape_e2",
-    "dered_flux_g", "dered_flux_r", "dered_flux_i", "dered_flux_z",
-    "dered_flux_w1", "dered_flux_w2",
+    "ls_id",
+    "type",
+    "ra",
+    "dec",
+    "flux_g",
+    "flux_ivar_g",
+    "flux_r",
+    "flux_ivar_r",
+    "flux_i",
+    "flux_ivar_i",
+    "flux_z",
+    "flux_ivar_z",
+    "flux_w1",
+    "flux_ivar_w1",
+    "flux_w2",
+    "flux_ivar_w2",
+    "mag_g",
+    "mag_r",
+    "mag_i",
+    "mag_z",
+    "sersic",
+    "shape_r",
+    "shape_e1",
+    "shape_e2",
+    "dered_flux_g",
+    "dered_flux_r",
+    "dered_flux_i",
+    "dered_flux_z",
+    "dered_flux_w1",
+    "dered_flux_w2",
 ]
 
 _DATALAB_HINT = (
     "fetch_ls_dr10 needs the NOIRLab Data Lab client, which is optional:\n"
     "    pip install 'tractorjax-spherex[catalog]'\n"
-    "Or supply your own reference catalog (see docs/catalogs).")
+    "Or supply your own reference catalog (see docs/catalogs)."
+)
 
 
 def _stored_login() -> bool:
     """True if the Data Lab client already holds a valid token for a named user."""
     try:
         from dl import authClient as ac
+
         who = ac.whoAmI()
         if not who or who == "anonymous":
             return False
@@ -50,10 +74,21 @@ def _stored_login() -> bool:
         return False
 
 
-def fetch_ls_dr10(ra, dec, *, radius_deg=None, cutout_pixels=100,
-                  columns=DEFAULT_COLUMNS, name="field", user=None,
-                  password=None, out=None, poll_seconds=5.0,
-                  timeout=1800.0, drop_dup=True) -> Table:
+def fetch_ls_dr10(
+    ra,
+    dec,
+    *,
+    radius_deg=None,
+    cutout_pixels=100,
+    columns=DEFAULT_COLUMNS,
+    name="field",
+    user=None,
+    password=None,
+    out=None,
+    poll_seconds=5.0,
+    timeout=1800.0,
+    drop_dup=True,
+) -> Table:
     """Query ``ls_dr10.tractor`` around ``(ra, dec)`` and return an astropy Table.
 
     Parameters
@@ -95,13 +130,17 @@ def fetch_ls_dr10(ra, dec, *, radius_deg=None, cutout_pixels=100,
     elif _stored_login():
         logger.info("Reusing the stored Data Lab login for %s", ac.whoAmI())
     else:
-        raise ValueError("Data Lab credentials required (args or "
-                         "DATALAB_USER/DATALAB_PASSWORD env), or log in once "
-                         "with dl.authClient.login so the token is cached")
+        raise ValueError(
+            "Data Lab credentials required (args or "
+            "DATALAB_USER/DATALAB_PASSWORD env), or log in once "
+            "with dl.authClient.login so the token is cached"
+        )
 
     cols = "*" if columns in ("*", None) else ", ".join(columns)
-    sql = (f"SELECT {cols} FROM ls_dr10.tractor "
-           f"WHERE q3c_radial_query(ra, dec, {ra}, {dec}, {radius_deg})")
+    sql = (
+        f"SELECT {cols} FROM ls_dr10.tractor "
+        f"WHERE q3c_radial_query(ra, dec, {ra}, {dec}, {radius_deg})"
+    )
     jobid = qc.query(sql=sql, out=f"vos://tmp/ls_{name}.csv", async_=True)
     logger.info("Submitted Data Lab job %s (radius=%.4f deg)", jobid, radius_deg)
 

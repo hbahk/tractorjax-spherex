@@ -32,8 +32,7 @@ def ls_shapes_to_ab_phi(e1, e2):
     return ab, phi
 
 
-def sky_pa_to_pixel_pa(wcs, ra_deg, dec_deg, pa_sky_deg,
-                       d_arcsec=1.0, y_down=False):
+def sky_pa_to_pixel_pa(wcs, ra_deg, dec_deg, pa_sky_deg, d_arcsec=1.0, y_down=False):
     """Convert a sky position angle (East-of-North) to the pixel frame.
 
     Probes the local WCS Jacobian with 1" steps toward East and North and maps
@@ -43,8 +42,11 @@ def sky_pa_to_pixel_pa(wcs, ra_deg, dec_deg, pa_sky_deg,
     sc = SkyCoord(ra=ra_deg * u.deg, dec=dec_deg * u.deg, frame="icrs")
     x0, y0 = wcs.world_to_pixel(sc)
     d = (d_arcsec * u.arcsec).to(u.deg).value
-    sc_E = SkyCoord(ra=(ra_deg + d / np.cos(np.deg2rad(dec_deg))) * u.deg,
-                    dec=dec_deg * u.deg, frame="icrs")
+    sc_E = SkyCoord(
+        ra=(ra_deg + d / np.cos(np.deg2rad(dec_deg))) * u.deg,
+        dec=dec_deg * u.deg,
+        frame="icrs",
+    )
     sc_N = SkyCoord(ra=ra_deg * u.deg, dec=(dec_deg + d) * u.deg, frame="icrs")
     xE, yE = wcs.world_to_pixel(sc_E)
     xN, yN = wcs.world_to_pixel(sc_N)
@@ -60,8 +62,9 @@ def sky_pa_to_pixel_pa(wcs, ra_deg, dec_deg, pa_sky_deg,
     return np.rad2deg(np.arctan2(v_pix[1], v_pix[0]))
 
 
-def sky_pa_to_pixel_pa_batch(wcs, ra_deg, dec_deg, pa_sky_deg,
-                             d_arcsec=1.0, y_down=False):
+def sky_pa_to_pixel_pa_batch(
+    wcs, ra_deg, dec_deg, pa_sky_deg, d_arcsec=1.0, y_down=False
+):
     """Vectorized :func:`sky_pa_to_pixel_pa` (identical math, batched WCS calls)."""
     ra = np.atleast_1d(np.asarray(ra_deg, dtype=float))
     dec = np.atleast_1d(np.asarray(dec_deg, dtype=float))
@@ -69,8 +72,9 @@ def sky_pa_to_pixel_pa_batch(wcs, ra_deg, dec_deg, pa_sky_deg,
     sc = SkyCoord(ra=ra * u.deg, dec=dec * u.deg, frame="icrs")
     x0, y0 = wcs.world_to_pixel(sc)
     d = (d_arcsec * u.arcsec).to(u.deg).value
-    sc_E = SkyCoord(ra=(ra + d / np.cos(np.deg2rad(dec))) * u.deg,
-                    dec=dec * u.deg, frame="icrs")
+    sc_E = SkyCoord(
+        ra=(ra + d / np.cos(np.deg2rad(dec))) * u.deg, dec=dec * u.deg, frame="icrs"
+    )
     sc_N = SkyCoord(ra=ra * u.deg, dec=(dec + d) * u.deg, frame="icrs")
     xE, yE = wcs.world_to_pixel(sc_E)
     xN, yN = wcs.world_to_pixel(sc_N)
@@ -89,6 +93,7 @@ def sky_pa_to_pixel_pa_batch(wcs, ra_deg, dec_deg, pa_sky_deg,
 @cache
 def _profile_for_sersic(sersic_value):
     from tractor_jax.sersic import SersicMixture
+
     return SersicMixture.getProfile(sersic_value)
 
 

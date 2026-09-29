@@ -68,16 +68,23 @@ def make_config(name: str, *, device: str = "auto"):
     from tractorjax_spherex import PhotometryConfig
 
     return PhotometryConfig(
-        **COMMON_PHOTOMETRY, **CONFIGURATIONS[name], device=device,
+        **COMMON_PHOTOMETRY,
+        **CONFIGURATIONS[name],
+        device=device,
     )
 
 
 if __name__ == "__main__":
-    print(json.dumps({
-        "software_versions": SOFTWARE_VERSIONS,
-        "retrieval": RETRIEVAL_OPTIONS,
-        "photometry": {
-            name: {**COMMON_PHOTOMETRY, **options}
-            for name, options in CONFIGURATIONS.items()
-        },
-    }, indent=2))
+    print(
+        json.dumps(
+            {
+                "software_versions": SOFTWARE_VERSIONS,
+                "retrieval": RETRIEVAL_OPTIONS,
+                "photometry": {
+                    name: {**COMMON_PHOTOMETRY, **options}
+                    for name, options in CONFIGURATIONS.items()
+                },
+            },
+            indent=2,
+        )
+    )

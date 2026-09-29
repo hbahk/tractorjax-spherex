@@ -44,6 +44,7 @@ __all__ = [
 def fetch_ls_dr10(*args, **kwargs):
     """Lazy wrapper for :func:`tractorjax_spherex.catalog.fetch_ls.fetch_ls_dr10`."""
     from .catalog.fetch_ls import fetch_ls_dr10 as _f
+
     return _f(*args, **kwargs)
 
 

@@ -7,8 +7,8 @@
  * `html.light` / `html.dark` switch. The rules below give myst-nb cells the
  * theme's own notebook look (the `.jupyter_container` rules of shibuya.css:
  * a bordered, rounded cell; the input on the code-block background; outputs
- * on the surface colour) with every colour taken from Shibuya's variables,
- * so the accent colour and the theme switch carry through.
+ * on the surface color) with every color taken from Shibuya's variables,
+ * so the accent color and the theme switch carry through.
  */
 
 /* myst-nb's light/dark space toggles follow the theme switch */
@@ -37,7 +37,7 @@ html.dark  { --light: ; --dark: initial; }
   background-color: var(--code-block-background);
 }
 
-/* outputs: text on the surface colour in light mode, on the code-block
+/* outputs: text on the surface color in light mode, on the code-block
    background in dark mode, with the theme's half-rem gutter */
 html.light .yue div.cell > div.cell_output {
   --code-block-background: var(--color-surface-accent);
@@ -69,7 +69,7 @@ html.light .yue div.cell > div.cell_output {
   max-width: calc(100% - 1rem);
 }
 
-/* stderr and tracebacks, as the theme colours them */
+/* stderr and tracebacks, as the theme colors them */
 .yue div.cell div.cell_output .output.stderr,
 .yue div.cell div.cell_output .output.traceback {
   color: var(--red-a11);

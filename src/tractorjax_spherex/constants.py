@@ -13,7 +13,7 @@ import astropy.units as u
 # SPHEREx native detector pixel scale.
 SPHEREX_PIXSCALE = 6.15  # arcsec / native pixel
 PIXAREA_CONST_SR = ((SPHEREX_PIXSCALE * u.arcsec) ** 2).to_value(u.sr)
-ARCSEC2_TO_SR = (1.0 * u.arcsec ** 2).to_value(u.sr)
+ARCSEC2_TO_SR = (1.0 * u.arcsec**2).to_value(u.sr)
 
 # Internal flux unit scaling: the L2 IMAGE is MJy/sr; multiplying by the
 # per-pixel solid angle (sr) gives MJy/pixel, and IMG_SCALE converts that to
@@ -24,24 +24,44 @@ IMG_SCALE = 1.0e9  # MJy -> mJy
 # Bit definitions from the L2 FLAGS extension header (matches the production
 # driver and the SPHEREx L2 documentation).
 FLAG_BITS = {
-    "TRANSIENT": 0, "OVERFLOW": 1, "SUR_ERROR": 2, "PHANTOM": 4,
-    "REFERENCE": 5, "NONFUNC": 6, "DICHROIC": 7, "MISSING_DATA": 9,
-    "HOT": 10, "COLD": 11, "FULLSAMPLE": 12, "PHANMISS": 14,
-    "NONLINEAR": 15, "PERSIST": 17, "OUTLIER": 19, "SOURCE": 21,
+    "TRANSIENT": 0,
+    "OVERFLOW": 1,
+    "SUR_ERROR": 2,
+    "PHANTOM": 4,
+    "REFERENCE": 5,
+    "NONFUNC": 6,
+    "DICHROIC": 7,
+    "MISSING_DATA": 9,
+    "HOT": 10,
+    "COLD": 11,
+    "FULLSAMPLE": 12,
+    "PHANMISS": 14,
+    "NONLINEAR": 15,
+    "PERSIST": 17,
+    "OUTLIER": 19,
+    "SOURCE": 21,
 }
 
 # Flags that mark a pixel unusable for photometry (zeroed inverse variance).
-MASK_FLAGS = ["SUR_ERROR", "PHANMISS", "NONFUNC", "MISSING_DATA",
-              "HOT", "COLD", "PERSIST", "OUTLIER"]
+MASK_FLAGS = [
+    "SUR_ERROR",
+    "PHANMISS",
+    "NONFUNC",
+    "MISSING_DATA",
+    "HOT",
+    "COLD",
+    "PERSIST",
+    "OUTLIER",
+]
 MASKBITS = 0
 for _name in MASK_FLAGS:
-    MASKBITS |= (1 << FLAG_BITS[_name])
+    MASKBITS |= 1 << FLAG_BITS[_name]
 
 # Per-visit quality bits of the output column ``quality_flag`` (see
 # tractorjax_spherex.quality): a row with any bit set is left out of spectra.
 QUALITY_BITS = {
     # fit_chi2 above visit_chi2_rel_max x the source's median fit_chi2 in the run:
-    # an unflagged bad pixel, a cosmic ray or unmodelled structure under the source
+    # an unflagged bad pixel, a cosmic ray or unmodeled structure under the source
     "BAD_FIT": 0,
     # no unmasked pixel under the source's template (fit_chi2 undefined)
     "NO_DATA": 1,

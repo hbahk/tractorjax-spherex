@@ -13,13 +13,19 @@ from astropy.io import fits
 from tractorjax_spherex.io import cutouts as C
 from tractorjax_spherex.io import fast as F
 
-pytestmark = pytest.mark.skipif(not F.have_fitsio(),
-                                reason="fitsio not installed")
+pytestmark = pytest.mark.skipif(not F.have_fitsio(), reason="fitsio not installed")
 
-ARRAY_FIELDS = ("image", "flags", "variance", "zodi", "psf_cube",
-                "cwave_map", "cband_map", "sapm")
-SCALAR_FIELDS = ("crpix1a", "crpix2a", "psf_oversamp", "detector",
-                 "cwave_center")
+ARRAY_FIELDS = (
+    "image",
+    "flags",
+    "variance",
+    "zodi",
+    "psf_cube",
+    "cwave_map",
+    "cband_map",
+    "sapm",
+)
+SCALAR_FIELDS = ("crpix1a", "crpix2a", "psf_oversamp", "detector", "cwave_center")
 
 
 def _same(a, b):
@@ -29,7 +35,7 @@ def _same(a, b):
     if a.shape != b.shape or a.dtype != b.dtype:
         return False
     if np.issubdtype(a.dtype, np.floating):
-        return np.array_equal(a, b, equal_nan=True)   # masked pixels are NaN
+        return np.array_equal(a, b, equal_nan=True)  # masked pixels are NaN
     return np.array_equal(a, b)
 
 
@@ -51,14 +57,16 @@ def assert_readers_agree(path):
     # so compare what callers use: both projections on a grid spanning the
     # cutout with margin, and the pixel area.
     ny, nx = ref.image.shape
-    xx, yy = np.meshgrid(np.linspace(-5.0, nx + 5.0, 12),
-                         np.linspace(-5.0, ny + 5.0, 12))
+    xx, yy = np.meshgrid(
+        np.linspace(-5.0, nx + 5.0, 12), np.linspace(-5.0, ny + 5.0, 12)
+    )
     w0 = np.asarray(ref.wcs.pixel_to_world_values(xx, yy))
     w1 = np.asarray(new.wcs.pixel_to_world_values(xx, yy))
     assert np.array_equal(w0, w1), "wcs pixel->world"
     assert np.array_equal(
         np.asarray(ref.wcs.world_to_pixel_values(*w0)),
-        np.asarray(new.wcs.world_to_pixel_values(*w0))), "wcs world->pixel"
+        np.asarray(new.wcs.world_to_pixel_values(*w0)),
+    ), "wcs world->pixel"
     assert ref.wcs.proj_plane_pixel_area() == new.wcs.proj_plane_pixel_area()
 
     # Headers: the fast path hands back keyword -> value mappings. Every
@@ -94,7 +102,7 @@ def test_psf_cube_cache_returns_equal_cubes(synth_field):
     F.clear_caches()
     paths = sorted(synth_field["cutouts_dir"].glob("cutout_*.fits"))
     first = C.read_cutout(paths[0], fast=True).psf_cube
-    for p in paths:                       # later reads may hit the cache
+    for p in paths:  # later reads may hit the cache
         cached = C.read_cutout(p, fast=True).psf_cube
         direct = C.read_cutout(p, fast=False).psf_cube
         assert _same(cached, direct)
@@ -130,8 +138,10 @@ def test_occupancy_geometry_matches_astropy(one_cutout):
         assert (H, W) == (int(hdr["NAXIS2"]), int(hdr["NAXIS1"]))
         ref = WCS(hdr).celestial
     xx, yy = np.meshgrid(np.linspace(0, W, 8), np.linspace(0, H, 8))
-    assert np.array_equal(np.asarray(ref.pixel_to_world_values(xx, yy)),
-                          np.asarray(wcs.pixel_to_world_values(xx, yy)))
+    assert np.array_equal(
+        np.asarray(ref.pixel_to_world_values(xx, yy)),
+        np.asarray(wcs.pixel_to_world_values(xx, yy)),
+    )
 
 
 def test_fast_true_without_fitsio_raises(one_cutout, monkeypatch):

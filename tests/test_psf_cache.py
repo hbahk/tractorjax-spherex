@@ -20,8 +20,9 @@ from tractorjax_spherex.psf_cache import PSFCache, cube_signature
 
 
 def _cutouts(synth_field):
-    return [read_cutout(p) for p in
-            sorted(synth_field["cutouts_dir"].glob("cutout_*.fits"))]
+    return [
+        read_cutout(p) for p in sorted(synth_field["cutouts_dir"].glob("cutout_*.fits"))
+    ]
 
 
 def test_same_cube_gives_the_same_list_object(synth_field):
@@ -43,7 +44,7 @@ def test_no_cache_rebuilds(synth_field):
     b2, _ = zone_psf_basis(cuts[0])
     assert b1 is not b2
     for a, b in zip(b1, b2):
-        assert np.array_equal(a, b)      # same values, different objects
+        assert np.array_equal(a, b)  # same values, different objects
 
 
 def test_signature_separates_different_cubes(synth_field):
@@ -56,6 +57,7 @@ def test_signature_separates_different_cubes(synth_field):
             self._b = base
             self.psf_cube = np.array(base.psf_cube, copy=True)
             self.psf_cube[0] += 1.0
+
         def __getitem__(self, k):
             return self.psf_cube if k == "psf_cube" else self._b[k]
 
@@ -77,16 +79,17 @@ def test_eviction_clears_everything(synth_field):
     cache = PSFCache(max_cubes=1)
     cache.fft[("fake", 1)] = "transform"
     c = _cutouts(synth_field)[0]
-    zone_psf_basis(c, cache=cache)          # fills the single slot
+    zone_psf_basis(c, cache=cache)  # fills the single slot
 
     class _Other:
         def __init__(self, base):
             self._b = base
             self.psf_cube = np.array(base.psf_cube, copy=True) + 3.0
+
         def __getitem__(self, k):
             return self.psf_cube if k == "psf_cube" else self._b[k]
 
-    cache.begin_cutout()                     # the next cutout: evicts the full cache
+    cache.begin_cutout()  # the next cutout: evicts the full cache
     zone_psf_basis(_Other(c), cache=cache)
     assert cache.stats()["ffts"] == 0, "FFTs survived an eviction of their kernels"
 
@@ -106,20 +109,24 @@ def test_no_eviction_while_a_cutout_is_built(synth_field):
     """Regression: a stamp miss past the cap used to clear the cache mid-cutout,
     after the cutout had its basis; the engine then keyed transforms on a list
     the cache no longer held, which aliased once the list was freed."""
-    cache = PSFCache(max_cubes=1)            # stamp cap 16
+    cache = PSFCache(max_cubes=1)  # stamp cap 16
     c = _cutouts(synth_field)[0]
     sig = cube_signature(c)
     cache.begin_cutout()
     basis, _ = zone_psf_basis(c, cache=cache)
-    for plane in range(40):                  # far past the stamp cap
+    for plane in range(40):  # far past the stamp cap
         cache.stamp(sig, plane, lambda: np.zeros((3, 3)))
-    assert cache.basis.get(sig) is basis, "basis evicted while its cutout was being built"
+    assert (
+        cache.basis.get(sig) is basis
+    ), "basis evicted while its cutout was being built"
     # what the engine does next: key transforms on the objects it was given
     cache.fft[("basis", id(basis))] = "stack"
     for k in basis:
         cache.fft[(id(k), k.shape)] = "fft"
-    assert {key[1] if key[0] == "basis" else key[0] for key in cache.fft} <= _held_ids(cache)
-    cache.begin_cutout()                     # next cutout: now it may evict, all together
+    assert {key[1] if key[0] == "basis" else key[0] for key in cache.fft} <= _held_ids(
+        cache
+    )
+    cache.begin_cutout()  # next cutout: now it may evict, all together
     assert cache.stats() == {"cubes": 0, "stamps": 0, "shift_tables": 0, "ffts": 0}
 
 
@@ -127,30 +134,36 @@ def test_backend_marks_each_cutout(synth_field, monkeypatch):
     monkeypatch.setattr(JB, "PSF_CACHE_ACROSS_CUTOUTS", True)
     calls = []
     monkeypatch.setattr(PSFCache, "begin_cutout", lambda self: calls.append(1))
-    cfg = PhotometryConfig(backend="jax", device="cpu", precision="fp64", solver="linear")
-    out = run_photometry(synth_field["cutouts_dir"], synth_field["catalog"], cfg, progress=False)
+    cfg = PhotometryConfig(
+        backend="jax", device="cpu", precision="fp64", solver="linear"
+    )
+    out = run_photometry(
+        synth_field["cutouts_dir"], synth_field["catalog"], cfg, progress=False
+    )
     n = len(set(np.asarray(out["cutout_index"])))
     assert len(calls) >= n > 0
 
 
 def _run(synth_field, monkeypatch, enabled):
     monkeypatch.setattr(JB, "PSF_CACHE_ACROSS_CUTOUTS", enabled)
-    cfg = PhotometryConfig(backend="jax", device="cpu", precision="fp64",
-                           solver="linear")
-    out = run_photometry(synth_field["cutouts_dir"], synth_field["catalog"],
-                         cfg, progress=False)
+    cfg = PhotometryConfig(
+        backend="jax", device="cpu", precision="fp64", solver="linear"
+    )
+    out = run_photometry(
+        synth_field["cutouts_dir"], synth_field["catalog"], cfg, progress=False
+    )
     monkeypatch.undo()
     return out
 
 
 @pytest.mark.parametrize("col", ["flux", "flux_err", "central_wavelength"])
-def test_photometry_identical_with_and_without_cache(synth_field, monkeypatch,
-                                                     col):
+def test_photometry_identical_with_and_without_cache(synth_field, monkeypatch, col):
     on = _run(synth_field, monkeypatch, True)
     off = _run(synth_field, monkeypatch, False)
     assert len(on) == len(off) > 0
-    assert np.array_equal(np.asarray(on[col]), np.asarray(off[col]),
-                          equal_nan=True), f"{col} differs"
+    assert np.array_equal(
+        np.asarray(on[col]), np.asarray(off[col]), equal_nan=True
+    ), f"{col} differs"
 
 
 def test_backend_holds_a_cache_when_enabled(monkeypatch):

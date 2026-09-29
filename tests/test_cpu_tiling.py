@@ -7,6 +7,7 @@ in-cutout source is reported exactly once (halo overlaps neither duplicate nor
 drop it), and that the fluxes match the whole-cutout solve where the two
 geometries are physically equivalent (isolated sources).
 """
+
 import numpy as np
 import pytest
 
@@ -28,8 +29,8 @@ TILE_SOURCES = [
     {"x": 6.0, "y": 35.0, "flux_mjy": 2.5},
     {"x": 35.0, "y": 35.0, "flux_mjy": 2.0},
     {"x": 22.0, "y": 22.0, "flux_mjy": 1.5},
-    {"x": 15.2, "y": 22.0, "flux_mjy": 1.2},   # just inside a core, in 3 halos
-    {"x": 14.6, "y": 14.6, "flux_mjy": 1.0},   # just outside it, in 3 halos
+    {"x": 15.2, "y": 22.0, "flux_mjy": 1.2},  # just inside a core, in 3 halos
+    {"x": 14.6, "y": 14.6, "flux_mjy": 1.0},  # just outside it, in 3 halos
 ]
 
 
@@ -43,21 +44,22 @@ def tile_field(tmp_path):
     c0 = read_cutout(min(cut.glob("cutout_*.fits")))
     cat = tmp_path / "cat.parquet"
     make_synth_catalog(cat, TILE_SOURCES, c0.wcs)
-    return {"cutouts_dir": cut, "catalog": cat, "sources": TILE_SOURCES,
-            "cutout": c0}
+    return {"cutouts_dir": cut, "catalog": cat, "sources": TILE_SOURCES, "cutout": c0}
 
 
 def _run(field, *, cpu_tiling, **kw):
-    cfg = PhotometryConfig(backend="cpu-tractor", solver="linear",
-                           cpu_tiling=cpu_tiling, **kw)
-    return run_photometry(field["cutouts_dir"], field["catalog"], cfg,
-                          progress=False)
+    cfg = PhotometryConfig(
+        backend="cpu-tractor", solver="linear", cpu_tiling=cpu_tiling, **kw
+    )
+    return run_photometry(field["cutouts_dir"], field["catalog"], cfg, progress=False)
 
 
 def _by_id(res):
     """``{id: mean flux}`` across the field's visits."""
-    return {int(i): float(np.mean(res["flux"][res["id"] == i]))
-            for i in np.unique(res["id"])}
+    return {
+        int(i): float(np.mean(res["flux"][res["id"] == i]))
+        for i in np.unique(res["id"])
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -65,7 +67,7 @@ def _by_id(res):
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize("H,W", [(40, 40), (45, 45), (30, 47), (10, 10)])
 def test_cores_partition_the_cutout(H, W):
-    """Every in-cutout pixel centre belongs to exactly one tile CORE.
+    """Every in-cutout pixel center belongs to exactly one tile CORE.
 
     This is the invariant the whole read-back rule rests on: no double counts,
     no drops, whatever the cutout size does modulo the tile size.
@@ -73,7 +75,7 @@ def test_cores_partition_the_cutout(H, W):
     metas = list(iter_tiles(H, W, 15, 3))
     covered = np.zeros((H, W), dtype=np.int32)
     for m in metas:
-        covered[m["core_y0"]:m["core_y1"], m["core_x0"]:m["core_x1"]] += 1
+        covered[m["core_y0"] : m["core_y1"], m["core_x0"] : m["core_x1"]] += 1
     assert covered.min() == 1 and covered.max() == 1
 
 
@@ -91,12 +93,13 @@ def test_tile_core_index_rejects_out_of_cutout_positions():
     sx = np.array([0.0, 14.9, 15.0, 39.9, 40.0, -0.5, 20.0, np.nan])
     sy = np.array([0.0, 14.9, 15.0, 39.9, 20.0, 20.0, 40.5, 5.0])
     ti = tile_core_index(metas, sx, sy)
-    assert ti[0] == 0                       # (0,0) core
-    assert ti[1] == 0                       # still core (0,0): upper edge open
-    assert ti[2] == metas.index(            # first pixel of core (1,1)
-        next(m for m in metas if m["ix"] == 1 and m["iy"] == 1))
-    assert ti[3] >= 0                       # last in-cutout pixel
-    assert (ti[4:] == -1).all()             # x>=W, x<0, y>=H, NaN
+    assert ti[0] == 0  # (0,0) core
+    assert ti[1] == 0  # still core (0,0): upper edge open
+    assert ti[2] == metas.index(  # first pixel of core (1,1)
+        next(m for m in metas if m["ix"] == 1 and m["iy"] == 1)
+    )
+    assert ti[3] >= 0  # last in-cutout pixel
+    assert (ti[4:] == -1).all()  # x>=W, x<0, y>=H, NaN
 
 
 # --------------------------------------------------------------------------- #
@@ -111,18 +114,23 @@ def test_tiled_build_makes_one_tractor_per_occupied_tile(tile_field):
     from tractorjax_spherex.io.catalogs import load_catalog, normalize_catalog
 
     tab = normalize_catalog(load_catalog(tile_field["catalog"]))
-    ctx = FieldContext(catalog=tab, sco_all=SkyCoord(
-        ra=tab["ra"], dec=tab["dec"], unit="deg"), main_idx=0)
+    ctx = FieldContext(
+        catalog=tab,
+        sco_all=SkyCoord(ra=tab["ra"], dec=tab["dec"], unit="deg"),
+        main_idx=0,
+    )
     cutout = tile_field["cutout"]
 
-    tiled = CpuTractorBackend(PhotometryConfig(
-        backend="cpu-tractor", solver="linear", cpu_tiling=True))
-    whole = CpuTractorBackend(PhotometryConfig(
-        backend="cpu-tractor", solver="linear", cpu_tiling=False))
+    tiled = CpuTractorBackend(
+        PhotometryConfig(backend="cpu-tractor", solver="linear", cpu_tiling=True)
+    )
+    whole = CpuTractorBackend(
+        PhotometryConfig(backend="cpu-tractor", solver="linear", cpu_tiling=False)
+    )
     ti, wi = tiled.build(cutout, ctx), whole.build(cutout, ctx)
 
     assert len(wi["tiles"]) == 1
-    assert 2 <= len(ti["tiles"]) <= 9        # occupied tiles of the 3x3 grid
+    assert 2 <= len(ti["tiles"]) <= 9  # occupied tiles of the 3x3 grid
     # the halo duplicates sources into several tiles, so the tiled model holds
     # MORE slots than the whole-cutout one while reporting the same set
     assert ti["n_model"] > wi["n_model"]
@@ -133,7 +141,7 @@ def test_tiled_build_makes_one_tractor_per_occupied_tile(tile_field):
 def test_every_in_cutout_source_reported_exactly_once(tile_field):
     """Structural bookkeeping: the halo can neither duplicate nor drop a source."""
     res = _run(tile_field, cpu_tiling=True)
-    expected = {i + 1 for i in range(len(TILE_SOURCES))}   # all land in-cutout
+    expected = {i + 1 for i in range(len(TILE_SOURCES))}  # all land in-cutout
     for cidx in np.unique(res["cutout_index"]):
         ids = np.asarray(res["id"][res["cutout_index"] == cidx])
         assert len(ids) == len(set(ids.tolist())), "a source was double-counted"
@@ -146,8 +154,9 @@ def test_tiled_and_whole_report_the_same_sources(tile_field):
     tiled.sort(["cutout_index", "id"])
     whole.sort(["cutout_index", "id"])
     assert np.array_equal(np.asarray(tiled["id"]), np.asarray(whole["id"]))
-    assert np.array_equal(np.asarray(tiled["cutout_index"]),
-                          np.asarray(whole["cutout_index"]))
+    assert np.array_equal(
+        np.asarray(tiled["cutout_index"]), np.asarray(whole["cutout_index"])
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -197,21 +206,31 @@ def test_tiled_agrees_with_the_jax_backend(tile_field):
     """Same tile geometry on both engines — the point of sharing tiling.py."""
     pytest.importorskip("tractor_jax")
     cpu = _by_id(_run(tile_field, cpu_tiling=True))
-    jax = _by_id(run_photometry(
-        tile_field["cutouts_dir"], tile_field["catalog"],
-        PhotometryConfig(backend="jax", device="cpu", precision="fp64",
-                         prefetch="sync", solver="linear", pad_bucket=0),
-        progress=False))
+    jax = _by_id(
+        run_photometry(
+            tile_field["cutouts_dir"],
+            tile_field["catalog"],
+            PhotometryConfig(
+                backend="jax",
+                device="cpu",
+                precision="fp64",
+                prefetch="sync",
+                solver="linear",
+                pad_bucket=0,
+            ),
+            progress=False,
+        )
+    )
     assert set(cpu) == set(jax)
     for sid in cpu:
         assert cpu[sid] == pytest.approx(jax[sid], rel=0.02)
 
 
 # --------------------------------------------------------------------------- #
-# Per-tile PSF: one constant kernel per tile, resolved at the CORE centre
+# Per-tile PSF: one constant kernel per tile, resolved at the CORE center
 # --------------------------------------------------------------------------- #
 def _multizone_cutout(tmp_path, *, interp_stamps=True):
-    """A synth cutout re-labelled with a 2x2 PSF-zone lattice across its span.
+    """A synth cutout re-labeled with a 2x2 PSF-zone lattice across its span.
 
     The delivered synth cutout is single-zone (one plane, one row), where every
     zone question is a no-op. Give it four zones at a lattice pitch small enough
@@ -231,34 +250,38 @@ def _multizone_cutout(tmp_path, *, interp_stamps=True):
     c = _read(min(d.glob("cutout_*.fits")))
 
     # four 101x101 planes of increasing width -> the kernel choice is visible
-    cube = np.stack([gaussian_oversampled(101, 10, f)
-                     for f in (2.0, 2.4, 2.8, 3.2)]).astype(np.float32)
+    cube = np.stack(
+        [gaussian_oversampled(101, 10, f) for f in (2.0, 2.4, 2.8, 3.2)]
+    ).astype(np.float32)
     # lattice pitch 60 px, so the whole 40 px cutout is strictly INSIDE it and
     # every position gets its own bilinear weights (outside, the simulator
-    # convention clamps and neighbouring positions collapse onto one kernel)
-    zones = Table({"zone_id": [1, 2, 3, 4],
-                   "x": [0.0, 60.0, 0.0, 60.0],
-                   "y": [0.0, 0.0, 60.0, 60.0],
-                   "plane_idx": [0, 1, 2, 3]})
+    # convention clamps and neighboring positions collapse onto one kernel)
+    zones = Table(
+        {
+            "zone_id": [1, 2, 3, 4],
+            "x": [0.0, 60.0, 0.0, 60.0],
+            "y": [0.0, 0.0, 60.0, 60.0],
+            "plane_idx": [0, 1, 2, 3],
+        }
+    )
     return dataclasses.replace(c, psf_cube=cube, psf_zones=zones)
 
 
-def test_per_tile_psf_tracks_the_tile_core_centre(tmp_path):
+def test_per_tile_psf_tracks_the_tile_core_center(tmp_path):
     """Tiles in different zones must get different kernels, blended AT the
-    clipped core centre — the JAX backend's convention, not a quantized cell."""
+    clipped core center — the JAX backend's convention, not a quantized cell."""
     from tractorjax_spherex import prepare as _prepare
     from tractorjax_spherex.backends.zone_psf import build_cpu_psf_selector
 
     cutout = _multizone_cutout(tmp_path)
-    cfg = PhotometryConfig(backend="cpu-tractor", solver="linear",
-                           psf_zone_interp=True)
+    cfg = PhotometryConfig(backend="cpu-tractor", solver="linear", psf_zone_interp=True)
     select = build_cpu_psf_selector(cutout, cfg, prepare=_prepare)
 
-    a = select(7.5, 7.5)        # core centre of tile (0,0)
-    b = select(35.0, 35.0)      # core centre of the CLIPPED tile (2,2): [30,40)
+    a = select(7.5, 7.5)  # core center of tile (0,0)
+    b = select(35.0, 35.0)  # core center of the CLIPPED tile (2,2): [30,40)
     assert not np.allclose(a.img, b.img), "every tile got the same kernel"
 
-    # the clipped tile's centre is 35.0, not the nominal cell centre 37.5
+    # the clipped tile's center is 35.0, not the nominal cell center 37.5
     assert np.allclose(select(35.0, 35.0).img, b.img)
     assert not np.allclose(select(37.5, 37.5).img, b.img)
 
@@ -280,8 +303,7 @@ def test_per_tile_blend_is_bilinear_and_matches_the_jax_weights(tmp_path):
 
     cutout = _multizone_cutout(tmp_path)
     zones = cutout.psf_zones
-    cfg = PhotometryConfig(backend="cpu-tractor", solver="linear",
-                           psf_zone_interp=True)
+    cfg = PhotometryConfig(backend="cpu-tractor", solver="linear", psf_zone_interp=True)
     select = build_cpu_psf_selector(cutout, cfg, prepare=_prepare)
     get = zone_stamp_provider(cutout, cfg, prepare=_prepare)
     basis = np.stack([get(r) for r in range(len(zones))])
@@ -310,21 +332,26 @@ def test_per_tile_blend_is_bilinear_and_matches_the_jax_weights(tmp_path):
 
 def test_nearest_zone_selection_is_per_tile_when_interp_is_off(tmp_path):
     """With psf_zone_interp=False the JAX backend still picks the nearest zone
-    PER TILE. Picking the cutout-centre zone for every tile is the bug."""
+    PER TILE. Picking the cutout-center zone for every tile is the bug."""
     from tractorjax_spherex import prepare as _prepare
     from tractorjax_spherex.backends.zone_psf import build_cpu_psf_selector
 
     cutout = _multizone_cutout(tmp_path)
-    cfg = PhotometryConfig(backend="cpu-tractor", solver="linear",
-                           psf_zone_interp=False)
+    cfg = PhotometryConfig(
+        backend="cpu-tractor", solver="linear", psf_zone_interp=False
+    )
     select = build_cpu_psf_selector(cutout, cfg, prepare=_prepare)
-    corners = [select(7.5, 7.5), select(35.0, 7.5),
-               select(7.5, 35.0), select(35.0, 35.0)]
+    corners = [
+        select(7.5, 7.5),
+        select(35.0, 7.5),
+        select(7.5, 35.0),
+        select(35.0, 35.0),
+    ]
     # four tiles nearest four different zones -> four different kernels
     for i in range(4):
         for j in range(i + 1, 4):
             assert not np.allclose(corners[i].img, corners[j].img)
-    # ...and the same tile centre returns the SAME cached object
+    # ...and the same tile center returns the SAME cached object
     assert select(7.5, 7.5) is corners[0]
 
 
@@ -342,7 +369,8 @@ def test_tile_background_column_absorbs_a_pedestal():
     from tractorjax_spherex.simulate import gaussian_oversampled
 
     psf = OversampledPixelizedPSF(
-        gaussian_oversampled(51, 5, 2.5).astype(np.float32), sampling=0.2)
+        gaussian_oversampled(51, 5, 2.5).astype(np.float32), sampling=0.2
+    )
     truth = [(8.0, 8.0, 3.0), (14.0, 13.0, 1.5)]
     pedestal = 0.05
 
@@ -380,13 +408,21 @@ def test_tile_background_flag_reaches_every_tile(tile_field):
     from tractorjax_spherex.io.catalogs import load_catalog, normalize_catalog
 
     tab = normalize_catalog(load_catalog(tile_field["catalog"]))
-    ctx = FieldContext(catalog=tab, sco_all=SkyCoord(
-        ra=tab["ra"], dec=tab["dec"], unit="deg"), main_idx=0)
+    ctx = FieldContext(
+        catalog=tab,
+        sco_all=SkyCoord(ra=tab["ra"], dec=tab["dec"], unit="deg"),
+        main_idx=0,
+    )
 
     for flag, want in ((False, 0), (True, 1)):
-        be = CpuTractorBackend(PhotometryConfig(
-            backend="cpu-tractor", solver="linear", cpu_tiling=True,
-            cpu_tile_background=flag))
+        be = CpuTractorBackend(
+            PhotometryConfig(
+                backend="cpu-tractor",
+                solver="linear",
+                cpu_tiling=True,
+                cpu_tile_background=flag,
+            )
+        )
         inputs = be.build(tile_field["cutout"], ctx)
         assert inputs["fit_sky"] is flag
         for trac in inputs["tiles"]:
@@ -418,14 +454,16 @@ def test_fully_masked_tile_reports_no_flux_not_the_seed(tmp_path):
     from fixtures.synth import make_synth_catalog, make_synth_field
     from tractorjax_spherex.constants import MASKBITS
 
-    srcs = [{"x": 7.0, "y": 7.0, "flux_mjy": 4.0},      # tile (0,0) core
-            {"x": 30.0, "y": 8.0, "flux_mjy": 3.0}]     # untouched
+    srcs = [
+        {"x": 7.0, "y": 7.0, "flux_mjy": 4.0},  # tile (0,0) core
+        {"x": 30.0, "y": 8.0, "flux_mjy": 3.0},
+    ]  # untouched
     d = tmp_path / "cut"
     make_synth_field(d, n_cutouts=1, seed=2, sources=srcs)
     path = min(d.glob("cutout_*.fits"))
 
     # mask tile (0,0)'s ENTIRE in-cutout halo box, [0,18) x [0,18)
-    bit = int(MASKBITS) & -int(MASKBITS)      # lowest bit that MASKBITS selects
+    bit = int(MASKBITS) & -int(MASKBITS)  # lowest bit that MASKBITS selects
     with fits.open(path, mode="update") as hdul:
         hdul["FLAGS"].data[0:18, 0:18] |= bit
 
@@ -457,8 +495,12 @@ def test_tiling_and_tile_background_default_on_and_round_trip(tmp_path):
     assert cfg.cpu_tiling is True
     assert cfg.cpu_tile_background is True
     p = tmp_path / "cfg.yaml"
-    PhotometryConfig(backend="cpu-tractor", solver="linear", cpu_tiling=False,
-                     cpu_tile_background=False).to_yaml(p)
+    PhotometryConfig(
+        backend="cpu-tractor",
+        solver="linear",
+        cpu_tiling=False,
+        cpu_tile_background=False,
+    ).to_yaml(p)
     loaded = PhotometryConfig.from_file(p)
     assert loaded.cpu_tiling is False and loaded.cpu_tile_background is False
 
@@ -468,9 +510,8 @@ def test_defaults_do_not_reject_the_other_backends_or_the_untiled_path():
     unconstructible. It is inert without tiles and true by construction on the
     JAX backend, so neither combination is an error."""
     assert PhotometryConfig(backend="jax").cpu_tile_background is True
-    cfg = PhotometryConfig(backend="cpu-tractor", solver="linear",
-                           cpu_tiling=False)
-    assert cfg.cpu_tile_background is True      # accepted, and inert
+    cfg = PhotometryConfig(backend="cpu-tractor", solver="linear", cpu_tiling=False)
+    assert cfg.cpu_tile_background is True  # accepted, and inert
 
 
 def test_untiled_path_ignores_the_background_flag(tile_field, caplog):
@@ -484,10 +525,17 @@ def test_untiled_path_ignores_the_background_flag(tile_field, caplog):
     from tractorjax_spherex.io.catalogs import load_catalog, normalize_catalog
 
     tab = normalize_catalog(load_catalog(tile_field["catalog"]))
-    ctx = FieldContext(catalog=tab, sco_all=SkyCoord(
-        ra=tab["ra"], dec=tab["dec"], unit="deg"), main_idx=0)
-    cfg = PhotometryConfig(backend="cpu-tractor", solver="linear",
-                           cpu_tiling=False, cpu_tile_background=True)
+    ctx = FieldContext(
+        catalog=tab,
+        sco_all=SkyCoord(ra=tab["ra"], dec=tab["dec"], unit="deg"),
+        main_idx=0,
+    )
+    cfg = PhotometryConfig(
+        backend="cpu-tractor",
+        solver="linear",
+        cpu_tiling=False,
+        cpu_tile_background=True,
+    )
     with caplog.at_level(logging.INFO, logger="tractorjax_spherex"):
         be = CpuTractorBackend(cfg)
     assert "inert" in caplog.text

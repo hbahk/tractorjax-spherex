@@ -110,14 +110,14 @@ each source's points by `central_wavelength` when it assembles a spectrum, so th
 reversal is transparent downstream — never order a spectrum by pixel, visit, or
 cutout index.
 
-### CWAVE varies across a cutout — *sources labelled per-pixel*
+### CWAVE varies across a cutout — *sources labeled per-pixel*
 
 A single cutout spans a **range** of central wavelengths (the `cwave_center`
 stored per cutout is only the value at its center). The pipeline therefore does
 not tag every source in a cutout with one wavelength: at extraction it samples
 the per-pixel `CWAVE` (and `CBAND`) map bilinearly **at each source's own pixel
 position**, so `central_wavelength`/`bandwidth` are per-source. A cutout with no
-`CWAVE` map still gets photometered — its sources are simply labelled NaN
+`CWAVE` map still gets photometered — its sources are simply labeled NaN
 wavelength and dropped when spectra are assembled.
 
 ### VARIANCE is affine in the observed rate — *weight-noise bias at the faint end*

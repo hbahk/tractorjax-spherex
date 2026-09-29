@@ -29,14 +29,14 @@ def synth_field(tmp_path):
     c0 = read_cutout(min(cut.glob("cutout_*.fits")))
     cat = tmp_path / "cat.parquet"
     make_synth_catalog(cat, POINT_SOURCES, c0.wcs)
-    return {"cutouts_dir": cut, "catalog": cat, "sources": POINT_SOURCES,
-            "wcs": c0.wcs}
+    return {"cutouts_dir": cut, "catalog": cat, "sources": POINT_SOURCES, "wcs": c0.wcs}
 
 
 @pytest.fixture
 def one_cutout(tmp_path):
     """A single cutout MEF path + its injected sources."""
     from fixtures.synth import make_synth_cutout
+
     p = tmp_path / "cutout_0000_SYNTH0000_D1.fits"
     srcs, wcs = make_synth_cutout(p, sources=POINT_SOURCES, seed=0)
     return {"path": p, "sources": srcs, "wcs": wcs}

@@ -1,10 +1,10 @@
-"""The vectorised PSF-zone lookup must reproduce the scalar helpers exactly.
+"""The vectorized PSF-zone lookup must reproduce the scalar helpers exactly.
 
 ``zone_planes_and_weights`` replaces one ``select_zone_plane`` and one
 ``zone_bilinear_weights`` call per tile with a single call for all tiles.  It is
 a pure re-expression — same comparisons, same tie-breaks — so these tests assert
 element-by-element equality against the scalar helpers, including on the cases
-where a tie-break decides: exact zone centres, lattice edges (clamped, not
+where a tie-break decides: exact zone centers, lattice edges (clamped, not
 extrapolated), points far outside the lattice, and a zone subset with a corner
 missing.
 """
@@ -37,15 +37,19 @@ def zone_table(nx, ny, *, drop=()):
                 ys.append(FIRST + iy * PITCH)
                 planes.append(k)
             k += 1
-    return Table({"zone_id": np.arange(len(xs)),
-                  "x": np.array(xs), "y": np.array(ys),
-                  "plane_idx": np.array(planes)})
+    return Table(
+        {
+            "zone_id": np.arange(len(xs)),
+            "x": np.array(xs),
+            "y": np.array(ys),
+            "plane_idx": np.array(planes),
+        }
+    )
 
 
 def scalar_reference(tab, xs, ys):
     planes = np.array([select_zone_plane(tab, x, y) for x, y in zip(xs, ys)])
-    weights = np.array([zone_bilinear_weights(tab, x, y)
-                        for x, y in zip(xs, ys)])
+    weights = np.array([zone_bilinear_weights(tab, x, y) for x, y in zip(xs, ys)])
     return planes, weights
 
 
@@ -56,21 +60,36 @@ def probe_points(tab, n=200, seed=0):
     zy = np.asarray(tab["y"], float)
     lo = min(zx.min(), zy.min()) - 300.0
     hi = max(zx.max(), zy.max()) + 300.0
-    xs = [rng.uniform(lo, hi, n), zx, zx + PITCH / 2, zx - 1e-9,
-          np.full(zx.size, lo), np.full(zx.size, hi)]
-    ys = [rng.uniform(lo, hi, n), zy, zy + PITCH / 2, zy - 1e-9,
-          np.full(zy.size, lo), np.full(zy.size, hi)]
+    xs = [
+        rng.uniform(lo, hi, n),
+        zx,
+        zx + PITCH / 2,
+        zx - 1e-9,
+        np.full(zx.size, lo),
+        np.full(zx.size, hi),
+    ]
+    ys = [
+        rng.uniform(lo, hi, n),
+        zy,
+        zy + PITCH / 2,
+        zy - 1e-9,
+        np.full(zy.size, lo),
+        np.full(zy.size, hi),
+    ]
     return np.concatenate(xs), np.concatenate(ys)
 
 
-@pytest.mark.parametrize("nx,ny,drop", [
-    (11, 11, ()),        # the full 121-zone lattice
-    (3, 3, ()),          # a delivered subset
-    (2, 2, ()),          # the smallest lattice with a real bilinear blend
-    (1, 1, ()),          # single zone: weights degenerate to one-hot
-    (1, 3, ()),          # degenerate in x only
-    (3, 3, (4,)),        # a corner absent from the subset -> nearest-zone fallback
-])
+@pytest.mark.parametrize(
+    "nx,ny,drop",
+    [
+        (11, 11, ()),  # the full 121-zone lattice
+        (3, 3, ()),  # a delivered subset
+        (2, 2, ()),  # the smallest lattice with a real bilinear blend
+        (1, 1, ()),  # single zone: weights degenerate to one-hot
+        (1, 3, ()),  # degenerate in x only
+        (3, 3, (4,)),  # a corner absent from the subset -> nearest-zone fallback
+    ],
+)
 def test_matches_scalar_helpers(nx, ny, drop):
     tab = zone_table(nx, ny, drop=drop)
     xs, ys = probe_points(tab)
@@ -78,8 +97,8 @@ def test_matches_scalar_helpers(nx, ny, drop):
     ref_planes, ref_weights = scalar_reference(tab, xs, ys)
 
     assert np.array_equal(planes, ref_planes)
-    assert np.array_equal(weights, ref_weights)          # bit-for-bit
-    # normalised the same way the scalar helper does (w / w.sum()), so equal to
+    assert np.array_equal(weights, ref_weights)  # bit-for-bit
+    # normalized the same way the scalar helper does (w / w.sum()), so equal to
     # float round-off, not exactly
     assert np.allclose(weights.sum(axis=1), 1.0, rtol=1e-12, atol=1e-12)
     assert (weights >= 0).all()
@@ -95,12 +114,15 @@ def test_empty_input_is_handled():
 
 def test_scalar_and_vector_agree_through_the_pipeline(synth_field, monkeypatch):
     """End to end: VECTOR_ZONES on and off must give identical photometry."""
+
     def run(vector):
         monkeypatch.setattr(JB, "VECTOR_ZONES", vector)
-        cfg = PhotometryConfig(backend="jax", device="cpu", precision="fp64",
-                               solver="linear")
-        out = run_photometry(synth_field["cutouts_dir"], synth_field["catalog"],
-                             cfg, progress=False)
+        cfg = PhotometryConfig(
+            backend="jax", device="cpu", precision="fp64", solver="linear"
+        )
+        out = run_photometry(
+            synth_field["cutouts_dir"], synth_field["catalog"], cfg, progress=False
+        )
         monkeypatch.undo()
         return out
 
@@ -123,13 +145,18 @@ def test_stamp_cache_returns_one_object_per_plane(synth_field, monkeypatch):
     monkeypatch.setattr(JB, "VECTOR_ZONES", True)
     seen = []
     original = JB.build_cutout_tiles
-    monkeypatch.setattr(JB, "build_cutout_tiles",
-                        lambda *a, **k: seen.append(original(*a, **k)) or seen[-1])
+    monkeypatch.setattr(
+        JB,
+        "build_cutout_tiles",
+        lambda *a, **k: seen.append(original(*a, **k)) or seen[-1],
+    )
     cfg = PhotometryConfig(backend="jax", device="cpu", solver="linear")
-    run_photometry(synth_field["cutouts_dir"], synth_field["catalog"], cfg,
-                   progress=False)
+    run_photometry(
+        synth_field["cutouts_dir"], synth_field["catalog"], cfg, progress=False
+    )
     for tiles in seen:
         ids = {id(t["psf"]) for t in tiles}
         planes = {t["psf"].tobytes() for t in tiles}
-        assert len(ids) == len(planes), \
-            "a distinct array object per tile — the engine's FFT cache will miss"
+        assert len(ids) == len(
+            planes
+        ), "a distinct array object per tile — the engine's FFT cache will miss"

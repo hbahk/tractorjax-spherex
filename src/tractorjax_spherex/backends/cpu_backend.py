@@ -51,8 +51,8 @@ from .base import FieldContext
 
 logger = logging.getLogger(__name__)
 
-# Whole-cutout neighbour margin (native px): sources within this of the cutout
-# still enter the model (their PSF wings matter) but only in-cutout centres are
+# Whole-cutout neighbor margin (native px): sources within this of the cutout
+# still enter the model (their PSF wings matter) but only in-cutout centers are
 # reported. The tiled path uses ``tile_halo`` instead, because that is the
 # margin the JAX backend uses and same-geometry is the point of tiling.
 MODEL_MARGIN = 5.0
@@ -97,23 +97,28 @@ class _SourceMaker:
                 cutout["wcs"],
                 np.asarray(catalog["ra"], dtype=np.float64)[gal_ci],
                 np.asarray(catalog["dec"], dtype=np.float64)[gal_ci],
-                shape_phi[gal_ci])
-            self._phi_pix = {int(ci): float(p)
-                             for ci, p in zip(gal_ci, np.atleast_1d(pp))}
+                shape_phi[gal_ci],
+            )
+            self._phi_pix = {
+                int(ci): float(p) for ci, p in zip(gal_ci, np.atleast_1d(pp))
+            }
 
     def __call__(self, ci, x, y):
         """A frozen-geometry, flux-thawed tractor source for catalog row ``ci``."""
         ci = int(ci)
         if not self._is_gal[ci]:
-            src = self._PointSource(self._PixPos(float(x), float(y)),
-                                    self._Flux(0.1))
+            src = self._PointSource(self._PixPos(float(x), float(y)), self._Flux(0.1))
         else:
             src = self._SersicGalaxy(
-                self._PixPos(float(x), float(y)), self._Flux(0.1),
-                self._GalaxyShape(float(self._shape_r[ci]),
-                                  float(self._shape_ab[ci]),
-                                  self._phi_pix[ci]),
-                self._SersicIndex(float(self._sersic[ci])))
+                self._PixPos(float(x), float(y)),
+                self._Flux(0.1),
+                self._GalaxyShape(
+                    float(self._shape_r[ci]),
+                    float(self._shape_ab[ci]),
+                    self._phi_pix[ci],
+                ),
+                self._SersicIndex(float(self._sersic[ci])),
+            )
         src.freezeAllRecursive()
         src.thawParam("brightness")
         return src
@@ -130,10 +135,14 @@ def _make_image(data, invvar, psf, *, fit_sky=False):
     import tractor
     from tractor import ConstantSky, LinearPhotoCal, NullWCS
 
-    tim = tractor.Image(data=np.ascontiguousarray(data, dtype=np.float32),
-                        invvar=np.ascontiguousarray(invvar, dtype=np.float32),
-                        psf=psf, wcs=NullWCS(pixscale=SPHEREX_PIXSCALE),
-                        photocal=LinearPhotoCal(1.0), sky=ConstantSky(0.0))
+    tim = tractor.Image(
+        data=np.ascontiguousarray(data, dtype=np.float32),
+        invvar=np.ascontiguousarray(invvar, dtype=np.float32),
+        psf=psf,
+        wcs=NullWCS(pixscale=SPHEREX_PIXSCALE),
+        photocal=LinearPhotoCal(1.0),
+        sky=ConstantSky(0.0),
+    )
     tim.freezeAllRecursive()
     if fit_sky:
         tim.thawParam("sky")
@@ -168,21 +177,29 @@ def _forced_solve(trac, *, fit_sky=False):
     n = len(trac.getCatalog())
     if n == 0:
         return np.zeros(0), np.zeros(0)
-    res = trac.optimize_forced_photometry(variance=True, shared_params=False,
-                                          sky=fit_sky)
-    fluxes = np.array([src.getBrightness().getValue()
-                       for src in trac.getCatalog()], dtype=np.float64)
+    res = trac.optimize_forced_photometry(
+        variance=True, shared_params=False, sky=fit_sky
+    )
+    fluxes = np.array(
+        [src.getBrightness().getValue() for src in trac.getCatalog()], dtype=np.float64
+    )
     iv = getattr(res, "IV", None)
     variances = np.full(n, np.nan)
     if iv is None:
-        logger.warning("optimize_forced_photometry returned no inverse "
-                       "variances; reporting NaN errors for %d sources", n)
+        logger.warning(
+            "optimize_forced_photometry returned no inverse "
+            "variances; reporting NaN errors for %d sources",
+            n,
+        )
         return fluxes, variances
     iv = np.asarray(iv, dtype=np.float64).ravel()
     if iv.size < n:
-        logger.warning("optimize_forced_photometry returned %d inverse "
-                       "variances for %d sources; reporting NaN errors",
-                       iv.size, n)
+        logger.warning(
+            "optimize_forced_photometry returned %d inverse "
+            "variances for %d sources; reporting NaN errors",
+            iv.size,
+            n,
+        )
         return fluxes, variances
     iv = iv[:n]
     constrained = iv > 0
@@ -199,13 +216,15 @@ class CpuTractorBackend:
 
     def __init__(self, config):
         self.config = config
-        if (getattr(config, "cpu_tile_background", True)
-                and not getattr(config, "cpu_tiling", True)):
+        if getattr(config, "cpu_tile_background", True) and not getattr(
+            config, "cpu_tiling", True
+        ):
             logger.info(
                 "cpu_tile_background is inert with cpu_tiling=False: the "
                 "whole-cutout solve has no tiles, and it is kept as the "
                 "reproduction of pre-tiling products, which carry only the "
-                "per-cutout background prefit.")
+                "per-cutout background prefit."
+            )
 
     # ---- build (pure CPU) ------------------------------------------------
     def build(self, cutout, ctx: FieldContext):
@@ -231,12 +250,17 @@ class CpuTractorBackend:
         H, W = data.shape
 
         # PSF per the config's PSF-fix flags: zone-blended and/or
-        # core-registered when asked, the plain centre-zone stamp otherwise.
+        # core-registered when asked, the plain center-zone stamp otherwise.
         psf = build_cpu_psf(cutout, self.config, prepare=_prepare)
 
-        in_model = ((sx_all > -MODEL_MARGIN) & (sx_all < W + MODEL_MARGIN)
-                    & (sy_all > -MODEL_MARGIN) & (sy_all < H + MODEL_MARGIN)
-                    & np.isfinite(sx_all) & np.isfinite(sy_all))
+        in_model = (
+            (sx_all > -MODEL_MARGIN)
+            & (sx_all < W + MODEL_MARGIN)
+            & (sy_all > -MODEL_MARGIN)
+            & (sy_all < H + MODEL_MARGIN)
+            & np.isfinite(sx_all)
+            & np.isfinite(sy_all)
+        )
         model_ci = np.where(in_model)[0]
 
         make_source = _SourceMaker(cutout, ctx.catalog, model_ci)
@@ -247,12 +271,20 @@ class CpuTractorBackend:
         report_ci = np.where(report)[0]
         # position of each model source in the source list
         pos_in_list = {int(ci): j for j, ci in enumerate(model_ci)}
-        report_pos = np.array([pos_in_list[int(ci)] for ci in report_ci],
-                              dtype=np.int64)
+        report_pos = np.array(
+            [pos_in_list[int(ci)] for ci in report_ci], dtype=np.int64
+        )
 
-        return dict(tiles=[trac], cutout=cutout, sx_all=sx_all, sy_all=sy_all,
-                    report_ci=report_ci, report_pos=report_pos,
-                    n_model=len(model_ci), fit_sky=False)
+        return dict(
+            tiles=[trac],
+            cutout=cutout,
+            sx_all=sx_all,
+            sy_all=sy_all,
+            report_ci=report_ci,
+            report_pos=report_pos,
+            n_model=len(model_ci),
+            fit_sky=False,
+        )
 
     # -- tiled (the JAX backend's geometry) --------------------------------
     def _build_tiled(self, cutout, ctx: FieldContext):
@@ -267,23 +299,28 @@ class CpuTractorBackend:
         tile_size, halo = cfg.tile_size, cfg.tile_halo
         fit_sky = bool(getattr(cfg, "cpu_tile_background", False))
 
-        # One constant kernel per tile, blended at the tile's core centre —
+        # One constant kernel per tile, blended at the tile's core center —
         # exactly what build_cutout_tiles hands the JAX engine.
         psf_select = build_cpu_psf_selector(cutout, cfg, prepare=_prepare)
 
         # Cutout-level pre-filter, matching build_cutout_tiles: the halo boxes of
         # the outermost tiles can reach past W + halo when W is not a multiple of
         # tile_size, and sources out there must not enter any model.
-        in_model = ((sx_all > -halo) & (sx_all < W + halo)
-                    & (sy_all > -halo) & (sy_all < H + halo)
-                    & np.isfinite(sx_all) & np.isfinite(sy_all))
+        in_model = (
+            (sx_all > -halo)
+            & (sx_all < W + halo)
+            & (sy_all > -halo)
+            & (sy_all < H + halo)
+            & np.isfinite(sx_all)
+            & np.isfinite(sy_all)
+        )
         model_ci = np.where(in_model)[0]
         mx, my = sx_all[model_ci], sy_all[model_ci]
 
         make_source = _SourceMaker(cutout, ctx.catalog, model_ci)
 
         # Which tile OWNS each source, i.e. whose core box contains it (-1 for
-        # the out-of-cutout ones, which are modelled but never reported). Cores
+        # the out-of-cutout ones, which are modeled but never reported). Cores
         # partition [0,W)x[0,H) exactly, so this single-valued lookup is what
         # makes halo overlaps impossible to double-count or drop.
         metas = list(iter_tiles(H, W, tile_size, halo))
@@ -300,7 +337,7 @@ class CpuTractorBackend:
             in_box = (mx >= xs) & (mx < xe) & (my >= ys) & (my < ye)
             idxs = model_ci[in_box]
             if idxs.size == 0:
-                continue          # empty tile: no core sources either
+                continue  # empty tile: no core sources either
             tx, ty = sx_all[idxs] - xs, sy_all[idxs] - ys
             srcs = [make_source(ci, x, y) for ci, x, y in zip(idxs, tx, ty)]
             cx = 0.5 * (meta["core_x0"] + meta["core_x1"])
@@ -308,10 +345,12 @@ class CpuTractorBackend:
             tim = _make_image(
                 extract_tile_region(data, xs, ys, xe, ye, fill=0.0),
                 extract_tile_region(invvar, xs, ys, xe, ye, fill=0.0),
-                psf_select(cx, cy), fit_sky=fit_sky)
+                psf_select(cx, cy),
+                fit_sky=fit_sky,
+            )
             tiles.append(tractor.Tractor([tim], srcs))
 
-            core = owner[idxs] == ti       # read back only this tile's own
+            core = owner[idxs] == ti  # read back only this tile's own
             report_ci_parts.append(idxs[core])
             report_pos_parts.append(slot_base + np.where(core)[0])
             slot_base += idxs.size
@@ -320,16 +359,23 @@ class CpuTractorBackend:
         if report_ci_parts:
             report_ci = np.concatenate(report_ci_parts)
             report_pos = np.concatenate(report_pos_parts)
-            order = np.argsort(report_ci, kind="stable")   # ascending ci, as
-            report_ci = report_ci[order]                   # the whole-cutout
-            report_pos = report_pos[order]                 # path reports
+            order = np.argsort(report_ci, kind="stable")  # ascending ci, as
+            report_ci = report_ci[order]  # the whole-cutout
+            report_pos = report_pos[order]  # path reports
         else:
             report_ci = np.zeros(0, dtype=np.int64)
             report_pos = np.zeros(0, dtype=np.int64)
 
-        return dict(tiles=tiles, cutout=cutout, sx_all=sx_all, sy_all=sy_all,
-                    report_ci=report_ci, report_pos=report_pos,
-                    n_model=n_model, fit_sky=fit_sky)
+        return dict(
+            tiles=tiles,
+            cutout=cutout,
+            sx_all=sx_all,
+            sy_all=sy_all,
+            report_ci=report_ci,
+            report_pos=report_pos,
+            n_model=n_model,
+            fit_sky=fit_sky,
+        )
 
     # ---- solve (one WLS per tile; one tile = the whole cutout when untiled) --
     def solve(self, inputs):
@@ -348,8 +394,12 @@ class CpuTractorBackend:
         # log instead of only as a column of infinite errors in the product.
         blind = int(np.sum(~np.isfinite(variances) & ~np.isnan(variances)))
         if blind:
-            logger.info("%d of %d fitted slots had no constraining pixels "
-                        "(flux 0, error inf)", blind, fluxes.size)
+            logger.info(
+                "%d of %d fitted slots had no constraining pixels "
+                "(flux 0, error inf)",
+                blind,
+                fluxes.size,
+            )
         return fluxes, variances
 
     # ---- extract ---------------------------------------------------------

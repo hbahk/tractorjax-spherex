@@ -33,8 +33,12 @@ def test_jax_core_shift_requires_zone_interp():
         PhotometryConfig(backend="jax", psf_zone_interp=False)
     # opting out of both is fine, and cpu-tractor shifts the stamp standalone
     PhotometryConfig(backend="jax", psf_zone_interp=False, psf_core_shift=False)
-    PhotometryConfig(backend="cpu-tractor", solver="linear",
-                     psf_zone_interp=False, psf_core_shift=True)
+    PhotometryConfig(
+        backend="cpu-tractor",
+        solver="linear",
+        psf_zone_interp=False,
+        psf_core_shift=True,
+    )
 
 
 def test_cpu_tractor_rejects_nonlinear_solver():
@@ -45,8 +49,14 @@ def test_cpu_tractor_rejects_nonlinear_solver():
 
 
 def test_bad_enums_raise():
-    for kw in (dict(solver="nope"), dict(backend="nope"), dict(bkg_model="nope"),
-               dict(device="nope"), dict(precision="nope"), dict(prefetch="nope")):
+    for kw in (
+        dict(solver="nope"),
+        dict(backend="nope"),
+        dict(bkg_model="nope"),
+        dict(device="nope"),
+        dict(precision="nope"),
+        dict(prefetch="nope"),
+    ):
         with pytest.raises(ConfigError):
             PhotometryConfig(**kw)
 
@@ -55,11 +65,17 @@ def test_resolved_caps_policy():
     # pad_bucket set (the default) -> caps off
     assert PhotometryConfig(pad_bucket=32).resolved_caps() == (None, None, None)
     # full depth, no pad_bucket -> field caps on
-    assert PhotometryConfig(pad_bucket=0, fit_zmag_max=None).resolved_caps() \
-        == (112, 352, 9)
+    assert PhotometryConfig(pad_bucket=0, fit_zmag_max=None).resolved_caps() == (
+        112,
+        352,
+        9,
+    )
     # z-cut -> caps off
-    assert PhotometryConfig(pad_bucket=0, fit_zmag_max=21.0).resolved_caps() \
-        == (None, None, None)
+    assert PhotometryConfig(pad_bucket=0, fit_zmag_max=21.0).resolved_caps() == (
+        None,
+        None,
+        None,
+    )
     # explicit override wins; 0 disables
     assert PhotometryConfig(pad_bucket=0, max_ps_cap=50).resolved_caps()[0] == 50
     assert PhotometryConfig(pad_bucket=0, max_gal_cap=0).resolved_caps()[1] is None

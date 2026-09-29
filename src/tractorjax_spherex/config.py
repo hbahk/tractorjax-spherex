@@ -5,7 +5,7 @@ the SPHEREx deblending campaign's **configuration of record** as defaults:
 solver ``eigfloor`` on the catalog truncated at z-band AB 21
 (``fit_zmag_max=21``), tile 15 / halo 3 / pad-bucket 32 / prefetch thread /
 fp32, ``cwave+photutils`` background, PSF zone interpolation and core
-re-registration on. It serialises to/from YAML and TOML so a run is fully
+re-registration on. It serializes to/from YAML and TOML so a run is fully
 reproducible from a single file. See the *Choosing a solver* and
 *Configuration* pages in the docs for the trade-offs behind each field.
 """
@@ -39,9 +39,10 @@ class CapExceededError(RuntimeError):
     having to parse a number out of an engine string.
     """
 
-    def __init__(self, kind: str, needed: int, cap: int,
-                 cutout_index: int | None = None):
-        self.kind = kind              # "ps" | "gal" | "mog_k"
+    def __init__(
+        self, kind: str, needed: int, cap: int, cutout_index: int | None = None
+    ):
+        self.kind = kind  # "ps" | "gal" | "mog_k"
         self.needed = int(needed)
         self.cap = int(cap)
         self.cutout_index = cutout_index
@@ -51,7 +52,8 @@ class CapExceededError(RuntimeError):
             f"This cutout would be SKIPPED, silently shrinking the product. Fix "
             f"by setting max_{kind}_cap='auto' (measures the field and sizes the "
             f"cap), max_{kind}_cap={self.needed} or larger, or pad_bucket=32 "
-            f"(the default, which turns fixed caps off).")
+            f"(the default, which turns fixed caps off)."
+        )
 
 
 @dataclass
@@ -144,7 +146,7 @@ class PhotometryConfig:
     # is 5x oversampled). fixed_max_factor is the oversampled rendering factor.
     psf_sampling: float = 0.2
     # Spatially-varying PSF: blend the delivered zone kernels bilinearly at
-    # each tile's core centre (SPHEREx Sky Simulator convention, clamped at the
+    # each tile's core center (SPHEREx Sky Simulator convention, clamped at the
     # lattice edge) instead of rounding the tile to one zone. Blended in the
     # Fourier domain on the JAX backend, per grid cell on the CPU backend
     # (measured +15% pipelined wall clock at 9-12 zones on the JAX backend
@@ -207,17 +209,23 @@ class PhotometryConfig:
         if self.solver not in SOLVERS:
             raise ConfigError(f"solver must be one of {SOLVERS}, got {self.solver!r}")
         if self.backend not in BACKENDS:
-            raise ConfigError(f"backend must be one of {BACKENDS}, got {self.backend!r}")
+            raise ConfigError(
+                f"backend must be one of {BACKENDS}, got {self.backend!r}"
+            )
         if self.bkg_model not in BKG_MODELS:
             raise ConfigError(
-                f"bkg_model must be one of {BKG_MODELS}, got {self.bkg_model!r}")
+                f"bkg_model must be one of {BKG_MODELS}, got {self.bkg_model!r}"
+            )
         if self.device not in DEVICES:
             raise ConfigError(f"device must be one of {DEVICES}, got {self.device!r}")
         if self.precision not in PRECISIONS:
             raise ConfigError(
-                f"precision must be one of {PRECISIONS}, got {self.precision!r}")
+                f"precision must be one of {PRECISIONS}, got {self.precision!r}"
+            )
         if self.prefetch not in PREFETCH:
-            raise ConfigError(f"prefetch must be one of {PREFETCH}, got {self.prefetch!r}")
+            raise ConfigError(
+                f"prefetch must be one of {PREFETCH}, got {self.prefetch!r}"
+            )
         if self.tile_size <= 0:
             raise ConfigError("tile_size must be positive")
         if self.tile_halo < 0:
@@ -226,22 +234,29 @@ class PhotometryConfig:
             value = getattr(self, name)
             if isinstance(value, str) and value != "auto":
                 raise ConfigError(
-                    f"{name} must be an int, None, or 'auto'; got {value!r}")
-        if not (self.visit_diagnostics is True or self.visit_diagnostics is False
-                or self.visit_diagnostics == "auto"):
+                    f"{name} must be an int, None, or 'auto'; got {value!r}"
+                )
+        if not (
+            self.visit_diagnostics is True
+            or self.visit_diagnostics is False
+            or self.visit_diagnostics == "auto"
+        ):
             raise ConfigError(
-                f"visit_diagnostics must be 'auto', True or False, got {self.visit_diagnostics!r}")
+                f"visit_diagnostics must be 'auto', True or False, got {self.visit_diagnostics!r}"
+            )
         if self.visit_diagnostics is True and self.backend != "jax":
             raise ConfigError("visit_diagnostics needs the jax backend")
         if self.visit_diagnostics is True and self.solver == "lasso":
             raise ConfigError("visit_diagnostics is not available with solver='lasso'")
         if self.visit_chi2_rel_max is not None and not self.visit_chi2_rel_max > 1.0:
             raise ConfigError(
-                f"visit_chi2_rel_max must be > 1 or None, got {self.visit_chi2_rel_max}")
+                f"visit_chi2_rel_max must be > 1 or None, got {self.visit_chi2_rel_max}"
+            )
         if self.cap_auto_margin < 1.0:
             raise ConfigError(
                 f"cap_auto_margin must be >= 1.0 (it is headroom on a measured "
-                f"width); got {self.cap_auto_margin}")
+                f"width); got {self.cap_auto_margin}"
+            )
         # The upstream `tractor` CPU backend has no eigfloor/lasso/prior solvers
         # (it does a single WLS solve). Fail early with an actionable message
         # instead of a confusing solver error deep in the backend.
@@ -250,7 +265,8 @@ class PhotometryConfig:
                 f"backend='cpu-tractor' supports only solver='linear' (a single "
                 f"weighted least-squares solve); got solver={self.solver!r}. Use "
                 f"backend='jax' (device='cpu' works with no GPU) for eigfloor / "
-                f"eigfloor_prior / lasso. See docs/cpu_backend.")
+                f"eigfloor_prior / lasso. See docs/cpu_backend."
+            )
         # On the JAX backend the core shifts are applied as phase ramps on the
         # zone basis, so they need that basis to exist. This combination became
         # reachable by accident when psf_core_shift moved to True by default --
@@ -258,14 +274,15 @@ class PhotometryConfig:
         # error deep in the backend, one cutout into the run.
         if self.psf_core_shift not in (True, False, "auto"):
             raise ConfigError(
-                f"psf_core_shift must be True, False or 'auto'; got {self.psf_core_shift!r}")
-        if (self.backend == "jax" and self.psf_core_shift
-                and not self.psf_zone_interp):
+                f"psf_core_shift must be True, False or 'auto'; got {self.psf_core_shift!r}"
+            )
+        if self.backend == "jax" and self.psf_core_shift and not self.psf_zone_interp:
             raise ConfigError(
                 "psf_core_shift=True requires psf_zone_interp=True on "
                 "backend='jax' (the core shifts ride on the zone basis). Set "
                 "psf_core_shift=False to keep psf_zone_interp=False, or use "
-                "backend='cpu-tractor', which supports the shift standalone.")
+                "backend='cpu-tractor', which supports the shift standalone."
+            )
         # cpu_tile_background is deliberately NOT cross-validated against
         # backend / cpu_tiling. It is on by default, so an error on either
         # combination would reject `backend="jax"` and the documented
@@ -285,9 +302,10 @@ class PhotometryConfig:
         """True if any cap is ``"auto"`` and the caps are actually in force."""
         if not self._caps_active():
             return False
-        return any(isinstance(v, str) and v == "auto"
-                   for v in (self.max_ps_cap, self.max_gal_cap,
-                             self.max_mog_k_cap))
+        return any(
+            isinstance(v, str) and v == "auto"
+            for v in (self.max_ps_cap, self.max_gal_cap, self.max_mog_k_cap)
+        )
 
     def _caps_active(self) -> bool:
         """Whether the depth-conditional policy applies caps at all."""
@@ -295,8 +313,9 @@ class PhotometryConfig:
             return False
         return self.fit_zmag_max is None or self.fit_zmag_max <= 0
 
-    def resolved_caps(self, occupancy=None
-                      ) -> tuple[int | None, int | None, int | None]:
+    def resolved_caps(
+        self, occupancy=None
+    ) -> tuple[int | None, int | None, int | None]:
         """Return the (ps, gal, mog_k) caps after the depth-conditional policy.
 
         Full-depth fits (``fit_zmag_max`` unset and no ``pad_bucket``) default to
@@ -317,20 +336,23 @@ class PhotometryConfig:
             measured = (occupancy.max_ps, occupancy.max_gal, None)
         out: list[int | None] = []
         for value, default, meas in (
-                (self.max_ps_cap, MAX_PS_CAP, measured[0]),
-                (self.max_gal_cap, MAX_GAL_CAP, measured[1]),
-                (self.max_mog_k_cap, MAX_MOG_K_CAP, measured[2])):
+            (self.max_ps_cap, MAX_PS_CAP, measured[0]),
+            (self.max_gal_cap, MAX_GAL_CAP, measured[1]),
+            (self.max_mog_k_cap, MAX_MOG_K_CAP, measured[2]),
+        ):
             if isinstance(value, str):
                 if value != "auto":
                     raise ConfigError(
-                        f"cap must be an int, None, or 'auto'; got {value!r}")
+                        f"cap must be an int, None, or 'auto'; got {value!r}"
+                    )
                 if not full_depth:
                     out.append(None)
                 elif meas is None:
                     raise ConfigError(
                         "cap='auto' needs a measured occupancy; "
                         "tractorjax_spherex.occupancy.measure_occupancy runs "
-                        "this automatically inside run_photometry")
+                        "this automatically inside run_photometry"
+                    )
                 else:
                     # Round before ceil: 100 * 1.1 is 110.00000000000001 in
                     # binary, and a cap of 111 would misreport the headroom.
@@ -353,8 +375,12 @@ class PhotometryConfig:
                 alpha: float | str = float(self.lasso_alpha)
             except (TypeError, ValueError):
                 alpha = self.lasso_alpha  # "auto"
-            return {"kind": "lasso", "alpha": alpha,
-                    "debias_signfree": "protected", "n_iter": self.lasso_n_iter}
+            return {
+                "kind": "lasso",
+                "alpha": alpha,
+                "debias_signfree": "protected",
+                "n_iter": self.lasso_n_iter,
+            }
         if self.solver == "eigfloor":
             return {"kind": "eigfloor", "floor": self.eig_floor}
         if self.solver == "eigfloor_prior":
@@ -367,6 +393,7 @@ class PhotometryConfig:
 
     def to_yaml(self, path: str | Path) -> None:
         import yaml
+
         Path(path).write_text(yaml.safe_dump(self.to_dict(), sort_keys=False))
 
     @classmethod
@@ -384,13 +411,16 @@ class PhotometryConfig:
         text = path.read_text()
         if path.suffix in (".yaml", ".yml"):
             import yaml
+
             data = yaml.safe_load(text) or {}
         elif path.suffix == ".toml":
             import tomllib
+
             data = tomllib.loads(text)
         else:
             raise ConfigError(
-                f"unsupported config extension {path.suffix!r}; use .yaml/.yml/.toml")
+                f"unsupported config extension {path.suffix!r}; use .yaml/.yml/.toml"
+            )
         return cls.from_dict(data)
 
     def to_json(self) -> str:

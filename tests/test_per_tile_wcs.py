@@ -30,19 +30,21 @@ def test_shift_wcs_preserves_cd_inv(one_cutout):
     assert np.isfinite(ref).all()
     assert ref.dtype == np.float32
     for xs, ys in SHIFTS:
-        assert np.array_equal(ref, cd_inv_from_wcs(shift_wcs(wcs, xs, ys))), \
-            f"cd_inv changed under shift {(xs, ys)}"
+        assert np.array_equal(
+            ref, cd_inv_from_wcs(shift_wcs(wcs, xs, ys))
+        ), f"cd_inv changed under shift {(xs, ys)}"
 
 
 def test_cd_inv_falls_back_instead_of_raising():
     """A degenerate WCS is a bad fit, not an exception in the batch builder."""
+
     class _Singular:
-        class wcs:            # mimics astropy's attribute layout
+        class wcs:  # mimics astropy's attribute layout
             pass
+
         pixel_scale_matrix = np.zeros((2, 2))
 
-    assert np.array_equal(cd_inv_from_wcs(_Singular()),
-                          np.eye(2, dtype=np.float32))
+    assert np.array_equal(cd_inv_from_wcs(_Singular()), np.eye(2, dtype=np.float32))
 
     class _Unusable:
         wcs = None
@@ -62,16 +64,18 @@ def _run(cutouts_dir, catalog, per_tile_wcs, monkeypatch):
         return tiles
 
     monkeypatch.setattr(JB, "build_cutout_tiles", spy)
-    cfg = PhotometryConfig(backend="jax", device="cpu", precision="fp64",
-                           solver="linear")
+    cfg = PhotometryConfig(
+        backend="jax", device="cpu", precision="fp64", solver="linear"
+    )
     table = run_photometry(cutouts_dir, catalog, cfg, progress=False)
     monkeypatch.undo()
     return table, seen
 
 
 def test_tile_records_carry_one_shared_cd_inv(synth_field, monkeypatch):
-    _, seen = _run(synth_field["cutouts_dir"], synth_field["catalog"],
-                   False, monkeypatch)
+    _, seen = _run(
+        synth_field["cutouts_dir"], synth_field["catalog"], False, monkeypatch
+    )
     assert seen, "build_cutout_tiles was never called"
     for tiles in seen:
         assert all(t["wcs"] is None for t in tiles)
@@ -81,33 +85,35 @@ def test_tile_records_carry_one_shared_cd_inv(synth_field, monkeypatch):
         assert all(t["cd_inv"] is cd for t in tiles)
 
 
-def test_legacy_path_still_builds_a_wcs_with_the_same_cd(synth_field,
-                                                         monkeypatch):
-    _, seen = _run(synth_field["cutouts_dir"], synth_field["catalog"],
-                   True, monkeypatch)
+def test_legacy_path_still_builds_a_wcs_with_the_same_cd(synth_field, monkeypatch):
+    _, seen = _run(
+        synth_field["cutouts_dir"], synth_field["catalog"], True, monkeypatch
+    )
     for tiles in seen:
         assert all(t["wcs"] is not None for t in tiles)
-        assert np.array_equal(tiles[0]["cd_inv"],
-                              cd_inv_from_wcs(tiles[0]["wcs"]))
+        assert np.array_equal(tiles[0]["cd_inv"], cd_inv_from_wcs(tiles[0]["wcs"]))
 
 
 def test_batch_builder_accepts_records_without_cd_inv(synth_field, monkeypatch):
     """tile_records assembled by an outside caller (WCS, no cd_inv) still work."""
-    _, seen = _run(synth_field["cutouts_dir"], synth_field["catalog"],
-                   True, monkeypatch)
+    _, seen = _run(
+        synth_field["cutouts_dir"], synth_field["catalog"], True, monkeypatch
+    )
     tiles = seen[0]
     expected = tiles[0]["cd_inv"]
     for t in tiles:
         del t["cd_inv"]
     assert np.array_equal(cd_inv_from_wcs(tiles[0]["wcs"]), expected)
-    assert tiles[0].get("cd_inv") is None      # the fallback branch is reached
+    assert tiles[0].get("cd_inv") is None  # the fallback branch is reached
 
 
 def test_photometry_bit_identical_both_ways(synth_field, monkeypatch):
-    fast, _ = _run(synth_field["cutouts_dir"], synth_field["catalog"],
-                   False, monkeypatch)
-    legacy, _ = _run(synth_field["cutouts_dir"], synth_field["catalog"],
-                     True, monkeypatch)
+    fast, _ = _run(
+        synth_field["cutouts_dir"], synth_field["catalog"], False, monkeypatch
+    )
+    legacy, _ = _run(
+        synth_field["cutouts_dir"], synth_field["catalog"], True, monkeypatch
+    )
     assert len(fast) == len(legacy) > 0
     for col in COMPARED:
         a = np.asarray(fast[col])
@@ -136,5 +142,6 @@ def test_photometry_bit_identical_on_real_cutouts(monkeypatch, request):
     legacy, _ = _run(Path(d), Path(cat), True, monkeypatch)
     for col in COMPARED:
         a, b = np.asarray(fast[col]), np.asarray(legacy[col])
-        assert np.array_equal(a, b, equal_nan=np.issubdtype(a.dtype, np.floating)), \
-            f"{col} differs"
+        assert np.array_equal(
+            a, b, equal_nan=np.issubdtype(a.dtype, np.floating)
+        ), f"{col} differs"

@@ -45,7 +45,7 @@ This package ships a corrected subclass,
 the fix from the tractor-jax engine: it block-integrates the oversampled PSF to
 native pixels (keeping the convolution at oversampled resolution) and applies the
 correct flux scale, in both the point-source and Fourier (galaxy) paths (an R7
-effective PSF is block-centre-sampled instead on both). **Do not pass
+effective PSF is block-center-sampled instead on both). **Do not pass
 `sampling < 1` to the stock `tractor.psf.PixelizedPSF`** for SPHEREx — use
 `OversampledPixelizedPSF`, which the `cpu-tractor` backend does automatically.
 
@@ -74,14 +74,14 @@ modified in any way. Tiling here is **orchestration**, not a new estimator.
 
 Two things follow from the geometry:
 
-- **A source is modelled in every tile whose halo box it falls in, and reported
+- **A source is modeled in every tile whose halo box it falls in, and reported
   from the one tile whose *core* box contains it.** Cores tile the cutout exactly
   (the last row/column is clipped at the edge), so every in-cutout source is
   claimed by exactly one tile — halo overlaps can neither double-count nor drop
   it. The halo copies exist so each tile's local deblend is right; their fitted
   values are discarded.
 - **Each tile gets one constant PSF**, the zone kernels blended at that tile's
-  core centre (or, with `psf_zone_interp=False`, the nearest zone to it) — the
+  core center (or, with `psf_zone_interp=False`, the nearest zone to it) — the
   same piecewise-constant PSF field the JAX backend renders with.
 
 Why it is the default:
@@ -144,7 +144,7 @@ silently.
   points. The count is logged per cutout.
 - **Error bars are a Fisher diagonal.** Upstream returns `Σ (t·σ⁻¹)²` per source,
   not the diagonal of the inverted normal matrix, so `flux_err` is *not*
-  marginalized over co-fit neighbours (nor over the per-tile background when it
+  marginalized over co-fit neighbors (nor over the per-tile background when it
   is enabled). The JAX backend's variances are. Expect CPU errors to be
   systematically smaller in blended tiles — this is an estimator difference, not
   a tiling one.
