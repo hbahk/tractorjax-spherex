@@ -20,12 +20,13 @@ def test_ls_shapes_ab_monotone():
 
 def test_ls_shapes_pa_sign_convention():
     # phi = -0.5*atan2(e2, e1) folded to [0,180)
-    _, phi = ls_shapes_to_ab_phi(1.0, 1.0)   # atan2=45deg -> -22.5 -> 157.5
+    _, phi = ls_shapes_to_ab_phi(1.0, 1.0)  # atan2=45deg -> -22.5 -> 157.5
     assert phi == pytest.approx(157.5, abs=1e-6)
 
 
 def test_predict_flux_interpolation():
     from tractorjax_spherex.priors import BAND_LAM
+
     # flat SED in f_nu -> prediction equals the flat value anywhere in range
     bf = np.full((1, 6), 10.0)  # uJy already? no: catalog_band uses nmgy*3.631
     pred, nb = predict_flux_ujy(bf, np.array([BAND_LAM[2]]))
@@ -41,7 +42,7 @@ def test_predict_flux_needs_two_bands():
 
 def test_predict_flux_extrapolation_clipped():
     bf = np.full((1, 6), np.nan)
-    bf[0, 4], bf[0, 5] = 10.0, 1.0   # steep W1-W2 slope
+    bf[0, 4], bf[0, 5] = 10.0, 1.0  # steep W1-W2 slope
     # far red of W2 -> slope clipped, stays finite and positive
     pred, _ = predict_flux_ujy(bf, np.array([10.0]))
     assert np.isfinite(pred[0]) and pred[0] > 0
@@ -49,9 +50,11 @@ def test_predict_flux_extrapolation_clipped():
 
 def test_catalog_band_fluxes_prefers_dered():
     from astropy.table import Table
+
     t = Table({"dered_flux_z": [2.0], "flux_z": [1.0]})
     bf = catalog_band_fluxes_ujy(t)
     from tractorjax_spherex.priors import NMGY_TO_UJY
+
     assert bf[0, 3] == pytest.approx(2.0 * NMGY_TO_UJY)
 
 
@@ -69,8 +72,9 @@ def test_background_plane_recovers_tilt():
 def test_background_mask_flags_and_variance():
     flg = np.zeros((3, 3), dtype=np.int32)
     var = np.ones((3, 3))
-    var[0, 0] = -1.0            # bad variance
+    var[0, 0] = -1.0  # bad variance
     from tractorjax_spherex.constants import SOURCE_BIT
-    flg[1, 1] = SOURCE_BIT     # source pixel
+
+    flg[1, 1] = SOURCE_BIT  # source pixel
     mask = build_background_mask(flg, var)
     assert mask[0, 0] and mask[1, 1] and not mask[2, 2]

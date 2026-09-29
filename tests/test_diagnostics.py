@@ -17,10 +17,18 @@ from tractorjax_spherex.io.cutouts import read_cutout
 
 
 def _run(field):
-    cfg = PhotometryConfig(backend="jax", device="cpu", precision="fp64",
-                           prefetch="sync", solver="linear", pad_bucket=0)
-    return run_photometry(field["cutouts_dir"], field["catalog"], cfg,
-                          progress=False), cfg
+    cfg = PhotometryConfig(
+        backend="jax",
+        device="cpu",
+        precision="fp64",
+        prefetch="sync",
+        solver="linear",
+        pad_bucket=0,
+    )
+    return (
+        run_photometry(field["cutouts_dir"], field["catalog"], cfg, progress=False),
+        cfg,
+    )
 
 
 def test_fluxes_for_cutout_selects_one_cutout(synth_field):
@@ -34,14 +42,16 @@ def test_render_model_image_reproduces_the_sources(synth_field):
     phot, cfg = _run(synth_field)
     cutout = read_cutout(min(synth_field["cutouts_dir"].glob("*.fits")))
     catalog = load_catalog(synth_field["catalog"])
-    model, prepared = render_model_image(cutout, catalog,
-                                         fluxes_for_cutout(phot, 0), cfg)
+    model, prepared = render_model_image(
+        cutout, catalog, fluxes_for_cutout(phot, 0), cfg
+    )
 
     assert model.shape == prepared.data.shape
     assert np.all(np.isfinite(model))
     # the model must carry the fitted flux and sit where the sources are
-    assert model.sum() == pytest.approx(sum(fluxes_for_cutout(phot, 0).values()),
-                                        rel=0.05)
+    assert model.sum() == pytest.approx(
+        sum(fluxes_for_cutout(phot, 0).values()), rel=0.05
+    )
     for src in synth_field["sources"]:
         y, x = round(src["y"]), round(src["x"])
         assert model[y, x] > 0.1 * model.max()
@@ -53,7 +63,8 @@ def test_render_model_image_reproduces_the_sources(synth_field):
 def test_plot_fit_returns_triptych(synth_field):
     phot, cfg = _run(synth_field)
     cutout = read_cutout(min(synth_field["cutouts_dir"].glob("*.fits")))
-    fig = plot_fit(cutout, load_catalog(synth_field["catalog"]), phot,
-                   cutout_index=0, config=cfg)
-    assert len(fig.axes) >= 3          # 3 panels (+ colorbars)
+    fig = plot_fit(
+        cutout, load_catalog(synth_field["catalog"]), phot, cutout_index=0, config=cfg
+    )
+    assert len(fig.axes) >= 3  # 3 panels (+ colorbars)
     matplotlib.pyplot.close(fig)

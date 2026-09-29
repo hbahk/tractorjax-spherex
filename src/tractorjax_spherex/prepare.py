@@ -62,14 +62,15 @@ def psf_stamp_5x(cutout: Cutout, plane) -> np.ndarray:
     convolved, and the engine renders it with ``pixel_integration="point"``.
     """
     arr = cutout["psf_cube"][int(plane)]
-    k = int(_field(cutout, "psf_oversamp", 10))   # duck-typed dict cutouts: QR2
+    k = int(_field(cutout, "psf_oversamp", 10))  # duck-typed dict cutouts: QR2
     if k == 10:
         return downsample_psf_oversample2(arr)
     if k == 5:
         return np.asarray(arr, dtype=np.float64)
     raise ValueError(
         f"unsupported PSF oversampling {k} (bundle OVERSAMP); expected 10 (QR2 "
-        f"optical cube) or 5 (R7 ePSF)")
+        f"optical cube) or 5 (R7 ePSF)"
+    )
 
 
 def pixel_integration_for(cutout: Cutout) -> str:
@@ -94,7 +95,8 @@ def core_shift_applies(cfg, cutout: Cutout) -> bool:
         raise ValueError(
             "psf_core_shift=True cannot be applied to an effective-PSF (R7/EPSF) "
             "cutout: the core-offset table was measured on the QR2 optical "
-            "product. Use psf_core_shift='auto' (the default) or False.")
+            "product. Use psf_core_shift='auto' (the default) or False."
+        )
     return bool(mode)
 
 
@@ -114,32 +116,41 @@ def downsample_psf_oversample2(psf):
         raise ValueError(
             f"downsample_psf_oversample2 needs each PSF side length == 1 (mod 4) "
             f"(e.g. 101); got shape {psf.shape}. The delivered SPHEREx PSF cube "
-            f"planes are 101x101; a different size is unexpected.")
+            f"planes are 101x101; a different size is unexpected."
+        )
     cy, cx = h // 2, w // 2
     oh, ow = h // 2 + 1, w // 2 + 1
     ocy, ocx = oh // 2, ow // 2
 
     out = np.zeros((oh, ow), dtype=psf.dtype)
     out[0:ocy, 0:ocx] = 0.25 * (
-        psf[0:cy:2, 0:cx:2] + psf[1:cy:2, 0:cx:2]
-        + psf[0:cy:2, 1:cx:2] + psf[1:cy:2, 1:cx:2]
+        psf[0:cy:2, 0:cx:2]
+        + psf[1:cy:2, 0:cx:2]
+        + psf[0:cy:2, 1:cx:2]
+        + psf[1:cy:2, 1:cx:2]
     )
-    out[0:ocy, ocx + 1:ow] = 0.25 * (
-        psf[0:cy:2, cx + 1:w:2] + psf[1:cy:2, cx + 1:w:2]
-        + psf[0:cy:2, cx + 2:w:2] + psf[1:cy:2, cx + 2:w:2]
+    out[0:ocy, ocx + 1 : ow] = 0.25 * (
+        psf[0:cy:2, cx + 1 : w : 2]
+        + psf[1:cy:2, cx + 1 : w : 2]
+        + psf[0:cy:2, cx + 2 : w : 2]
+        + psf[1:cy:2, cx + 2 : w : 2]
     )
-    out[ocy + 1:oh, 0:ocx] = 0.25 * (
-        psf[cy + 1:h:2, 0:cx:2] + psf[cy + 2:h:2, 0:cx:2]
-        + psf[cy + 1:h:2, 1:cx:2] + psf[cy + 2:h:2, 1:cx:2]
+    out[ocy + 1 : oh, 0:ocx] = 0.25 * (
+        psf[cy + 1 : h : 2, 0:cx:2]
+        + psf[cy + 2 : h : 2, 0:cx:2]
+        + psf[cy + 1 : h : 2, 1:cx:2]
+        + psf[cy + 2 : h : 2, 1:cx:2]
     )
-    out[ocy + 1:oh, ocx + 1:ow] = 0.25 * (
-        psf[cy + 1:h:2, cx + 1:w:2] + psf[cy + 2:h:2, cx + 1:w:2]
-        + psf[cy + 1:h:2, cx + 2:w:2] + psf[cy + 2:h:2, cx + 2:w:2]
+    out[ocy + 1 : oh, ocx + 1 : ow] = 0.25 * (
+        psf[cy + 1 : h : 2, cx + 1 : w : 2]
+        + psf[cy + 2 : h : 2, cx + 1 : w : 2]
+        + psf[cy + 1 : h : 2, cx + 2 : w : 2]
+        + psf[cy + 2 : h : 2, cx + 2 : w : 2]
     )
     out[ocy, 0:ocx] = 0.5 * (psf[cy, 0:cx:2] + psf[cy, 1:cx:2])
-    out[ocy, ocx + 1:ow] = 0.5 * (psf[cy, cx + 1:w:2] + psf[cy, cx + 2:w:2])
+    out[ocy, ocx + 1 : ow] = 0.5 * (psf[cy, cx + 1 : w : 2] + psf[cy, cx + 2 : w : 2])
     out[0:ocy, ocx] = 0.5 * (psf[0:cy:2, cx] + psf[1:cy:2, cx])
-    out[ocy + 1:oh, ocx] = 0.5 * (psf[cy + 1:h:2, cx] + psf[cy + 2:h:2, cx])
+    out[ocy + 1 : oh, ocx] = 0.5 * (psf[cy + 1 : h : 2, cx] + psf[cy + 2 : h : 2, cx])
     out[ocy, ocx] = psf[cy, cx]
 
     total = psf.sum()
@@ -165,7 +176,7 @@ def prepare_pixels(cutout: Cutout, config) -> PreparedPixels:
     omega_sr = cutout_pixel_area_sr(cutout).astype(img.dtype, copy=False)
     img_scaled = img * omega_sr * IMG_SCALE
     bkg_scaled = bkg * omega_sr * IMG_SCALE
-    var_scaled = var * (omega_sr ** 2) * (IMG_SCALE ** 2)
+    var_scaled = var * (omega_sr**2) * (IMG_SCALE**2)
 
     with np.errstate(divide="ignore", invalid="ignore"):
         invvar = 1.0 / var_scaled
@@ -174,8 +185,9 @@ def prepare_pixels(cutout: Cutout, config) -> PreparedPixels:
 
     data = img_scaled - bkg_scaled
     data[~np.isfinite(data)] = 0.0
-    return PreparedPixels(data=data, invvar=invvar, omega_sr=omega_sr,
-                          background=bkg_scaled)
+    return PreparedPixels(
+        data=data, invvar=invvar, omega_sr=omega_sr, background=bkg_scaled
+    )
 
 
 def project_sources(cutout: Cutout, sco_all):
@@ -195,9 +207,9 @@ def select_psf_native(cutout: Cutout, x_ref, y_ref) -> np.ndarray:
     TILE, not once per cutout: any cutout wider than the zone pitch spans
     several zones. Use :func:`zone_psf_selector`, which caches the downsample.
     """
-    x_orig, y_orig = cutout_to_orig(x_ref, y_ref,
-                                    crpix1a=cutout["crpix1a"],
-                                    crpix2a=cutout["crpix2a"])
+    x_orig, y_orig = cutout_to_orig(
+        x_ref, y_ref, crpix1a=cutout["crpix1a"], crpix2a=cutout["crpix2a"]
+    )
     plane = select_zone_plane(cutout["psf_zones"], x_orig, y_orig)
     return psf_stamp_5x(cutout, plane)
 
@@ -234,7 +246,7 @@ def zone_bilinear_weights(psf_zones_tab, x_orig, y_orig) -> np.ndarray:
             hit = np.where((np.abs(zx - xv) < 1e-6) & (np.abs(zy - yv) < 1e-6))[0]
             if hit.size:
                 w[hit[0]] += wxx * wyy
-    if not np.any(w > 0):            # corner absent from the delivered subset
+    if not np.any(w > 0):  # corner absent from the delivered subset
         w[np.argmin((zx - x_orig) ** 2 + (zy - y_orig) ** 2)] = 1.0
     return w / w.sum()
 
@@ -276,7 +288,7 @@ def zone_planes_and_weights(psf_zones_tab, x_orig, y_orig):
 
     dx = zx[None, :] - x[:, None]
     dy = zy[None, :] - y[:, None]
-    rows = np.argmin(dx * dx + dy * dy, axis=1)        # first minimum, as argmin
+    rows = np.argmin(dx * dx + dy * dy, axis=1)  # first minimum, as argmin
     planes = plane_idx[rows].astype(int)
 
     ux = np.unique(np.round(zx, 6))
@@ -287,7 +299,7 @@ def zone_planes_and_weights(psf_zones_tab, x_orig, y_orig):
             return np.full_like(v, u[0]), np.full_like(v, u[0]), np.ones_like(v)
         i = np.clip(np.searchsorted(u, v) - 1, 0, u.size - 2)
         lo, hi = u[i], u[i + 1]
-        t = np.clip((v - lo) / (hi - lo), 0.0, 1.0)    # clamp, no extrapolation
+        t = np.clip((v - lo) / (hi - lo), 0.0, 1.0)  # clamp, no extrapolation
         return lo, hi, 1.0 - t
 
     x_lo, x_hi, wx = _bracket(x, ux)
@@ -297,15 +309,16 @@ def zone_planes_and_weights(psf_zones_tab, x_orig, y_orig):
     for xv, wxx in ((x_lo, wx), (x_hi, 1.0 - wx)):
         for yv, wyy in ((y_lo, wy), (y_hi, 1.0 - wy)):
             w = wxx * wyy
-            match = ((np.abs(zx[None, :] - xv[:, None]) < 1e-6)
-                     & (np.abs(zy[None, :] - yv[:, None]) < 1e-6))
+            match = (np.abs(zx[None, :] - xv[:, None]) < 1e-6) & (
+                np.abs(zy[None, :] - yv[:, None]) < 1e-6
+            )
             has = match.any(axis=1)
-            first = np.argmax(match, axis=1)           # hit[0] of the scalar code
+            first = np.argmax(match, axis=1)  # hit[0] of the scalar code
             sel = has & (w != 0.0)
             if np.any(sel):
                 idx = np.where(sel)[0]
                 weights[idx, first[idx]] += w[idx]
-    none = ~(weights > 0).any(axis=1)                  # corner absent: nearest
+    none = ~(weights > 0).any(axis=1)  # corner absent: nearest
     if np.any(none):
         weights[np.where(none)[0], rows[none]] = 1.0
     weights /= weights.sum(axis=1, keepdims=True)
@@ -318,10 +331,12 @@ def zone_lookup_vectorized(cutout: Cutout, x_cut, y_cut):
     Convenience wrapper that applies this cutout's ``CRPIX*A`` offset, so a
     caller with an array of tile centers gets planes and weights in one call.
     """
-    x_orig, y_orig = cutout_to_orig(np.asarray(x_cut, dtype=np.float64),
-                                    np.asarray(y_cut, dtype=np.float64),
-                                    crpix1a=cutout["crpix1a"],
-                                    crpix2a=cutout["crpix2a"])
+    x_orig, y_orig = cutout_to_orig(
+        np.asarray(x_cut, dtype=np.float64),
+        np.asarray(y_cut, dtype=np.float64),
+        crpix1a=cutout["crpix1a"],
+        crpix2a=cutout["crpix2a"],
+    )
     return zone_planes_and_weights(cutout["psf_zones"], x_orig, y_orig)
 
 
@@ -354,18 +369,17 @@ def zone_psf_basis(cutout: Cutout, cache=None):
     crpix2a = cutout["crpix2a"]
 
     def _build():
-        return [psf_stamp_5x(cutout, int(p))
-                for p in np.asarray(zones["plane_idx"])]
+        return [psf_stamp_5x(cutout, int(p)) for p in np.asarray(zones["plane_idx"])]
 
     if cache is not None:
         from .psf_cache import cube_signature
+
         basis = cache.zone_basis(cube_signature(cutout), _build)
     else:
         basis = _build()
 
     def weights(x_cut, y_cut):
-        x_orig, y_orig = cutout_to_orig(x_cut, y_cut,
-                                        crpix1a=crpix1a, crpix2a=crpix2a)
+        x_orig, y_orig = cutout_to_orig(x_cut, y_cut, crpix1a=crpix1a, crpix2a=crpix2a)
         return zone_bilinear_weights(zones, x_orig, y_orig)
 
     return basis, weights
@@ -385,8 +399,7 @@ def zone_psf_selector(cutout: Cutout):
     cache: dict[int, np.ndarray] = {}
 
     def select(x_cut, y_cut):
-        x_orig, y_orig = cutout_to_orig(x_cut, y_cut,
-                                        crpix1a=crpix1a, crpix2a=crpix2a)
+        x_orig, y_orig = cutout_to_orig(x_cut, y_cut, crpix1a=crpix1a, crpix2a=crpix2a)
         plane = select_zone_plane(zones, x_orig, y_orig)
         stamp = cache.get(plane)
         if stamp is None:

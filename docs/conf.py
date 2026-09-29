@@ -33,8 +33,14 @@ nb_merge_streams = True
 
 # The engine (tractor-jax / jax) and upstream tractor are heavy optional imports;
 # mock them so autodoc can import the backend modules without them installed.
-autodoc_mock_imports = ["tractor_jax", "tractor", "jax", "jaxlib",
-                        "spherex_retrieval", "dl"]
+autodoc_mock_imports = [
+    "tractor_jax",
+    "tractor",
+    "jax",
+    "jaxlib",
+    "spherex_retrieval",
+    "dl",
+]
 autosummary_generate = True
 autodoc_typehints = "description"
 napoleon_google_docstring = True
@@ -58,7 +64,11 @@ html_theme_options = {
     "nav_links": [
         {"title": "Quickstart", "url": "quickstart"},
         {"title": "Worked example", "url": "worked_example"},
-        {"title": "Engine docs", "url": "https://tractor-jax.readthedocs.io/", "external": True},
+        {
+            "title": "Engine docs",
+            "url": "https://tractor-jax.readthedocs.io/",
+            "external": True,
+        },
     ],
 }
 

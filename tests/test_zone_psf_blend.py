@@ -1,4 +1,5 @@
 """Bilinear zone-PSF blending: weights, and the single-zone no-op guarantee."""
+
 import numpy as np
 import pytest
 from astropy.table import Table
@@ -10,8 +11,7 @@ PITCH = 185.4
 
 def _zones(nx, ny, x0=1000.0, y0=1000.0):
     xs, ys = np.meshgrid(x0 + PITCH * np.arange(nx), y0 + PITCH * np.arange(ny))
-    return Table({"x": xs.ravel(), "y": ys.ravel(),
-                  "plane_idx": np.arange(xs.size)})
+    return Table({"x": xs.ravel(), "y": ys.ravel(), "plane_idx": np.arange(xs.size)})
 
 
 def test_single_zone_is_one_hot():
@@ -31,8 +31,9 @@ def test_on_a_zone_center_is_one_hot():
 
 def test_midpoint_splits_evenly_and_sums_to_one():
     z = _zones(3, 3)
-    w = zone_bilinear_weights(z, 0.5 * (z["x"][0] + z["x"][1]),
-                              0.5 * (z["y"][0] + z["y"][3]))
+    w = zone_bilinear_weights(
+        z, 0.5 * (z["x"][0] + z["x"][1]), 0.5 * (z["y"][0] + z["y"][3])
+    )
     assert w.sum() == pytest.approx(1.0)
     assert np.sort(w)[-4:] == pytest.approx([0.25] * 4)
 
@@ -54,8 +55,7 @@ def test_zone_psf_basis_shares_one_object_and_normalizes():
     rng = np.random.default_rng(0)
     cube = rng.random((n * n, 21, 21)).astype(np.float32)
     cube /= cube.sum(axis=(1, 2), keepdims=True)
-    cutout = {"psf_zones": zones, "psf_cube": cube,
-              "crpix1a": 1.0, "crpix2a": 1.0}
+    cutout = {"psf_zones": zones, "psf_cube": cube, "crpix1a": 1.0, "crpix2a": 1.0}
     basis, weights = zone_psf_basis(cutout)
     assert len(basis) == n * n
     assert all(isinstance(k, np.ndarray) for k in basis)

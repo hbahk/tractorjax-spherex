@@ -13,8 +13,14 @@ import numpy as np
 
 NMGY_TO_UJY = 3.631
 # LS band effective wavelengths [um] (g r i z from DECam, W1/W2 from WISE).
-LS_BANDS = (("g", 0.481), ("r", 0.641), ("i", 0.783),
-            ("z", 0.917), ("w1", 3.368), ("w2", 4.618))
+LS_BANDS = (
+    ("g", 0.481),
+    ("r", 0.641),
+    ("i", 0.783),
+    ("z", 0.917),
+    ("w1", 3.368),
+    ("w2", 4.618),
+)
 BAND_LAM = np.array([lam for _, lam in LS_BANDS])
 SLOPE_MAX = 2.0  # |dlnF/dlnlam| clip for end-slope extrapolation
 
@@ -70,11 +76,11 @@ def predict_flux_ujy(band_flux_ujy, lam_um, slope_max=SLOPE_MAX):
         return pred, n_bands
 
     lam_row = np.broadcast_to(lnlam_b, (N, B))
-    le = good & (lam_row <= lnlam[:, None] + 1e-12)   # usable bands blueward
-    ge = good & (lam_row >= lnlam[:, None] - 1e-12)   # usable bands redward
+    le = good & (lam_row <= lnlam[:, None] + 1e-12)  # usable bands blueward
+    ge = good & (lam_row >= lnlam[:, None] - 1e-12)  # usable bands redward
     has_lo, has_hi = le.any(axis=1), ge.any(axis=1)
-    ilo = B - 1 - np.argmax(le[:, ::-1], axis=1)      # reddest blueward band
-    ihi = np.argmax(ge, axis=1)                       # bluest redward band
+    ilo = B - 1 - np.argmax(le[:, ::-1], axis=1)  # reddest blueward band
+    ihi = np.argmax(ge, axis=1)  # bluest redward band
     rows = np.arange(N)
 
     def second_extreme(mask, extreme_idx, red):

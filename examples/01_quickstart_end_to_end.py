@@ -11,8 +11,13 @@ from pathlib import Path
 import astropy.units as u
 from astropy.coordinates import SkyCoord
 
-from tractorjax_spherex import (PhotometryConfig, build_spectra, fetch_ls_dr10,
-                                retrieve, run_photometry)
+from tractorjax_spherex import (
+    PhotometryConfig,
+    build_spectra,
+    fetch_ls_dr10,
+    retrieve,
+    run_photometry,
+)
 from tractorjax_spherex.spectra import bin_spectrum, plot_spectrum
 
 RA, DEC = 150.0, 2.0
@@ -20,9 +25,13 @@ out = Path("quickstart_out")
 out.mkdir(exist_ok=True)
 
 # 1. Download L2 cutouts around the target.
-retrieve(SkyCoord(RA * u.deg, DEC * u.deg), 100,
-         output_dir=str(out / "cutouts"),
-         include_wavelength=True, include_sapm=True)
+retrieve(
+    SkyCoord(RA * u.deg, DEC * u.deg),
+    100,
+    output_dir=str(out / "cutouts"),
+    include_wavelength=True,
+    include_sapm=True,
+)
 
 # 2. Fetch a Legacy Survey DR10 reference catalog (or supply your own parquet).
 fetch_ls_dr10(RA, DEC, out=str(out / "catalog.parquet"))
@@ -31,8 +40,13 @@ fetch_ls_dr10(RA, DEC, out=str(out / "catalog.parquet"))
 #    catalog truncated at z-band AB 21 (both are the defaults).
 #    For a shared GPU, add gpu_preallocate=False, gpu_mem_fraction=0.45.
 cfg = PhotometryConfig()
-phot = run_photometry(out / "cutouts", out / "catalog.parquet", cfg,
-                      target=(RA, DEC), output=out / "phot.parquet")
+phot = run_photometry(
+    out / "cutouts",
+    out / "catalog.parquet",
+    cfg,
+    target=(RA, DEC),
+    output=out / "phot.parquet",
+)
 print(f"Photometered {len(phot)} (source, visit) points")
 
 # 4. Assemble and plot the brightest source's spectrum.

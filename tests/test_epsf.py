@@ -8,6 +8,7 @@ injected fluxes of a synthetic field are recovered as well through the ePSF as
 through the optical cube of the same Gaussian, on both backends, and the wrong
 pairing (window on the ePSF) is visibly biased.
 """
+
 import numpy as np
 import pytest
 
@@ -54,8 +55,15 @@ def _jax_cfg(**kw):
     # the measured table would shift the optical kernel by ~0.05 px (a ~1.7 %
     # flux error on these point sources), which is not what is under test here
     kw.setdefault("psf_core_shift", False)
-    return PhotometryConfig(backend="jax", device="cpu", precision="fp64",
-                            prefetch="sync", solver="linear", pad_bucket=0, **kw)
+    return PhotometryConfig(
+        backend="jax",
+        device="cpu",
+        precision="fp64",
+        prefetch="sync",
+        solver="linear",
+        pad_bucket=0,
+        **kw,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -68,7 +76,9 @@ def test_readers_report_the_kind(tmp_path, fast):
     c = read_cutout(p, fast=fast)
     assert c.psf_kind == "effective" and c.psf_oversamp == 5
     assert c.psf_cube.shape == (1, 51, 51) and abs(c.psf_cube[0].sum() - 1.0) < 1e-6
-    assert c.primary_header.get("EPSFCAL") and str(c.primary_header["PSFKIND"]) == "EPSF"
+    assert (
+        c.primary_header.get("EPSFCAL") and str(c.primary_header["PSFKIND"]) == "EPSF"
+    )
     assert "neff" in c.psf_zones.colnames
     q = tmp_path / "o.fits"
     make_synth_cutout(q, sources=SOURCES, psf_kind="optical")
@@ -98,8 +108,14 @@ def test_effective_stamp_is_the_plane_itself(tmp_path):
 
 
 def test_core_shift_resolution(tmp_path):
-    e = read_cutout(make_synth_cutout(tmp_path / "e.fits", sources=SOURCES, psf_kind="effective") and tmp_path / "e.fits")
-    o = read_cutout(make_synth_cutout(tmp_path / "o.fits", sources=SOURCES, psf_kind="optical") and tmp_path / "o.fits")
+    e = read_cutout(
+        make_synth_cutout(tmp_path / "e.fits", sources=SOURCES, psf_kind="effective")
+        and tmp_path / "e.fits"
+    )
+    o = read_cutout(
+        make_synth_cutout(tmp_path / "o.fits", sources=SOURCES, psf_kind="optical")
+        and tmp_path / "o.fits"
+    )
     auto = PhotometryConfig()
     assert core_shift_applies(auto, o) is True and core_shift_applies(auto, e) is False
     off = PhotometryConfig(psf_core_shift=False)
@@ -113,10 +129,18 @@ def test_core_shift_resolution(tmp_path):
 
 
 def test_cache_signature_separates_epsf_libraries(tmp_path):
-    a = read_cutout(make_synth_cutout(tmp_path / "a.fits", sources=SOURCES, psf_kind="effective",
-                                      fwhm_native=2.5) and tmp_path / "a.fits")
-    b = read_cutout(make_synth_cutout(tmp_path / "b.fits", sources=SOURCES, psf_kind="effective",
-                                      fwhm_native=2.9) and tmp_path / "b.fits")
+    a = read_cutout(
+        make_synth_cutout(
+            tmp_path / "a.fits", sources=SOURCES, psf_kind="effective", fwhm_native=2.5
+        )
+        and tmp_path / "a.fits"
+    )
+    b = read_cutout(
+        make_synth_cutout(
+            tmp_path / "b.fits", sources=SOURCES, psf_kind="effective", fwhm_native=2.9
+        )
+        and tmp_path / "b.fits"
+    )
     # both planes sum to 1.0 and share detector, shape and zone table
     assert abs(a.psf_cube[0].sum() - b.psf_cube[0].sum()) < 1e-9
     assert cube_signature(a) != cube_signature(b)
@@ -127,9 +151,13 @@ def test_cache_signature_separates_epsf_libraries(tmp_path):
 # photometry
 # --------------------------------------------------------------------------- #
 def test_jax_backend_recovers_fluxes_for_both_kinds(field):
-    res = run_photometry(field["cutouts_dir"], field["catalog"], _jax_cfg(), progress=False)
+    res = run_photometry(
+        field["cutouts_dir"], field["catalog"], _jax_cfg(), progress=False
+    )
     for i, s in enumerate(SOURCES, start=1):
-        assert _flux_by_id(res, i) == pytest.approx(s["flux_mjy"], rel=TOL[field["kind"]]), field["kind"]
+        assert _flux_by_id(res, i) == pytest.approx(
+            s["flux_mjy"], rel=TOL[field["kind"]]
+        ), field["kind"]
 
 
 def test_cpu_backend_recovers_fluxes_for_both_kinds(field):
@@ -137,13 +165,16 @@ def test_cpu_backend_recovers_fluxes_for_both_kinds(field):
     cfg = PhotometryConfig(backend="cpu-tractor", solver="linear", psf_core_shift=False)
     res = run_photometry(field["cutouts_dir"], field["catalog"], cfg, progress=False)
     for i, s in enumerate(SOURCES, start=1):
-        assert _flux_by_id(res, i) == pytest.approx(s["flux_mjy"], rel=TOL[field["kind"]]), field["kind"]
+        assert _flux_by_id(res, i) == pytest.approx(
+            s["flux_mjy"], rel=TOL[field["kind"]]
+        ), field["kind"]
 
 
 def test_window_on_the_epsf_is_biased(tmp_path, monkeypatch):
     """Forcing the QR2 rendering on an ePSF bundle applies the pixel window
     twice and biases the fluxes; the automatic dispatch must not do that."""
     from tractorjax_spherex.backends import jax_backend as JB
+
     cut = tmp_path / "cut"
     make_synth_field(cut, n_cutouts=1, seed=3, sources=SOURCES, psf_kind="effective")
     cat = tmp_path / "cat.parquet"
@@ -163,8 +194,9 @@ def test_eigfloor_default_config_runs_on_epsf(tmp_path):
     make_synth_field(cut, n_cutouts=2, seed=3, sources=SOURCES, psf_kind="effective")
     cat = tmp_path / "cat.parquet"
     make_synth_catalog(cat, SOURCES, read_cutout(min(cut.glob("cutout_*.fits"))).wcs)
-    cfg = PhotometryConfig(backend="jax", device="cpu", precision="fp64", prefetch="sync",
-                           pad_bucket=0)
+    cfg = PhotometryConfig(
+        backend="jax", device="cpu", precision="fp64", prefetch="sync", pad_bucket=0
+    )
     assert cfg.solver == "eigfloor" and cfg.psf_core_shift == "auto"
     res = run_photometry(cut, cat, cfg, progress=False)
     for i, s in enumerate(SOURCES, start=1):

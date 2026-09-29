@@ -25,10 +25,14 @@ def test_auto_cap_requires_a_measurement():
 
 
 def test_auto_cap_sizes_from_occupancy_with_margin():
-    occ = Occupancy(max_ps=100, max_gal=200, n_cutouts=1,
-                    per_cutout={0: (100, 200)})
-    cfg = PhotometryConfig(pad_bucket=0, fit_zmag_max=None, max_ps_cap="auto",
-                           max_gal_cap="auto", cap_auto_margin=1.1)
+    occ = Occupancy(max_ps=100, max_gal=200, n_cutouts=1, per_cutout={0: (100, 200)})
+    cfg = PhotometryConfig(
+        pad_bucket=0,
+        fit_zmag_max=None,
+        max_ps_cap="auto",
+        max_gal_cap="auto",
+        cap_auto_margin=1.1,
+    )
     ps, gal, _ = cfg.resolved_caps(occ)
     assert ps == 110 and gal == 220
     # A margin of exactly 1.0 must still admit the densest tile.
@@ -46,8 +50,11 @@ def test_auto_cap_is_inert_when_caps_are_off():
     # measurement.
     cfg = PhotometryConfig(pad_bucket=0, fit_zmag_max=21.0, max_ps_cap="auto")
     assert cfg.resolved_caps() == (None, None, None)
-    assert PhotometryConfig(pad_bucket=0, max_ps_cap="auto").resolved_caps() \
-        == (None, None, None)
+    assert PhotometryConfig(pad_bucket=0, max_ps_cap="auto").resolved_caps() == (
+        None,
+        None,
+        None,
+    )
 
 
 def test_bad_cap_string_rejected():
@@ -68,8 +75,9 @@ def test_occupancy_scan_counts_point_sources_and_galaxies(synth_field):
     assert 0 < occ.max_ps <= len(cat)
     assert occ.max_gal == 0
     # An "auto" cap built from this must admit every cutout.
-    cfg = PhotometryConfig(pad_bucket=0, fit_zmag_max=None, max_ps_cap="auto",
-                           max_gal_cap="auto")
+    cfg = PhotometryConfig(
+        pad_bucket=0, fit_zmag_max=None, max_ps_cap="auto", max_gal_cap="auto"
+    )
     ps, gal, _ = cfg.resolved_caps(occ)
     assert occ.overflowing(ps, gal) == []
 
@@ -110,7 +118,7 @@ def test_galaxy_overflow_reported_as_gal(synth_field):
     from tractorjax_spherex.backends.jax_backend import _check_caps
 
     cat = Table.read(synth_field["catalog"])
-    cat["shape_r"] = np.full(len(cat), 1.0)   # every source is now extended
+    cat["shape_r"] = np.full(len(cat), 1.0)  # every source is now extended
     tile_records = [{"src_indices": list(range(len(cat)))}]
     with pytest.raises(CapExceededError) as ei:
         _check_caps(tile_records, cat, None, 0)
@@ -123,8 +131,13 @@ def test_complete_flag_written_for_a_clean_run(synth_field, tmp_path):
 
     out = tmp_path / "phot.parquet"
     cfg = PhotometryConfig(device="cpu", prefetch="sync", solver="linear")
-    res = run_photometry(synth_field["cutouts_dir"], synth_field["catalog"],
-                         cfg, output=out, progress=False)
+    res = run_photometry(
+        synth_field["cutouts_dir"],
+        synth_field["catalog"],
+        cfg,
+        output=out,
+        progress=False,
+    )
 
     assert res.meta["tractorjax_spherex.complete"] is True
     assert res.meta["tractorjax_spherex.n_cutouts_failed"] == 0
@@ -132,8 +145,9 @@ def test_complete_flag_written_for_a_clean_run(synth_field, tmp_path):
     assert meta["tractorjax_spherex.complete"] is True
 
 
-def test_strict_turns_a_skipped_cutout_into_an_error(synth_field, tmp_path,
-                                                     monkeypatch):
+def test_strict_turns_a_skipped_cutout_into_an_error(
+    synth_field, tmp_path, monkeypatch
+):
     """Default: skip and label incomplete. strict=True: raise."""
     from tractorjax_spherex import pipeline as pl
     from tractorjax_spherex.backends import jax_backend
@@ -144,18 +158,24 @@ def test_strict_turns_a_skipped_cutout_into_an_error(synth_field, tmp_path,
     monkeypatch.setattr(jax_backend.JaxBackend, "build", boom)
 
     lenient = PhotometryConfig(device="cpu", prefetch="sync", solver="linear")
-    res = pl.run_photometry(synth_field["cutouts_dir"],
-                            synth_field["catalog"], lenient,
-                            output=tmp_path / "partial.parquet", progress=False)
+    res = pl.run_photometry(
+        synth_field["cutouts_dir"],
+        synth_field["catalog"],
+        lenient,
+        output=tmp_path / "partial.parquet",
+        progress=False,
+    )
     assert res.meta["tractorjax_spherex.complete"] is False
     assert res.meta["tractorjax_spherex.n_cutouts_failed"] > 0
     assert len(res) == 0
 
-    strict = PhotometryConfig(device="cpu", prefetch="sync", solver="linear",
-                              strict=True)
+    strict = PhotometryConfig(
+        device="cpu", prefetch="sync", solver="linear", strict=True
+    )
     with pytest.raises(RuntimeError, match="synthetic build failure"):
-        pl.run_photometry(synth_field["cutouts_dir"], synth_field["catalog"],
-                          strict, progress=False)
+        pl.run_photometry(
+            synth_field["cutouts_dir"], synth_field["catalog"], strict, progress=False
+        )
 
 
 def test_tiles_take_their_own_zone_psf(one_cutout):

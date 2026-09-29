@@ -69,6 +69,7 @@ def render_model_image(cutout, catalog, flux_by_id, config=None):
     H, W = prepared.data.shape
 
     from astropy.coordinates import SkyCoord
+
     sco = SkyCoord(ra=catalog["ra"], dec=catalog["dec"], unit="deg")
     sx, sy = project_sources(cutout, sco)
 
@@ -90,7 +91,8 @@ def render_model_image(cutout, catalog, flux_by_id, config=None):
             cutout["wcs"],
             np.asarray(catalog["ra"], dtype=np.float64)[gal_idxs],
             np.asarray(catalog["dec"], dtype=np.float64)[gal_idxs],
-            shape_phi[gal_idxs])
+            shape_phi[gal_idxs],
+        )
         phi_pix = {int(k): float(p) for k, p in zip(gal_idxs, np.atleast_1d(pp))}
 
     psf5x = select_psf_native(cutout, W / 2.0, H / 2.0)
@@ -107,20 +109,30 @@ def render_model_image(cutout, catalog, flux_by_id, config=None):
         if not is_gal[k]:
             srcs.append(PointSource(PixPos(float(sx[k]), float(sy[k])), Flux(f)))
         else:
-            srcs.append(SersicGalaxy(
-                PixPos(float(sx[k]), float(sy[k])), Flux(f),
-                GalaxyShape(float(shape_r[k]), float(shape_ab[k]), phi_pix[int(k)]),
-                SersicIndex(float(sersic[k]))))
+            srcs.append(
+                SersicGalaxy(
+                    PixPos(float(sx[k]), float(sy[k])),
+                    Flux(f),
+                    GalaxyShape(float(shape_r[k]), float(shape_ab[k]), phi_pix[int(k)]),
+                    SersicIndex(float(sersic[k])),
+                )
+            )
 
     inverr = np.sqrt(np.maximum(prepared.invvar, 0.0)).astype(np.float32)
-    tim = Image(data=prepared.data.astype(np.float32), inverr=inverr, psf=psf,
-                wcs=NullWCS(pixscale=SPHEREX_PIXSCALE), sky=ConstantSky(0.0))
+    tim = Image(
+        data=prepared.data.astype(np.float32),
+        inverr=inverr,
+        psf=psf,
+        wcs=NullWCS(pixscale=SPHEREX_PIXSCALE),
+        sky=ConstantSky(0.0),
+    )
     model = np.asarray(Tractor([tim], srcs).getModelImage(0), dtype=np.float64)
     return model, prepared
 
 
-def plot_fit(cutout, catalog, result, cutout_index, config=None,
-             mark_sources=True, chi_range=5.0):
+def plot_fit(
+    cutout, catalog, result, cutout_index, config=None, mark_sources=True, chi_range=5.0
+):
     """Data / model / chi triptych for one cutout of a photometry result.
 
     Returns the matplotlib figure. ``result`` is the table returned by
@@ -142,10 +154,15 @@ def plot_fit(cutout, catalog, result, cutout_index, config=None,
 
     fig, axs = plt.subplots(1, 3, figsize=(12, 4), constrained_layout=True)
     for ax, img, title, kw in (
-            (axs[0], data, "data - background", dict(vmin=vmin, vmax=vmax)),
-            (axs[1], model, "fitted model", dict(vmin=vmin, vmax=vmax)),
-            (axs[2], chi, "chi = (data - model) / sigma",
-             dict(vmin=-chi_range, vmax=chi_range, cmap="RdBu_r"))):
+        (axs[0], data, "data - background", dict(vmin=vmin, vmax=vmax)),
+        (axs[1], model, "fitted model", dict(vmin=vmin, vmax=vmax)),
+        (
+            axs[2],
+            chi,
+            "chi = (data - model) / sigma",
+            dict(vmin=-chi_range, vmax=chi_range, cmap="RdBu_r"),
+        ),
+    ):
         m = ax.imshow(img, origin="lower", interpolation="nearest", **kw)
         ax.set_title(title)
         label = "chi" if img is chi else "mJy / pixel"
@@ -153,11 +170,18 @@ def plot_fit(cutout, catalog, result, cutout_index, config=None,
     if mark_sources:
         catalog = normalize_catalog(catalog)
         from astropy.coordinates import SkyCoord
+
         sco = SkyCoord(ra=catalog["ra"], dec=catalog["dec"], unit="deg")
         sx, sy = project_sources(cutout, sco)
         H, W = data.shape
         inside = (sx >= 0) & (sx < W) & (sy >= 0) & (sy < H)
         for ax in axs[:2]:
-            ax.scatter(sx[inside], sy[inside], s=90, facecolors="none",
-                       edgecolors="w", linewidths=0.8)
+            ax.scatter(
+                sx[inside],
+                sy[inside],
+                s=90,
+                facecolors="none",
+                edgecolors="w",
+                linewidths=0.8,
+            )
     return fig

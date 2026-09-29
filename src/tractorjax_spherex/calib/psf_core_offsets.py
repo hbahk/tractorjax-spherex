@@ -114,10 +114,11 @@ __all__ = [
     "psf_core_shift_oversampled",
 ]
 
-TABLE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                          "psf_core_offsets.ecsv")
+TABLE_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "psf_core_offsets.ecsv"
+)
 
-OVERSAMP = 10          # oversampled px per native px
+OVERSAMP = 10  # oversampled px per native px
 
 # Pair-aligned 2x2 binning (10x cube -> 5x working stamp, the package's
 # ``downsample_psf_oversample2``) puts the 5x grid's origin half an INPUT pixel
@@ -184,8 +185,10 @@ class CoreOffset(_Pair):
         return self._dx
 
     def __repr__(self):
-        return (f"CoreOffset(dy_core={self._dy:+.6f}, dx_core={self._dx:+.6f}, "
-                f"source={self.source!r})  # MEASURED position, not a shift")
+        return (
+            f"CoreOffset(dy_core={self._dy:+.6f}, dx_core={self._dx:+.6f}, "
+            f"source={self.source!r})  # MEASURED position, not a shift"
+        )
 
 
 class CoreShift(_Pair):
@@ -206,8 +209,10 @@ class CoreShift(_Pair):
         return self._dx
 
     def __repr__(self):
-        return (f"CoreShift(dy_apply={self._dy:+.6f}, dx_apply={self._dx:+.6f}, "
-                f"source={self.source!r})  # APPLY this; already -offset")
+        return (
+            f"CoreShift(dy_apply={self._dy:+.6f}, dx_apply={self._dx:+.6f}, "
+            f"source={self.source!r})  # APPLY this; already -offset"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -319,8 +324,9 @@ def psf_core_shift(detector, zone_id, table=None, path=None) -> CoreShift:
 def psf_core_shift_arcsec(detector, zone_id, path=None) -> CoreShift:
     """:func:`psf_core_shift` converted to arcsec (1 native px = 6.15")."""
     s = psf_core_shift(detector, zone_id, path=path)
-    return CoreShift(s.dy_apply * NATIVE_PX_ARCSEC,
-                     s.dx_apply * NATIVE_PX_ARCSEC, s.source)
+    return CoreShift(
+        s.dy_apply * NATIVE_PX_ARCSEC, s.dx_apply * NATIVE_PX_ARCSEC, s.source
+    )
 
 
 def psf_core_shift_oversampled(detector, zone_id, path=None) -> CoreShift:

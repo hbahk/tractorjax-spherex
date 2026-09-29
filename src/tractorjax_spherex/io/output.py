@@ -23,19 +23,19 @@ COLUMNS = (
     ("id", "i8"),
     ("ra", "f8"),
     ("dec", "f8"),
-    ("central_wavelength", "f8"),   # micron
-    ("bandwidth", "f8"),            # micron
-    ("flux", "f8"),                 # mJy
-    ("flux_err", "f8"),             # mJy
+    ("central_wavelength", "f8"),  # micron
+    ("bandwidth", "f8"),  # micron
+    ("flux", "f8"),  # mJy
+    ("flux_err", "f8"),  # mJy
 )
 COLUMN_NAMES = tuple(name for name, _ in COLUMNS)
 
 # Appended after COLUMNS when the per-visit diagnostics are on (the default on
 # the jax backend; see tractorjax_spherex.quality).
 QUALITY_COLUMNS = (
-    ("fit_chi2", "f4"),       # template-weighted normalized squared residual
-    ("mask_frac", "f4"),      # fraction of the source's template on masked pixels
-    ("quality_flag", "i2"),   # bitmask, constants.QUALITY_BITS
+    ("fit_chi2", "f4"),  # template-weighted normalized squared residual
+    ("mask_frac", "f4"),  # fraction of the source's template on masked pixels
+    ("quality_flag", "i2"),  # bitmask, constants.QUALITY_BITS
 )
 QUALITY_COLUMN_NAMES = tuple(name for name, _ in QUALITY_COLUMNS)
 
@@ -51,8 +51,7 @@ def empty_table() -> Table:
 def make_table(columns: dict) -> Table:
     """Build an output Table from a dict of column-name -> array."""
     return Table(
-        data=[np.asarray(columns[name]).astype(dt, copy=False)
-              for name, dt in COLUMNS],
+        data=[np.asarray(columns[name]).astype(dt, copy=False) for name, dt in COLUMNS],
         names=COLUMN_NAMES,
     )
 
@@ -102,7 +101,9 @@ def append_or_merge(path, table: Table, config=None) -> Table:
         merged = vstack([prev, table]) if len(prev) else table
     else:
         merged = table
-    rel_max = getattr(config, "visit_chi2_rel_max", 10.0) if config is not None else 10.0
+    rel_max = (
+        getattr(config, "visit_chi2_rel_max", 10.0) if config is not None else 10.0
+    )
     add_quality_flags(merged, rel_max)
     write_photometry(merged, path, config=config)
     return merged

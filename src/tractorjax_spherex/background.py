@@ -70,9 +70,9 @@ def fit_background_photutils(img, bkg, flg, var, box_size=10, filter_size=3):
     return bkg + bkg2d.background.astype(bkg.dtype, copy=False)
 
 
-def fit_background_cwave(img, bkg, flg, var, cwave_map,
-                         nbins=48, min_per_bin=20,
-                         box_size=10, filter_size=3):
+def fit_background_cwave(
+    img, bkg, flg, var, cwave_map, nbins=48, min_per_bin=20, box_size=10, filter_size=3
+):
     """Remove a smooth 1D ``B(CWAVE)`` profile then run ``Background2D``.
 
     Fits a monotone PCHIP profile to ``(img - bkg)`` binned by the per-pixel
@@ -105,8 +105,7 @@ def fit_background_cwave(img, bkg, flg, var, cwave_map,
         if len(xb) < 2:
             bcw = np.full_like(residual, np.median(dv))
         else:
-            itp = PchipInterpolator(np.asarray(xb), np.asarray(yb),
-                                    extrapolate=False)
+            itp = PchipInterpolator(np.asarray(xb), np.asarray(yb), extrapolate=False)
             bcw = itp(np.clip(cwave_map, xb[0], xb[-1]))
             bcw = np.where(np.isfinite(bcw), bcw, np.median(dv))
     bkg_cw = bkg + bcw.astype(bkg.dtype, copy=False)
@@ -122,12 +121,20 @@ def fit_background(img, zodi, flg, var, cwave_map, config):
     model = config.bkg_model
     if model == "cwave+photutils":
         return fit_background_cwave(
-            img, zodi, flg, var, cwave_map,
-            nbins=config.bkg_cwave_nbins, min_per_bin=config.bkg_cwave_min_per_bin,
-            box_size=config.bkg_box_size, filter_size=config.bkg_filter_size)
+            img,
+            zodi,
+            flg,
+            var,
+            cwave_map,
+            nbins=config.bkg_cwave_nbins,
+            min_per_bin=config.bkg_cwave_min_per_bin,
+            box_size=config.bkg_box_size,
+            filter_size=config.bkg_filter_size,
+        )
     if model == "photutils":
         return fit_background_photutils(
-            img, zodi, flg, var, config.bkg_box_size, config.bkg_filter_size)
+            img, zodi, flg, var, config.bkg_box_size, config.bkg_filter_size
+        )
     if model == "plane":
         return fit_background_plane(img, zodi, flg, var)
     return zodi

@@ -98,6 +98,7 @@ def clear_caches() -> None:
 # Headers
 # --------------------------------------------------------------------------- #
 
+
 class HeaderDict(dict):
     """Keyword -> value mapping with the ``Header`` access callers actually use.
 
@@ -110,8 +111,9 @@ class HeaderDict(dict):
 
     def to_astropy(self) -> fits.Header:
         """A real :class:`astropy.io.fits.Header` with these keyword values."""
-        return fits.Header([(k, v) for k, v in self.items()
-                            if k not in ("COMMENT", "HISTORY", "")])
+        return fits.Header(
+            [(k, v) for k, v in self.items() if k not in ("COMMENT", "HISTORY", "")]
+        )
 
 
 def _dict_from_fitsio(fh) -> HeaderDict:
@@ -134,6 +136,7 @@ def _astropy_header_from_fitsio(fh) -> fits.Header:
 # WCS
 # --------------------------------------------------------------------------- #
 
+
 def wcs_from_header_values(h) -> WCS:
     """Celestial 2-axis WCS rebuilt from header values (see ``FAST_WCS``).
 
@@ -149,11 +152,15 @@ def wcs_from_header_values(h) -> WCS:
     w.wcs.crpix = [h["CRPIX1"], h["CRPIX2"]]
     w.wcs.cunit = [h.get("CUNIT1", "deg"), h.get("CUNIT2", "deg")]
     if "CD1_1" in h:
-        w.wcs.cd = [[h["CD1_1"], h.get("CD1_2", 0.0)],
-                    [h.get("CD2_1", 0.0), h["CD2_2"]]]
+        w.wcs.cd = [
+            [h["CD1_1"], h.get("CD1_2", 0.0)],
+            [h.get("CD2_1", 0.0), h["CD2_2"]],
+        ]
     else:
-        w.wcs.pc = [[h.get("PC1_1", 1.0), h.get("PC1_2", 0.0)],
-                    [h.get("PC2_1", 0.0), h.get("PC2_2", 1.0)]]
+        w.wcs.pc = [
+            [h.get("PC1_1", 1.0), h.get("PC1_2", 0.0)],
+            [h.get("PC2_1", 0.0), h.get("PC2_2", 1.0)],
+        ]
         w.wcs.cdelt = [h.get("CDELT1", 1.0), h.get("CDELT2", 1.0)]
     if "LONPOLE" in h:
         w.wcs.lonpole = h["LONPOLE"]
@@ -185,6 +192,7 @@ def wcs_from_header_values(h) -> WCS:
 # PSF cube cache
 # --------------------------------------------------------------------------- #
 
+
 def _psf_cube_cached(hdu, primary, zones_rec) -> np.ndarray:
     """The cutout's PSF cube, re-read only when the cheap identity misses.
 
@@ -196,15 +204,21 @@ def _psf_cube_cached(hdu, primary, zones_rec) -> np.ndarray:
         return np.asarray(hdu.read(), dtype=np.float64)
     dims = tuple(int(d) for d in hdu.get_dims())
     mid = dims[0] // 2 if len(dims) == 3 else 0
-    plane = np.asarray(hdu[mid:mid + 1, :, :] if len(dims) == 3 else hdu.read(),
-                       dtype=np.float64)
-    key = (int(primary.get("DETECTOR", -1)), dims,
-           str(primary.get("PSFKIND", "OPTICAL")), str(primary.get("EPSFCAL", "")),
-           tuple(int(z) for z in np.asarray(zones_rec["zone_id"])),
-           tuple(int(p) for p in np.asarray(zones_rec["plane_idx"])),
-           float(plane.sum()), float(plane.max()),
-           float(plane.ravel()[plane.size // 3]),
-           float(plane.ravel()[2 * plane.size // 3]))
+    plane = np.asarray(
+        hdu[mid : mid + 1, :, :] if len(dims) == 3 else hdu.read(), dtype=np.float64
+    )
+    key = (
+        int(primary.get("DETECTOR", -1)),
+        dims,
+        str(primary.get("PSFKIND", "OPTICAL")),
+        str(primary.get("EPSFCAL", "")),
+        tuple(int(z) for z in np.asarray(zones_rec["zone_id"])),
+        tuple(int(p) for p in np.asarray(zones_rec["plane_idx"])),
+        float(plane.sum()),
+        float(plane.max()),
+        float(plane.ravel()[plane.size // 3]),
+        float(plane.ravel()[2 * plane.size // 3]),
+    )
     cube = _PSF_CUBE_CACHE.get(key)
     if cube is None:
         cube = np.asarray(hdu.read(), dtype=np.float64)
@@ -217,6 +231,7 @@ def _psf_cube_cached(hdu, primary, zones_rec) -> np.ndarray:
 # --------------------------------------------------------------------------- #
 # Reader
 # --------------------------------------------------------------------------- #
+
 
 def read_cutout_fields(path) -> dict:
     """Read one cutout MEF with fitsio; return the :class:`Cutout` field dict.
@@ -239,7 +254,9 @@ def read_cutout_fields(path) -> dict:
             arr = f[name].read()
             if arr is None:
                 return None
-            return np.asarray(arr, dtype=dtype) if dtype is not None else np.asarray(arr)
+            return (
+                np.asarray(arr, dtype=dtype) if dtype is not None else np.asarray(arr)
+            )
 
         img = _read("IMAGE", np.float64)
         flg_native = _read("FLAGS")
@@ -269,14 +286,24 @@ def read_cutout_fields(path) -> dict:
     if sapm is not None and not (sapm.ndim == 2 and sapm.shape == img.shape):
         sapm = None
 
-    wcs = wcs_from_header_values(img_hdr) if FAST_WCS else WCS(
-        img_hdr if isinstance(img_hdr, fits.Header) else img_hdr.to_astropy()
-    ).celestial
+    wcs = (
+        wcs_from_header_values(img_hdr)
+        if FAST_WCS
+        else WCS(
+            img_hdr if isinstance(img_hdr, fits.Header) else img_hdr.to_astropy()
+        ).celestial
+    )
 
     return {
-        "image": img, "flags": flg, "variance": var, "zodi": zodi,
-        "psf_cube": psf_cube, "psf_zones": psf_zones,
-        "wcs": wcs, "image_header": img_hdr, "primary_header": primary,
+        "image": img,
+        "flags": flg,
+        "variance": var,
+        "zodi": zodi,
+        "psf_cube": psf_cube,
+        "psf_zones": psf_zones,
+        "wcs": wcs,
+        "image_header": img_hdr,
+        "primary_header": primary,
         "crpix1a": float(img_hdr.get("CRPIX1A", 1)),
         "crpix2a": float(img_hdr.get("CRPIX2A", 1)),
         "psf_oversamp": int(primary.get("OVERSAMP", 10)),
@@ -299,6 +326,8 @@ def read_image_geometry(path) -> tuple[int, int, WCS]:
 
     with fitsio.FITS(str(path)) as f:
         hdr = _dict_from_fitsio(f["IMAGE"].read_header())
-    return (int(hdr["NAXIS2"]), int(hdr["NAXIS1"]),
-            wcs_from_header_values(hdr) if FAST_WCS
-            else WCS(hdr.to_astropy()).celestial)
+    return (
+        int(hdr["NAXIS2"]),
+        int(hdr["NAXIS1"]),
+        wcs_from_header_values(hdr) if FAST_WCS else WCS(hdr.to_astropy()).celestial,
+    )

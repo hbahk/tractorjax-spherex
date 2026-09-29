@@ -24,12 +24,15 @@ RECIPES = {
 }
 
 for solver, recipe in RECIPES.items():
-    cfg = PhotometryConfig(solver=solver, device="cpu",   # device="gpu" if available
-                           **recipe)
+    cfg = PhotometryConfig(
+        solver=solver, device="cpu", **recipe  # device="gpu" if available
+    )
     phot = run_photometry(CUTOUTS, CATALOG, cfg, target=TARGET, progress=False)
     # summarize the target (nearest source to TARGET is the main source)
     ids, first = np.unique(phot["id"], return_index=True)
     main_id = phot["id"][0]
     m = phot["id"] == main_id
-    print(f"{solver:>15}: main-source mean flux = "
-          f"{np.nanmean(phot['flux'][m]):.4f} mJy over {m.sum()} visits")
+    print(
+        f"{solver:>15}: main-source mean flux = "
+        f"{np.nanmean(phot['flux'][m]):.4f} mJy over {m.sum()} visits"
+    )

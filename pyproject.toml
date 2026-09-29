@@ -103,3 +103,7 @@ markers = [
     "realdata: tests that need real (non-bundled) SPHEREx cutouts on disk",
     "cpu_tractor: tests that need the optional upstream `tractor` package",
 ]
+
+[tool.black]
+# the oldest supported Python, so formatting never uses newer syntax
+target-version = ["py311"]

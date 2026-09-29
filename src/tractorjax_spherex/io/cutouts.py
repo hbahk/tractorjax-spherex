@@ -94,8 +94,9 @@ def discover_cutouts(cutouts_dir: str | Path) -> list[tuple[int, Path]]:
     return pairs
 
 
-def filter_ok(pairs: list[tuple[int, Path]],
-              summary_path: str | Path) -> list[tuple[int, Path]]:
+def filter_ok(
+    pairs: list[tuple[int, Path]], summary_path: str | Path
+) -> list[tuple[int, Path]]:
     """Keep only cutouts marked ``status == "ok"`` in ``summary.ecsv``.
 
     If the summary file is absent, all pairs are returned unchanged.
@@ -131,11 +132,13 @@ def read_cutout(path: str | Path, *, fast: bool | str | None = None) -> Cutout:
     if isinstance(path, (bytes, bytearray, memoryview)):
         # a bundle handed on in memory (spherex_retrieval.bundle.bundle_bytes)
         import io
+
         return _read_cutout_astropy(io.BytesIO(bytes(path)))
     if hasattr(path, "read"):
         return _read_cutout_astropy(path)
     if _use_fast(FAST_IO if fast is None else fast):
         from .fast import read_cutout_fields
+
         return Cutout(**read_cutout_fields(path))
     return _read_cutout_astropy(path)
 
@@ -150,7 +153,8 @@ def _use_fast(fast: bool | str) -> bool:
             raise ImportError(
                 "fast=True requires fitsio (`pip install fitsio`, or "
                 "`conda install -c conda-forge fitsio`); pass fast=False to "
-                "use the astropy reader")
+                "use the astropy reader"
+            )
         return True
     return False
 
@@ -195,13 +199,23 @@ def _read_cutout_astropy(path: str | Path) -> Cutout:
     psf_oversamp = int(primary.get("OVERSAMP", 10))
     detector = int(primary.get("DETECTOR", img_hdr.get("DETECTOR", -1)))
     return Cutout(
-        image=img, flags=flg, variance=var, zodi=zodi,
-        psf_cube=psf_cube, psf_zones=psf_zones,
-        wcs=wcs, image_header=img_hdr, primary_header=primary,
-        crpix1a=crpix1a, crpix2a=crpix2a,
-        psf_oversamp=psf_oversamp, detector=detector,
-        cwave_center=cwave_center, cwave_map=cwave_map,
-        cband_map=cband_map, sapm=sapm,
+        image=img,
+        flags=flg,
+        variance=var,
+        zodi=zodi,
+        psf_cube=psf_cube,
+        psf_zones=psf_zones,
+        wcs=wcs,
+        image_header=img_hdr,
+        primary_header=primary,
+        crpix1a=crpix1a,
+        crpix2a=crpix2a,
+        psf_oversamp=psf_oversamp,
+        detector=detector,
+        cwave_center=cwave_center,
+        cwave_map=cwave_map,
+        cband_map=cband_map,
+        sapm=sapm,
         psf_kind=psf_kind_from_header(primary),
     )
 
@@ -231,10 +245,12 @@ def sample_map_bilinear(arr, x, y) -> float:
     x0, y0 = math.floor(x), math.floor(y)
     x1, y1 = min(x0 + 1, nx - 1), min(y0 + 1, ny - 1)
     fx, fy = x - x0, y - y0
-    return float(arr[y0, x0] * (1 - fx) * (1 - fy)
-                 + arr[y0, x1] * fx * (1 - fy)
-                 + arr[y1, x0] * (1 - fx) * fy
-                 + arr[y1, x1] * fx * fy)
+    return float(
+        arr[y0, x0] * (1 - fx) * (1 - fy)
+        + arr[y0, x1] * fx * (1 - fy)
+        + arr[y1, x0] * (1 - fx) * fy
+        + arr[y1, x1] * fx * fy
+    )
 
 
 def sample_map_bilinear_vec(arr, x, y):
@@ -252,10 +268,12 @@ def sample_map_bilinear_vec(arr, x, y):
     x1 = np.minimum(x0 + 1, nx - 1)
     y1 = np.minimum(y0 + 1, ny - 1)
     fx, fy = x - x0, y - y0
-    return (arr[y0, x0] * (1 - fx) * (1 - fy)
-            + arr[y0, x1] * fx * (1 - fy)
-            + arr[y1, x0] * (1 - fx) * fy
-            + arr[y1, x1] * fx * fy)
+    return (
+        arr[y0, x0] * (1 - fx) * (1 - fy)
+        + arr[y0, x1] * fx * (1 - fy)
+        + arr[y1, x0] * (1 - fx) * fy
+        + arr[y1, x1] * fx * fy
+    )
 
 
 def cutout_pixel_area_sr(cutout: Cutout) -> np.ndarray:
@@ -267,6 +285,8 @@ def cutout_pixel_area_sr(cutout: Cutout) -> np.ndarray:
     """
     if cutout.get("sapm") is not None:
         return cutout["sapm"].astype(np.float64, copy=False) * ARCSEC2_TO_SR
-    return np.full(cutout["image"].shape,
-                   cutout["wcs"].proj_plane_pixel_area().to_value(u.sr),
-                   dtype=np.float64)
+    return np.full(
+        cutout["image"].shape,
+        cutout["wcs"].proj_plane_pixel_area().to_value(u.sr),
+        dtype=np.float64,
+    )

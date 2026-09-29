@@ -40,11 +40,16 @@ def iter_tiles(H, W, tile_size, halo):
             core_x1 = min(x0 + tile_size, W)
             core_y1 = min(y0 + tile_size, H)
             yield {
-                "ix": ix, "iy": iy,
-                "core_x0": x0, "core_y0": y0,
-                "core_x1": core_x1, "core_y1": core_y1,
-                "x_start": x0 - halo, "y_start": y0 - halo,
-                "x_end": x0 + tile_size + halo, "y_end": y0 + tile_size + halo,
+                "ix": ix,
+                "iy": iy,
+                "core_x0": x0,
+                "core_y0": y0,
+                "core_x1": core_x1,
+                "core_y1": core_y1,
+                "x_start": x0 - halo,
+                "y_start": y0 - halo,
+                "x_end": x0 + tile_size + halo,
+                "y_end": y0 + tile_size + halo,
             }
 
 
@@ -59,8 +64,9 @@ def extract_tile_region(arr, x_start, y_start, x_end, y_end, fill=0.0):
     im_x1 = min(W, x_end)
     im_y1 = min(H, y_end)
     if im_x1 > im_x0 and im_y1 > im_y0:
-        out[im_y0 - y_start: im_y1 - y_start,
-            im_x0 - x_start: im_x1 - x_start] = arr[im_y0:im_y1, im_x0:im_x1]
+        out[im_y0 - y_start : im_y1 - y_start, im_x0 - x_start : im_x1 - x_start] = arr[
+            im_y0:im_y1, im_x0:im_x1
+        ]
     return out
 
 
@@ -74,8 +80,12 @@ def shift_wcs(wcs, x_start, y_start):
     never needs its own WCS just to get the pixel scale; see
     :func:`cd_inv_from_wcs`.
     """
-    return wcs.slice((slice(int(y_start), int(y_start) + 10**6),
-                      slice(int(x_start), int(x_start) + 10**6)))
+    return wcs.slice(
+        (
+            slice(int(y_start), int(y_start) + 10**6),
+            slice(int(x_start), int(x_start) + 10**6),
+        )
+    )
 
 
 def cd_inv_from_wcs(wcs):
@@ -95,8 +105,11 @@ def cd_inv_from_wcs(wcs):
         # astropy raises AttributeError from .cd on a PC+CDELT WCS (which is
         # what the SPHEREx cutouts carry), so hasattr is the branch, exactly as
         # the pre-refactor code in the JAX backend had it.
-        cd = (np.asarray(wcs.wcs.cd) if hasattr(wcs.wcs, "cd")
-              else np.asarray(wcs.pixel_scale_matrix))
+        cd = (
+            np.asarray(wcs.wcs.cd)
+            if hasattr(wcs.wcs, "cd")
+            else np.asarray(wcs.pixel_scale_matrix)
+        )
     except Exception:  # noqa: BLE001 - any unusable WCS falls back to nominal
         cd = np.eye(2) * (SPHEREX_PIXSCALE / 3600.0)
     try:
@@ -117,8 +130,9 @@ def tile_core_index(tile_metas, sx, sy):
     x_edges = np.unique(cx0)
     y_edges = np.unique(cy0)
     lut = np.full((len(y_edges), len(x_edges)), -1, dtype=np.int64)
-    lut[np.searchsorted(y_edges, cy0), np.searchsorted(x_edges, cx0)] = \
-        np.arange(len(tile_metas))
+    lut[np.searchsorted(y_edges, cy0), np.searchsorted(x_edges, cx0)] = np.arange(
+        len(tile_metas)
+    )
 
     sx = np.asarray(sx, dtype=np.float64)
     sy = np.asarray(sy, dtype=np.float64)

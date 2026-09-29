@@ -22,9 +22,12 @@ logger = logging.getLogger(__name__)
 _APPLIED: tuple[str, str] | None = None
 
 
-def setup_device(device: str = "auto", precision: str = "fp32",
-                 mem_fraction: float | None = None,
-                 preallocate: bool = False) -> None:
+def setup_device(
+    device: str = "auto",
+    precision: str = "fp32",
+    mem_fraction: float | None = None,
+    preallocate: bool = False,
+) -> None:
     """Configure the JAX backend and precision via environment variables.
 
     Parameters
@@ -71,8 +74,11 @@ def setup_device(device: str = "auto", precision: str = "fp32",
             "setup_device(device='cpu') was called after `jax` was already "
             "imported; the backend cannot be changed now. Call setup_device() "
             "(or pass --device on the CLI) before the first JAX import.",
-            RuntimeWarning, stacklevel=2)
+            RuntimeWarning,
+            stacklevel=2,
+        )
     if precision == "fp64":
         import jax
+
         jax.config.update("jax_enable_x64", True)
     _APPLIED = (device, precision)

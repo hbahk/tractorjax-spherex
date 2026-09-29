@@ -59,7 +59,8 @@ class OversampledPixelizedPSF(PixelizedPSF):
                 f"OversampledPixelizedPSF native output size "
                 f"{self.nativeH}x{self.nativeW} must be odd for correct centering "
                 f"(got even from stamp {img.shape} at sampling={sampling}). Choose "
-                f"a stamp size so ceil(size*sampling) is odd.")
+                f"a stamp size so ceil(size*sampling) is odd."
+            )
 
     def __str__(self):
         return "OversampledPixelizedPSF"
@@ -88,11 +89,11 @@ class OversampledPixelizedPSF(PixelizedPSF):
         pw = max(0, min(canvas_w - w, pw))
         ph = max(0, min(canvas_h - h, ph))
         pad_img = np.zeros((canvas_h, canvas_w), dtype=img.dtype)
-        pad_img[ph:ph + h, pw:pw + w] = img
+        pad_img[ph : ph + h, pw : pw + w] = img
         shift_x = desired_x - ((w // 2) + pw)
         shift_y = desired_y - ((h // 2) + ph)
         shifted = lanczos_shift_image(pad_img, shift_x, shift_y)
-        crop = shifted[crop_y0:crop_y0 + target_h, crop_x0:crop_x0 + target_w]
+        crop = shifted[crop_y0 : crop_y0 + target_h, crop_x0 : crop_x0 + target_w]
         crop = crop.reshape(self.nativeH, k, self.nativeW, k)
         if self.pixel_integrated:
             wts = np.zeros(k, dtype=crop.dtype)
@@ -102,20 +103,22 @@ class OversampledPixelizedPSF(PixelizedPSF):
             return np.einsum("ajbk,j,k->ab", crop, wts, wts) * (k * k)
         return crop.sum(axis=(1, 3))
 
-    def _getOversampledPointSourcePatch(self, px, py, minval=0., modelMask=None,
-                                        radius=None, **kwargs):
+    def _getOversampledPointSourcePatch(
+        self, px, py, minval=0.0, modelMask=None, radius=None, **kwargs
+    ):
         img = self.getImage(px, py)
         ix = round(float(px))
         iy = round(float(py))
         dx = px - ix
         dy = py - iy
 
-        scale = 1.0 / self.sampling ** 2
+        scale = 1.0 / self.sampling**2
         if modelMask is not None:
             mh, mw = modelMask.shape
             mx0, my0 = modelMask.x0, modelMask.y0
             xl, yl, native_img = self._sampleImage(
-                img, dx, dy, xlo=mx0 - ix, ylo=my0 - iy, width=mw, height=mh)
+                img, dx, dy, xlo=mx0 - ix, ylo=my0 - iy, width=mw, height=mh
+            )
             return Patch(xl + ix, yl + iy, native_img * scale)
 
         factor = 1.0 / self.sampling
@@ -128,7 +131,7 @@ class OversampledPixelizedPSF(PixelizedPSF):
             # scale rather than point-sampled. (Effective PSF: the block-center
             # sample instead, see _native_from_canvas.)
             k = round(factor)
-            img = self._native_from_canvas(img, dx, dy, k) / (k ** 2)   # * scale below
+            img = self._native_from_canvas(img, dx, dy, k) / (k**2)  # * scale below
             xl = -(self.nativeW // 2)
             yl = -(self.nativeH // 2)
         else:
@@ -144,7 +147,7 @@ class OversampledPixelizedPSF(PixelizedPSF):
             cx, cy = W // 2, H // 2
             xlo = max(cx - R, 0)
             ylo = max(cy - R, 0)
-            img = img[ylo:min(cy + R + 1, H - 1), xlo:min(cx + R + 1, W - 1)]
+            img = img[ylo : min(cy + R + 1, H - 1), xlo : min(cx + R + 1, W - 1)]
             x0 += xlo
             y0 += ylo
         return Patch(x0, y0, img)
@@ -167,10 +170,10 @@ class OversampledPixelizedPSF(PixelizedPSF):
             # it: galaxies came out too peaked (the tractor_jax comment on the
             # same bug: ~5 %) and disagreed with the JAX backend.
             k = round(factor)
-            img = self._native_from_canvas(self.getImage(px, py), dx, dy, k) / (k ** 2)
+            img = self._native_from_canvas(self.getImage(px, py), dx, dy, k) / (k**2)
         else:
             _, _, img = self._sampleImage(None, dx, dy)
-        img = img * (1.0 / self.sampling ** 2)   # the flux-normalization fix
+        img = img * (1.0 / self.sampling**2)  # the flux-normalization fix
         pad, cx, cy = self._padInImage(sz, sz, img=img)
         cx += dx
         cy += dy

@@ -58,6 +58,7 @@ def cube_signature(cutout) -> tuple:
     sum to 1.0, so the hash carries that case).
     """
     import hashlib
+
     cube = np.asarray(cutout["psf_cube"])
     zones = cutout["psf_zones"]
     try:
@@ -69,12 +70,18 @@ def cube_signature(cutout) -> tuple:
     # Plane sums alone do not separate ePSF products (every R7 plane sums to
     # 1.0), hence the kind, the calibration source file and a byte hash of the
     # middle plane.
-    return (int(cutout["detector"]), str(kind), tuple(cube.shape),
-            str(primary.get("EPSFCAL", "")),
-            float(cube[0].sum()), float(cube[-1].sum()), float(mid.sum()),
-            hashlib.blake2b(mid.tobytes(), digest_size=16).hexdigest(),
-            tuple(int(z) for z in np.asarray(zones["zone_id"])),
-            tuple(int(p) for p in np.asarray(zones["plane_idx"])))
+    return (
+        int(cutout["detector"]),
+        str(kind),
+        tuple(cube.shape),
+        str(primary.get("EPSFCAL", "")),
+        float(cube[0].sum()),
+        float(cube[-1].sum()),
+        float(mid.sum()),
+        hashlib.blake2b(mid.tobytes(), digest_size=16).hexdigest(),
+        tuple(int(z) for z in np.asarray(zones["zone_id"])),
+        tuple(int(p) for p in np.asarray(zones["plane_idx"])),
+    )
 
 
 class PSFCache:
@@ -91,10 +98,10 @@ class PSFCache:
     __slots__ = ("basis", "fft", "max_cubes", "shifts", "stamps")
 
     def __init__(self, max_cubes: int = MAX_CUBES):
-        self.basis: dict[tuple, list] = {}      # signature -> list[kernel]
-        self.stamps: dict[tuple, np.ndarray] = {}   # (signature, plane) -> kernel
-        self.shifts: dict[tuple, np.ndarray] = {}   # (detector, zone ids) -> (K,2)
-        self.fft: dict = {}                     # engine-owned, keyed on id(kernel)
+        self.basis: dict[tuple, list] = {}  # signature -> list[kernel]
+        self.stamps: dict[tuple, np.ndarray] = {}  # (signature, plane) -> kernel
+        self.shifts: dict[tuple, np.ndarray] = {}  # (detector, zone ids) -> (K,2)
+        self.fft: dict = {}  # engine-owned, keyed on id(kernel)
         self.max_cubes = max_cubes
 
     def clear(self) -> None:
@@ -159,5 +166,9 @@ class PSFCache:
 
     def stats(self) -> dict:
         """Entry counts — for logging and for tests that assert reuse."""
-        return {"cubes": len(self.basis), "stamps": len(self.stamps),
-                "shift_tables": len(self.shifts), "ffts": len(self.fft)}
+        return {
+            "cubes": len(self.basis),
+            "stamps": len(self.stamps),
+            "shift_tables": len(self.shifts),
+            "ffts": len(self.fft),
+        }

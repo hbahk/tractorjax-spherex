@@ -37,8 +37,9 @@ truth = [
 # 6 cutouts = 6 "visits"; each samples a different wavelength band, like the
 # real SPHEREx survey (cwave_base steps per cutout inside make_synth_field).
 # noise_mjy_sr=0.02 gives realistic-looking scatter and visible error bars.
-make_synth_field(out / "cutouts", n_cutouts=6, sources=truth, seed=42,
-                 noise_mjy_sr=0.02)
+make_synth_field(
+    out / "cutouts", n_cutouts=6, sources=truth, seed=42, noise_mjy_sr=0.02
+)
 
 # The matching reference catalog (positions/shapes the fit will hold fixed).
 cutout0 = read_cutout(sorted((out / "cutouts").glob("cutout_*.fits"))[0])
@@ -54,10 +55,12 @@ make_synth_catalog(out / "catalog.parquet", truth, cutout0.wcs)
 # psf_core_shift is left at its default: the toy PSF is a centered Gaussian with
 # no core offset, so the correction is ~0.4% here rather than the 10%+ it is
 # worth on a real blend.
-cfg = PhotometryConfig(solver="eigfloor", device="cpu", prefetch="sync",
-                       bkg_model="photutils")
-phot = run_photometry(out / "cutouts", out / "catalog.parquet", cfg,
-                      output=out / "phot.parquet")
+cfg = PhotometryConfig(
+    solver="eigfloor", device="cpu", prefetch="sync", bkg_model="photutils"
+)
+phot = run_photometry(
+    out / "cutouts", out / "catalog.parquet", cfg, output=out / "phot.parquet"
+)
 print(f"\nPhotometered {len(phot)} (source, visit) measurements")
 
 # --- 3. Inspect the fit: data / model / chi on one cutout -------------------
@@ -73,11 +76,23 @@ fig, ax = plt.subplots(figsize=(9, 4.5), constrained_layout=True)
 colors = plt.cm.viridis(np.linspace(0.1, 0.8, len(truth)))
 for (sid, spec), c, t in zip(sorted(spectra.items()), colors, truth):
     binned = bin_spectrum(spec, dlam=0.3)
-    ax.errorbar(spec["central_wavelength"], spec["flux"],
-                yerr=spec["flux_err"], fmt="o", ms=4, color=c, alpha=0.8,
-                label=f"id={sid} measured")
-    ax.axhline(t["flux_mjy"], color=c, ls="--", lw=1,
-               label=f"id={sid} truth {t['flux_mjy']:.1f} mJy")
+    ax.errorbar(
+        spec["central_wavelength"],
+        spec["flux"],
+        yerr=spec["flux_err"],
+        fmt="o",
+        ms=4,
+        color=c,
+        alpha=0.8,
+        label=f"id={sid} measured",
+    )
+    ax.axhline(
+        t["flux_mjy"],
+        color=c,
+        ls="--",
+        lw=1,
+        label=f"id={sid} truth {t['flux_mjy']:.1f} mJy",
+    )
 ax.set_xlabel("central wavelength [μm]")
 ax.set_ylabel("flux [mJy]")
 ax.legend(ncols=3, fontsize="small")
@@ -89,6 +104,8 @@ print(f"Wrote {out / 'spectra_vs_truth.png'}")
 print("\nrecovered vs truth (mean over visits):")
 for i, t in enumerate(truth, start=1):
     m = phot["id"] == i
-    print(f"  id={i}: truth={t['flux_mjy']:.2f}  "
-          f"measured={np.mean(phot['flux'][m]):.3f} "
-          f"+/- {np.mean(phot['flux_err'][m]):.3f} mJy")
+    print(
+        f"  id={i}: truth={t['flux_mjy']:.2f}  "
+        f"measured={np.mean(phot['flux'][m]):.3f} "
+        f"+/- {np.mean(phot['flux_err'][m]):.3f} mJy"
+    )

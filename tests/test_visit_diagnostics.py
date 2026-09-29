@@ -2,6 +2,7 @@
 
 Needs an engine whose solvers return diagnostics; skipped otherwise.
 """
+
 import numpy as np
 import pytest
 from astropy.io import fits
@@ -17,13 +18,20 @@ from tractorjax_spherex.constants import QUALITY_BAD_FIT, QUALITY_NO_DATA
 from tractorjax_spherex.quality import quality_flags
 from tractorjax_spherex.spectra import build_spectra
 
-pytestmark = pytest.mark.skipif(not engine_has_diagnostics(),
-                                reason="engine without return_diagnostics")
+pytestmark = pytest.mark.skipif(
+    not engine_has_diagnostics(), reason="engine without return_diagnostics"
+)
 
 
 def _run(field, **overrides):
-    cfg = PhotometryConfig(backend="jax", device="cpu", precision="fp64",
-                           prefetch="sync", pad_bucket=0, **overrides)
+    cfg = PhotometryConfig(
+        backend="jax",
+        device="cpu",
+        precision="fp64",
+        prefetch="sync",
+        pad_bucket=0,
+        **overrides,
+    )
     res = run_photometry(field["cutouts_dir"], field["catalog"], cfg, progress=False)
     res.sort(["cutout_index", "id"])
     return res
@@ -72,8 +80,14 @@ def test_unflagged_bad_pixel_raises_its_visit(synth_field):
 
 def test_quality_flags_bits():
     # source 1: four ordinary visits and one 30x its median; source 2: one fully masked visit
-    t = Table({"id": [1, 1, 1, 1, 1, 2, 2],
-               "fit_chi2": np.array([0.5, 0.6, 0.4, 0.5, 15.0, 0.7, np.nan], dtype=np.float32)})
+    t = Table(
+        {
+            "id": [1, 1, 1, 1, 1, 2, 2],
+            "fit_chi2": np.array(
+                [0.5, 0.6, 0.4, 0.5, 15.0, 0.7, np.nan], dtype=np.float32
+            ),
+        }
+    )
     f = quality_flags(t, rel_max=10.0)
     assert list(f) == [0, 0, 0, 0, QUALITY_BAD_FIT, 0, QUALITY_NO_DATA]
     assert list(quality_flags(t, rel_max=None)) == [0, 0, 0, 0, 0, 0, QUALITY_NO_DATA]
@@ -104,16 +118,22 @@ def test_flags_default_and_spectra_drop_them(synth_field):
 def test_masked_pixels_raise_mask_frac(synth_field):
     path = min(synth_field["cutouts_dir"].glob("cutout_*.fits"))
     with fits.open(path, mode="update") as h:
-        h["VARIANCE"].data[9:12, 9:12] = np.nan      # invalid variance -> masked
+        h["VARIANCE"].data[9:12, 9:12] = np.nan  # invalid variance -> masked
     res = _run(synth_field)
     first = int(np.min(res["cutout_index"]))
     m = (np.asarray(res["cutout_index"]) == first) & (np.asarray(res["id"]) == 1)
     assert float(res["mask_frac"][m][0]) > 0.3
 
 
-@pytest.mark.parametrize("kw", [dict(visit_diagnostics=True, solver="lasso"),
-                                dict(visit_diagnostics=True, backend="cpu-tractor", solver="linear"),
-                                dict(visit_diagnostics="yes"), dict(visit_chi2_rel_max=0.5)])
+@pytest.mark.parametrize(
+    "kw",
+    [
+        dict(visit_diagnostics=True, solver="lasso"),
+        dict(visit_diagnostics=True, backend="cpu-tractor", solver="linear"),
+        dict(visit_diagnostics="yes"),
+        dict(visit_chi2_rel_max=0.5),
+    ],
+)
 def test_config_rejects_unsupported(kw):
     with pytest.raises(ConfigError):
         PhotometryConfig(**kw)

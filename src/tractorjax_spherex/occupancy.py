@@ -41,11 +41,11 @@ class Occupancy:
     n_cutouts: int
     per_cutout: dict[int, tuple[int, int]]
 
-    def overflowing(self, ps_cap: int | None,
-                    gal_cap: int | None) -> list[int]:
+    def overflowing(self, ps_cap: int | None, gal_cap: int | None) -> list[int]:
         """Cutout indices that would be skipped under these caps."""
         return sorted(
-            idx for idx, (ps, gal) in self.per_cutout.items()
+            idx
+            for idx, (ps, gal) in self.per_cutout.items()
             if (ps_cap is not None and ps > ps_cap)
             or (gal_cap is not None and gal > gal_cap)
         )
@@ -58,8 +58,7 @@ def _iter_tile_boxes(H, W, tile_size, halo):
     for iy in range(ny):
         for ix in range(nx):
             x0, y0 = ix * tile_size, iy * tile_size
-            yield (x0 - halo, y0 - halo,
-                   x0 + tile_size + halo, y0 + tile_size + halo)
+            yield (x0 - halo, y0 - halo, x0 + tile_size + halo, y0 + tile_size + halo)
 
 
 def cutout_occupancy(path, sco_all, is_gal, tile_size, halo):
@@ -73,6 +72,7 @@ def cutout_occupancy(path, sco_all, is_gal, tile_size, halo):
 
     if _use_fast(FAST_IO):
         from .io.fast import read_image_geometry
+
         H, W, wcs = read_image_geometry(path)
     else:
         with fits.open(path, memmap=False) as hdul:
@@ -85,8 +85,14 @@ def cutout_occupancy(path, sco_all, is_gal, tile_size, halo):
     sx = np.asarray(px, dtype=np.float64)
     sy = np.asarray(py, dtype=np.float64)
 
-    inside = ((sx > -halo) & (sx < W + halo) & (sy > -halo) & (sy < H + halo)
-              & np.isfinite(sx) & np.isfinite(sy))
+    inside = (
+        (sx > -halo)
+        & (sx < W + halo)
+        & (sy > -halo)
+        & (sy < H + halo)
+        & np.isfinite(sx)
+        & np.isfinite(sy)
+    )
     ci = np.where(inside)[0]
     if ci.size == 0:
         return 0, 0
@@ -103,8 +109,7 @@ def cutout_occupancy(path, sco_all, is_gal, tile_size, halo):
     return max_ps, max_gal
 
 
-def measure_occupancy(pairs, catalog, *, tile_size, halo,
-                      progress=False) -> Occupancy:
+def measure_occupancy(pairs, catalog, *, tile_size, halo, progress=False) -> Occupancy:
     """Scan ``(cutout_index, path)`` pairs for the densest-tile occupancy.
 
     ``catalog`` is the prepared reference catalog (needs ``ra``, ``dec`` and
@@ -114,14 +119,16 @@ def measure_occupancy(pairs, catalog, *, tile_size, halo,
     import astropy.units as u
     from astropy.coordinates import SkyCoord
 
-    sco_all = SkyCoord(np.asarray(catalog["ra"]) * u.deg,
-                       np.asarray(catalog["dec"]) * u.deg)
+    sco_all = SkyCoord(
+        np.asarray(catalog["ra"]) * u.deg, np.asarray(catalog["dec"]) * u.deg
+    )
     is_gal = np.asarray(catalog["shape_r"], dtype=np.float64) > 0
 
     it = pairs
     if progress:
         try:
             from tqdm import tqdm
+
             it = tqdm(pairs, desc="Occupancy scan")
         except ImportError:
             pass
@@ -130,12 +137,14 @@ def measure_occupancy(pairs, catalog, *, tile_size, halo,
     for cutout_index, path in it:
         try:
             per_cutout[cutout_index] = cutout_occupancy(
-                Path(path), sco_all, is_gal, tile_size, halo)
-        except Exception as exc:  # noqa: BLE001 - unreadable header: let the solve report it
-            logger.warning("Occupancy scan skipped cutout %d: %s",
-                           cutout_index, exc)
+                Path(path), sco_all, is_gal, tile_size, halo
+            )
+        # unreadable header: let the solve report it
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Occupancy scan skipped cutout %d: %s", cutout_index, exc)
 
     max_ps = max((v[0] for v in per_cutout.values()), default=0)
     max_gal = max((v[1] for v in per_cutout.values()), default=0)
-    return Occupancy(max_ps=max_ps, max_gal=max_gal,
-                     n_cutouts=len(per_cutout), per_cutout=per_cutout)
+    return Occupancy(
+        max_ps=max_ps, max_gal=max_gal, n_cutouts=len(per_cutout), per_cutout=per_cutout
+    )

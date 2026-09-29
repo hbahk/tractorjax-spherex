@@ -10,13 +10,15 @@ _TRACTOR_JAX_HINT = (
     "The 'jax' backend needs the tractor-jax engine, which is not installed.\n"
     "Install it first (it is not on PyPI yet):\n"
     "    pip install git+https://github.com/hbahk/tractor-jax\n"
-    "For GPU add the CUDA jax build:  pip install 'tractorjax-spherex[gpu]'")
+    "For GPU add the CUDA jax build:  pip install 'tractorjax-spherex[gpu]'"
+)
 
 _TRACTOR_HINT = (
     "The 'cpu-tractor' backend needs the upstream Tractor package, which is not "
     "on PyPI. Install it from source:\n"
     "    pip install git+https://github.com/dstndstn/tractor\n"
-    "See the 'CPU backend' page in the docs for build notes.")
+    "See the 'CPU backend' page in the docs for build notes."
+)
 
 
 def get_backend(config):
