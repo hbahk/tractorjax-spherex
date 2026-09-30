@@ -6,7 +6,7 @@ them from source first, then this package.
 
 ```bash
 pip install git+https://github.com/hbahk/tractor-jax@v0.3.1         # engine (CPU jax)
-pip install git+https://github.com/hbahk/spherex-retrieval@v0.3.4   # L2 cutout downloader
+pip install git+https://github.com/hbahk/spherex-retrieval@v0.3.5   # L2 cutout downloader
 pip install git+https://github.com/hbahk/tractorjax-spherex@v0.3.3  # this package
 ```
 
