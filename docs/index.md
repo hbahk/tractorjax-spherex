@@ -43,7 +43,6 @@ gallery
 solvers
 how_it_works
 hardware
-local_archive
 data_model
 catalogs
 backgrounds_systematics
